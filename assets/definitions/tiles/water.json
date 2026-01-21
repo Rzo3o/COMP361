@@ -1,0 +1,7 @@
+{
+    "category": "tile",
+    "tile_type": "grass",
+    "location_name": "water",
+    "is_permanently_passable": false,
+    "texture_file": "tile_104.png"
+}

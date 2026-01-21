@@ -1,7 +1,0 @@
-{
-    "tile_type": "rock",
-    "location_name": "big rock",
-    "level": 1,
-    "is_permanently_passable": false,
-    "texture_file": "tile_064.png"
-}

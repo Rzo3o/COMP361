@@ -1,0 +1,7 @@
+{
+    "category": "tile",
+    "tile_type": "grass",
+    "location_name": "grassNEW",
+    "is_permanently_passable": true,
+    "texture_file": "2.png"
+}
