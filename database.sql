@@ -29,6 +29,7 @@ CREATE TABLE map_tiles (
     prop_scale REAL DEFAULT 1.0,
     prop_y_shift INTEGER DEFAULT 0,
     is_permanently_passable BOOLEAN DEFAULT 1, -- 0 for deep water/impassable peaks
+    is_spawn BOOLEAN DEFAULT 0, -- NEW: Tracks where the player starts
     UNIQUE(q, r)
 );
 
@@ -67,6 +68,8 @@ CREATE TABLE player_state (
 CREATE TABLE monsters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    current_q INTEGER NOT NULL,
+    current_r INTEGER NOT NULL,
     tile_id INTEGER REFERENCES map_tiles(id) ON DELETE SET NULL,
     health INTEGER DEFAULT 50,
     damage INTEGER DEFAULT 10,

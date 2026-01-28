@@ -1,0 +1,14 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Enemy3-Idle.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 8
+        }
+    },
+    "scale": 1.5217073170731708,
+    "y_shift": -7,
+    "category": "player",
+    "name": "player.json"
+}

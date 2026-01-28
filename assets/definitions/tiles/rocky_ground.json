@@ -1,7 +1,0 @@
-{
-    "category": "tile",
-    "tile_type": "rock",
-    "location_name": "",
-    "is_permanently_passable": true,
-    "texture_file": "tile_018.png"
-}

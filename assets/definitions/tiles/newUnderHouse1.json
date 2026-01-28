@@ -1,7 +1,0 @@
-{
-    "category": "tile",
-    "tile_type": "grass",
-    "location_name": "",
-    "is_permanently_passable": false,
-    "texture_file": "tile_063.png"
-}
