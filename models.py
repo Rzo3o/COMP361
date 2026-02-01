@@ -51,7 +51,7 @@ class Player(Entity):
     def gain_experience(self, xp):
         return
 
-    def attack(self, target):
+    def attack(self, target, damage):
         return
 
     def use_item(self, item):
