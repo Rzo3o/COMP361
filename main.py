@@ -8,6 +8,26 @@ from hexmath import Config, HexMath
 from GameDB import GameDB
 from engine import GameEngine
 
+# ==========================================
+# CENTRALIZED INPUT CONFIGURATION
+# ==========================================
+# Your team can edit this dictionary to change controls.
+# Format: "ACTION_NAME": ["Key1", "Key2", ...]
+KEY_BINDINGS = {
+    # Movement
+    "MOVE_NORTH": ["w", "Up"],
+    "MOVE_SOUTH": ["s", "Down"],
+    "MOVE_WEST": ["a", "Left"],
+    "MOVE_EAST": ["d", "Right"],
+    "MOVE_SW": ["q"],
+    "MOVE_NE": ["e"],
+    # Actions
+    "INTERACT": ["f", "space"],
+    "INVENTORY": ["i", "Tab"],
+    # System
+    "QUIT": ["Escape"],
+}
+
 
 class AssetManager:
     """Asset manager that syncs with Editor JSON definitions"""
@@ -181,12 +201,16 @@ class GameWindow:
         self.canvas.pack(fill="both", expand=True)
 
     def _bind_inputs(self):
-        self.root.bind("<w>", lambda e: self.on_input("w"))
-        self.root.bind("<s>", lambda e: self.on_input("s"))
-        self.root.bind("<a>", lambda e: self.on_input("a"))
-        self.root.bind("<d>", lambda e: self.on_input("d"))
-        self.root.bind("<q>", lambda e: self.on_input("q"))
-        self.root.bind("<e>", lambda e: self.on_input("e"))
+        """
+        Dynamically binds keys from the KEY_BINDINGS dictionary.
+        This allows devs to change keys in one place without touching this logic.
+        """
+        for action, keys in KEY_BINDINGS.items():
+            for key in keys:
+                # Wrap keys in Tkinter format: 'w' -> '<w>'
+                sequence = f"<{key}>"
+                # Use lambda default argument to capture the specific 'action' variable
+                self.root.bind(sequence, lambda e, a=action: self.on_input(a))
 
     def _game_loop(self):
         """Main Loop for animations."""
@@ -194,8 +218,18 @@ class GameWindow:
         self.render()
         self.root.after(150, self._game_loop)
 
-    def on_input(self, key):
-        result = self.engine.handle_input(key)
+    def on_input(self, action):
+        """
+        Handles the abstract ACTION (e.g., 'MOVE_NORTH') rather than raw keys.
+        """
+        # Handle Global UI Actions
+        if action == "QUIT":
+            self.root.destroy()
+            return
+
+        # Pass Action to Engine
+        result = self.engine.handle_input(action)
+
         if result == "GAME_OVER":
             messagebox.showinfo("Dead", "You have perished.")
             self.root.destroy()

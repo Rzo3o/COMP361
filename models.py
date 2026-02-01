@@ -45,6 +45,52 @@ class Player(Entity):
             self.hp = 0
             self.dead = True
 
+    def eat(self, food_value):
+        return
+
+    def gain_experience(self, xp):
+        return
+
+    def attack(self, target):
+        return
+
+    def use_item(self, item):
+        return
+
+    def rest(self):
+        return
+
+    def interact(self, entity):
+        return
+
+    def level_up(self):
+        return
+
+    def add_item_to_inventory(self, item):
+        return
+
+    def remove_item_from_inventory(self, item):
+        return
+
+    def conmplete_level(self, level):
+        return
+
+    def respawn(self):
+        return
+
+    def equip_item(self, item):
+        return
+
+    def unequip_item(self, item):
+        return
+
+    def get_combat_power(self):
+        # Calculates total damage (Base Strength + Weapon Damage)
+        return
+
+    def conquer_tile(self, tile):
+        return
+
 
 class Monster(Entity):
     def __init__(self, data):
@@ -53,3 +99,48 @@ class Monster(Entity):
         self.name = data.get("name", "Unknown")
         self.hp = data.get("health", 50)
         self.damage = data.get("damage", 10)
+
+    def move_towards_player(self, player):
+        return
+
+    def attack_player(self, player):
+        return
+
+    def take_damage(self, amount):
+        return
+
+    def drop_loot(self):
+        return
+
+    def is_alive(self):
+        return
+
+    def get_distance_to(self, entity):
+        return
+
+    def detect_player(self, player, detection_radius):
+        return
+
+
+class Item:
+    def __init__(self, data):
+        self.id = data.get("id")
+        self.name = data.get("name", "Unknown Item")
+        self.type = data.get("item_type", "misc")  # weapon, food, artifact
+        self.weight = data.get("weight", 0)
+        self.damage_bonus = data.get("base_damage", 0)
+        self.healing_amount = data.get("healing_amount", 0)
+        self.durability = data.get("durability", 100)
+        self.max_durability = data.get("max_durability", 100)
+        self.texture = data.get("texture_file")
+
+    def use(self, target):
+        """Logic for consuming food or using potions."""
+        return
+
+    def degrade(self, amount):
+        """Reduces durability. Returns True if destroyed."""
+        return
+
+    def is_broken(self):
+        return

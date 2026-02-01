@@ -8,32 +8,30 @@ class GameEngine:
         self.world = World(db, session_id)
         self.world.update_fog_of_war()
 
-    def handle_input(self, key):
+    def handle_input(self, action):
         if self.world.player.dead:
             return "GAME_OVER"
 
-        dq, dr = 0, 0
-        if key == "Up":
-            dq, dr = 0, -1
-        elif key == "Down":
-            dq, dr = 0, 1
-        elif key == "Left":
-            dq, dr = -1, 0
-        elif key == "Right":
-            dq, dr = 1, 0
+        # Update the keys to match main.py Action Names
         move_map = {
-            "w": (0, -1),  # N
-            "s": (0, 1),  # S
-            "a": (-1, 0),  # NW
-            "d": (1, 0),  # SE
-            "q": (-1, 1),  # SW
-            "e": (1, -1),  # NE
+            "MOVE_NORTH": (0, -1),
+            "MOVE_SOUTH": (0, 1),
+            "MOVE_WEST": (-1, 0),
+            "MOVE_EAST": (1, 0),
+            "MOVE_SW": (-1, 1),
+            "MOVE_NE": (1, -1),
         }
 
-        if key.lower() in move_map:
-            dq, dr = move_map[key.lower()]
+        # Check if the action is a movement
+        if action in move_map:
+            dq, dr = move_map[action]
             self.attempt_move(dq, dr)
             return "TURN_TAKEN"
+
+        # Handle new actions easily
+        if action == "INVENTORY":
+            print("Opening Inventory...")  # Placeholder
+            return "NO_ACTION"
 
         return "NO_ACTION"
 
