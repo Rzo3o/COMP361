@@ -57,9 +57,6 @@ class Player(Entity):
     def use_item(self, item):
         return
 
-    def rest(self):
-        return
-
     def interact(self, entity):
         return
 
