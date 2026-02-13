@@ -1,4 +1,3 @@
-Random stuff/
 core/__pycache__/
 database/__pycache__/
 gameplay/__pycache__/
@@ -13,3 +12,5 @@ smoke_testing/__init__.py
 ui/__init__.py
 visuals/__init__.py
 
+# Cyps stuff
+Random stuff/
