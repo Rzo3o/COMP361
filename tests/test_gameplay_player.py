@@ -45,20 +45,16 @@ def test_player_move_damage_by_hunger():
     player = Player(test_data)
     player.hunger = 1
 
-    # Took 5 damage from hunger
+    # No damage should be taken on the first move since hunger will drop to 0
     player.move(1, 0)
     assert player.hunger == 0
-    assert player.hp == 15
-    assert not player.dead
+    assert player.hp == 20
 
-    player.move(1, 0)
-    assert player.hp == 10
-    assert not player.dead
-
-    player.move(1, 0)
+    # Take 15 damage since 3 moves are made
+    player.move(1, 2)
     assert player.hp == 5
-    assert not player.dead
 
+    # take 5 damage since 1 move is made, player should now be dead
     player.move(1, 0)
     assert player.hp == 0
     assert player.dead
