@@ -1,101 +1,90 @@
 import pygame
 import sys
 
-from ui.button import Button
-from ui.menu import SaveSelectMenu
-from ui.game_window import GameWindow
-
-
 class MainMenu:
+
     def __init__(self):
         pygame.init()
 
         self.width, self.height = 800, 600
         self.screen = pygame.display.set_mode((self.width, self.height))
-       # pygame.display.set_caption("Main Menu")
+        pygame.display.set_caption("Beyond Hex")
 
         self.clock = pygame.time.Clock()
         self.running = True
 
-        self.title_font = pygame.font.Font(None, 72)
-        self.subtitle_font = pygame.font.Font(None, 32)
+        self.font = pygame.font.Font(None, 72)
         self.button_font = pygame.font.Font(None, 40)
-        
 
-        # Colors
-        self.bg_color = (30, 30, 30)
         self.text_color = (220, 220, 220)
+        self.btn_color = (60, 60, 60)
+        self.hover_color = (80, 80, 100)
 
-        # Buttons
-        button_width = 260
-        button_height = 65
-        button_x = (self.width - button_width) // 2
-        start_y = 240
-        gap = 90
+        #colours
+        self.bg_color = (28, 48, 41)
 
-        self.buttons = [
-            Button(
-                button_x, start_y,
-                button_width, button_height,
-                "Play", self.button_font,
-                action_name="PLAY"
-            ),
-            Button(
-                button_x, start_y + gap,
-                button_width, button_height,
-                "Game Rules", self.button_font,
-                action_name="RULES"
-            ),
-            Button(
-                button_x, start_y + 2 * gap,
-                button_width, button_height,
-                "Exit", self.button_font,
-                action_name="EXIT"
-            ),
-        ]
+        # simple buttons
+        self.play_btn = pygame.Rect(270, 250, 260, 65)
+        self.rules_btn = pygame.Rect(270, 340, 260, 65)
+        self.exit_btn = pygame.Rect(270, 430, 260, 65)
+
+        #monster pic
+        self.monster_img = pygame.image.load("/Users/yasmin/Downloads/361/assets/assetBank/Forest_Monsters_PREMIUM/Forest_Monsters_PREMIUM/Bush_Monster/Bush Monster with VFX/Bush_Monster-AttackTimeFrame.png").convert_alpha()
+        self.monster_img = pygame.transform.scale(self.monster_img, (200, 200))
+        self.monster_rect = self.monster_img.get_rect(center=(400, 100))
+
+    def draw_button(self, rect, text):
+
+        mouse = pygame.mouse.get_pos()
+        color = self.hover_color if rect.collidepoint(mouse) else self.btn_color
+
+        pygame.draw.rect(self.screen, color, rect, border_radius=10)
+
+        text_surf = self.button_font.render(text, True, self.text_color)
+        text_rect = text_surf.get_rect(center=rect.center)
+        self.screen.blit(text_surf, text_rect)
 
     def draw(self):
+
         self.screen.fill(self.bg_color)
 
-        # Title
-        title_surf = self.title_font.render("Beyond Hex", True, self.text_color)
-        title_rect = title_surf.get_rect(center=(self.width // 2, 120))
-        self.screen.blit(title_surf, title_rect)
-
+        title = self.font.render("Beyond Hex", True, self.text_color)
+        self.screen.blit(title, title.get_rect(center=(400,120)))
         
-        
+       
+        self.draw_button(self.play_btn, "Play")
+        self.draw_button(self.rules_btn, "Game Rules")
+        self.draw_button(self.exit_btn, "Exit")
+        #monster pic
+        self.monster_img = pygame.image.load("/Users/yasmin/Downloads/361/assets/assetBank/Forest_Monsters_PREMIUM/Forest_Monsters_PREMIUM/Bush_Monster/Bush Monster with VFX/Bush_Monster-AttackTimeFrame.png").convert_alpha()
+        self.monster_img = pygame.transform.scale(self.monster_img, (200, 200))
+        self.monster_rect = self.monster_img.get_rect(center=(400, 100))
+        #bring monster to right below
+        self.monster_rect.bottomright = (self.width - 20, self.height - 20)
+        self.screen.blit(self.monster_img, self.monster_rect)
 
-        # Update hover and draw buttons
-        mouse_pos = pygame.mouse.get_pos()
-        for button in self.buttons:
-            button.check_hover(mouse_pos)
-            button.draw(self.screen)
+
 
         pygame.display.flip()
 
     def run(self):
+
         while self.running:
+
             for event in pygame.event.get():
+
                 if event.type == pygame.QUIT:
                     self.running = False
-                    break
 
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-                        break
+                if event.type == pygame.MOUSEBUTTONDOWN:
 
-                for button in self.buttons:
-                    action = button.handle_event(event)
+                    if self.play_btn.collidepoint(event.pos):
+                        print("Play clicked")
 
-                    if action == "PLAY":
-                        self._open_save_select()
+                    if self.rules_btn.collidepoint(event.pos):
+                        print("Rules clicked")
 
-                    elif action == "RULES":
-                        # Replace this print with your GameRulesPage later
-                        print("Open Game Rules page here")
-
-                    elif action == "EXIT":
+                    if self.exit_btn.collidepoint(event.pos):
                         self.running = False
 
             self.draw()
@@ -103,19 +92,6 @@ class MainMenu:
 
         pygame.quit()
         sys.exit()
-
-    def _open_save_select(self):
-        save_menu = SaveSelectMenu()
-        selected_slot = save_menu.run()
-
-        # If user selected a slot, start the game
-        if selected_slot is not None:
-            game = GameWindow(slot_id=selected_slot)
-            game.run()
-
-            # Recreate main menu window after gameplay closes
-            self.screen = pygame.display.set_mode((self.width, self.height))
-            pygame.display.set_caption("Main Menu")
 
 
 if __name__ == "__main__":
