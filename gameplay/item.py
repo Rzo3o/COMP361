@@ -15,8 +15,7 @@ class Item:
         pass
 
     def degrade(self, amount):
-        """Reduces durability. Returns True if destroyed."""
-        pass
+        self.durability -= amount
 
     def is_broken(self):
         return self.durability <= 0
