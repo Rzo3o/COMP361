@@ -14,3 +14,7 @@ visuals/__init__.py
 
 # Cyps stuff
 Random stuff/
+
+# Enlai testing
+.vscode/
+.pytest_cache/

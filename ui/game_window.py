@@ -7,14 +7,15 @@ from visuals.renderer import GameRenderer
 from ui.button import Button
 
 class GameWindow:
-    def __init__(self):
+    def __init__(self, slot_id=1):
         pygame.init()
         self.screen = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
-        pygame.display.set_caption("Hex RPG - Pygame Edition")
+        pygame.display.set_caption(f"Hex RPG - Slot {slot_id}")
         self.clock = pygame.time.Clock()
         self.running = True
         
-        self.db = DatabaseManager()
+        db_file = f"game_data_{slot_id}.db"
+        self.db = DatabaseManager(db_file)
         # Ensure session exists (auto-create slot 1)
         if not self.db.get_session(1):
             self.db.create_session(1)
