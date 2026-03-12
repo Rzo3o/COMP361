@@ -2,6 +2,7 @@ import sqlite3
 import os
 import json
 
+
 class DatabaseManager:
     def __init__(self, db_file="game_data.db"):
         self.db_file = db_file
@@ -50,7 +51,9 @@ class DatabaseManager:
         if existing:
             sid = existing["id"]
             # Clear old session data
-            self.cursor.execute("DELETE FROM session_world_state WHERE session_id=?", (sid,))
+            self.cursor.execute(
+                "DELETE FROM session_world_state WHERE session_id=?", (sid,)
+            )
             self.cursor.execute("DELETE FROM player_state WHERE session_id=?", (sid,))
             self.cursor.execute("DELETE FROM inventory WHERE session_id=?", (sid,))
             self.cursor.execute(
@@ -64,13 +67,13 @@ class DatabaseManager:
                 (slot_id, char_type),
             )
             session_id = self.cursor.lastrowid
-        
+
         # Initialize Player State
-        # We need a default texture. 
+        # We need a default texture.
         # Ideally, this should be handled by Gameplay logic, but for now we follow the old pattern
         # to ensure compatibility, or we just insert defaults and let the Player class handle loading.
         # I'll keep it simple: just insert defaults.
-        
+
         default_texture = None
         player_def_dir = "assets/definitions/player"
         if os.path.exists(player_def_dir):
@@ -80,7 +83,9 @@ class DatabaseManager:
                         with open(os.path.join(player_def_dir, f), "r") as jf:
                             data = json.load(jf)
                             if "animations" in data and "idle" in data["animations"]:
-                                default_texture = data["animations"]["idle"].get("texture")
+                                default_texture = data["animations"]["idle"].get(
+                                    "texture"
+                                )
                             if not default_texture:
                                 default_texture = data.get("texture_file")
 
@@ -88,7 +93,7 @@ class DatabaseManager:
                                 break  # Found a valid definition
                     except Exception as e:
                         print(f"Error reading player def {f}: {e}")
-        
+
         self.cursor.execute(
             """INSERT INTO player_state (session_id, current_q, current_r, health, max_health, texture_file) 
                VALUES (?, 0, 0, 100, 100, ?)""",
@@ -133,11 +138,11 @@ class DatabaseManager:
         q, r, hp, hunger, xp
         """
         # If it's an object, convert to dict-like access or usage
-        q = getattr(player_data, 'q', 0)
-        r = getattr(player_data, 'r', 0)
-        hp = getattr(player_data, 'hp', 100)
-        hunger = getattr(player_data, 'hunger', 100)
-        xp = getattr(player_data, 'xp', 0)
+        q = getattr(player_data, "q", 0)
+        r = getattr(player_data, "r", 0)
+        hp = getattr(player_data, "hp", 100)
+        hunger = getattr(player_data, "hunger", 100)
+        xp = getattr(player_data, "xp", 0)
 
         self.cursor.execute(
             """
@@ -155,6 +160,73 @@ class DatabaseManager:
         )
         row = self.cursor.fetchone()
         return dict(row) if row else None
+
+    """
+    Inventory
+    """
+
+    def load_inventory(self, session_id):
+        """Returns all items in the player's inventory for this session."""
+        query = """
+        SELECT i.*, inv.quantity, inv.is_equipped
+        FROM inventory inv
+        JOIN items i ON inv.item_id = i.id
+        WHERE inv.session_id = ?
+        """
+        self.cursor.execute(query, (session_id,))
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def add_item(self, session_id, item_id, quantity=1):
+        """Adds an item to inventory. Stacks if already owned."""
+        self.cursor.execute(
+            "SELECT id, quantity FROM inventory WHERE session_id=? AND item_id=?",
+            (session_id, item_id),
+        )
+        existing = self.cursor.fetchone()
+        if existing:
+            self.cursor.execute(
+                "UPDATE inventory SET quantity=? WHERE id=?",
+                (existing["quantity"] + quantity, existing["id"]),
+            )
+        else:
+            self.cursor.execute(
+                "INSERT INTO inventory (session_id, item_id, quantity) VALUES (?, ?, ?)",
+                (session_id, item_id, quantity),
+            )
+        self.conn.commit()
+
+    def remove_item(self, session_id, item_id, quantity=1):
+        """Removes quantity of an item. Deletes row if quantity hits 0."""
+        self.cursor.execute(
+            "SELECT id, quantity FROM inventory WHERE session_id=? AND item_id=?",
+            (session_id, item_id),
+        )
+        existing = self.cursor.fetchone()
+        if not existing:
+            return
+        new_qty = existing["quantity"] - quantity
+        if new_qty <= 0:
+            self.cursor.execute("DELETE FROM inventory WHERE id=?", (existing["id"],))
+        else:
+            self.cursor.execute(
+                "UPDATE inventory SET quantity=? WHERE id=?",
+                (new_qty, existing["id"]),
+            )
+        self.conn.commit()
+
+    def toggle_equip(self, session_id, item_id):
+        """Toggles is_equipped for a weapon item."""
+        self.cursor.execute(
+            "SELECT id, is_equipped FROM inventory WHERE session_id=? AND item_id=?",
+            (session_id, item_id),
+        )
+        row = self.cursor.fetchone()
+        if row:
+            self.cursor.execute(
+                "UPDATE inventory SET is_equipped=? WHERE id=?",
+                (0 if row["is_equipped"] else 1, row["id"]),
+            )
+            self.conn.commit()
 
     # =========================
     # Editor / Map Management
@@ -175,7 +247,7 @@ class DatabaseManager:
         """
         if data.get("is_spawn"):
             self.cursor.execute("UPDATE map_tiles SET is_spawn = 0")
-            
+
         self.cursor.execute(
             """
             INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_y_shift, is_spawn)
