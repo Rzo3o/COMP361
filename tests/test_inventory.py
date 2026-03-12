@@ -37,7 +37,7 @@ def _insert_item(
     return db.cursor.lastrowid
 
 
-# Database tests
+# Database
 
 
 def test_add_item_to_inventory(tmp_path, monkeypatch):
@@ -112,7 +112,7 @@ def test_toggle_equip(tmp_path, monkeypatch):
     db.close()
 
 
-# B. Item.use() tests
+# Item.use()
 
 
 def test_food_use_heals_and_restores_hunger():
@@ -191,8 +191,7 @@ def test_weapon_use_returns_false():
     assert player.hunger == 60  # unchanged
 
 
-# Engine tests
-# =============================================
+# Engine
 
 
 def test_engine_inventory_toggle(tmp_path, monkeypatch):
