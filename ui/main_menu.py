@@ -57,7 +57,7 @@ class MainMenu:
         self.draw_button(self.rules_btn, "Game Rules")
         self.draw_button(self.exit_btn, "Exit")
         #monster pic
-        self.monster_img = pygame.image.load("/Users/yasmin/Downloads/361/assets/assetBank/Forest_Monsters_PREMIUM/Forest_Monsters_PREMIUM/Bush_Monster/Bush Monster with VFX/Bush_Monster-AttackTimeFrame.png").convert_alpha()
+        self.monster_img = pygame.image.load(os.path.join("assets", "assetBank", "Forest_Monsters_PREMIUM", "Forest_Monsters_PREMIUM", "Bush_Monster", "Bush Monster with VFX", "Bush_Monster-AttackTimeFrame.png")).convert_alpha()
         self.monster_img = pygame.transform.scale(self.monster_img, (200, 200))
         self.monster_rect = self.monster_img.get_rect(center=(400, 100))
         #bring monster to right below
