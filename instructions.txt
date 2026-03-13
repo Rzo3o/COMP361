@@ -1,0 +1,128 @@
+Grade points are awarded proportionally. These are not all-or-nothing
+points. If a section is worth 10 points, and the students completed
+75% of that section properly, then they would get 7.5 points 
+(as an example).
+
+Progress Report 2 - Specification Document
+- 50 points shared by all members of the group
+- Team Lead submits to the myCourses assignment box
+- Rubric:
+-- 20 points for diagram, tabular, and chart Syntax
+-- 10 points for adhering to the spec table of contents (completeness)
+      (students did not leave sections out unnecessarily)
+-- 20 points for a professional description of the project 
+      (good plan, good language, looks professional)
+-- Can deduct up to 20 points for BS
+
+Progress Report 3 - Work Checkup
+- Pass/Fail shared by all members of the group
+- Make an appointment with the TA/Prof assigned to your group
+- Nothing submitted to myCourses
+- The entire team must be present
+- Order of events:
+-- Prof/TA will make critical comments about your project plan
+-- Prof/TA will make critical comments about your specification doc
+-- Discussion about the project
+-- Scrum-like questions: How is the project going? Everyone okay?
+
+Progress Report 4 - Design Document
+- 100 points shared by all members of the group
+- Team Lead submits to myCourses assignment box
+- Rubric:
+-- 40 points for diagram, tabular, and chart Syntax (correctness)
+-- 20 points for adhering to the design table of contents (completeness)
+      (students did not leave sections out unnecessarily)
+-- 20 points for appropriate use of technology & design
+-- 20 points for demonstrated good understanding of planning
+-- Can deduct up to 20 points for BS
+-- Look for plan quality, good language, and professionalism
+
+Progress Report 5 - Interim Demo 1
+- 25 points assigned to each individual team member
+- Nothing is submitted to myCourses
+- Must make an appointment with the Prof/TA assigned to the team
+- The entire team must be present
+- One team member has the project on their laptop to demo
+- Prof/TA do not touch the laptop (unless the team wants that)
+- Order of events:
+-- Teammates take turns showing what they have done so far
+-- Prof/TA asks questions about their work to assess competency
+---- Explain how you did this.
+---- If x happens, how would you handle it?
+- Rubric:
+-- 5 points, quantity of work accomplished comparable with others
+-- 10 points, explained their portion well
+-- 5 points, showed competency in navigating through the code and app
+-- 5 points, answered the "what if" question well
+
+Progress Report 6 - Failsafe Checkup
+- Pass/Fail shared with all members of the group
+- Optional! The team can skip this progress report
+- Nothing to submit to myCourses
+- Only a subset of the team needs to be at this meeting
+- Make an appointment with the **PROF** only (not the TA)
+- Order of events:
+-- If someone in the team has an issue with the progress of the project
+   or with a team member or the workflow, this is the time to talk to
+   the professor.
+-- With the professor, a plan B will be determined.
+
+Progress Report 7 - Interim Demo 2
+- see Interim Demo 1 rules
+
+Progress Report 8 - Final Demonstration
+- 100 points assigned to each individual team member
+- The entire team must be present
+- Make an appointment with the prof/TA assigned to your project
+- There is nothing to submit to myCourses
+- The program must run on one team member's computer
+- The Prof/TA is not permitted to touch your computer or use the app
+- The Prof/TA can only observe the execution of the application
+- Order of events:
+-- One team member gives a complete run-through of the app
+-- Teammates take turns showing their portion of the completed app
+   (which may include the source code or file system)
+-- Prof/TA asks questions about their work to assess competency
+---- Explain how you did this.
+---- Explain the rationale of why it was done this way (or, assessor
+     complains about the way it was done, asking for an explanation)
+---- Theory question or if x happens, how would you handle it? This
+     is to assess the student's depth of knowledge in their part.
+- Rubric:
+-- 10 points for their portion of the program running at all
+-- 20 points for graceful running (handling errors, easy to use)
+-- 20 points for look-and-feel or API contracts for no GUI
+-- 20 points for implementing everything they promised
+-- 10 points for good-looking source code (like, IPACS)
+-- 20 points for demonstrating good design (like design patterns,
+      contracts, modular design, etc.)
+
+Progress Report 9 - Acceptance Test
+- 100 points shared by all the members of the team
+- Team Lead only submits the source code to the myCourses assignment box
+- Make an appointment with the Prof/TA assigned to the project
+- A min of one person from the team is required to be at this meeting
+- The program must run on the computer of one team member
+- Order of events:
+-- The team member will launch the app
+-- The team member will give their computer to the Prof/TA
+-- Without any help or communication, the Prof/TA will run the app
+-- The Prof/TA will stress test the app
+-- Later, the Prof/TA will look at the source code uploaded to myCourses
+- Rubric:
+-- 20 points, verify the app contains everything promised
+-- 20 points, verify the app runs
+-- 20 points, verify the app did not crash
+-- 20 points, verify the app is graceful and intuitive
+-- 20 points, verify that 70% of the code was not generated/copied
+
+Progress Report 10 - Scrum Meeting Journal
+- 50 points awarded individually
+- Each student submits their journal to the myCourses assignment box
+- Rubric:
+-- 10 points for what worked
+-- 10 points for what did not work
+-- 10 points for tension points and how they were resolved or not
+-- 10 points for things you would do again
+-- 10 points for things you would not do again
+
