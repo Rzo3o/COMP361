@@ -85,15 +85,45 @@ class GameEngine:
             self.load_inventory()
 
     def attempt_move(self, dq, dr):
-        target_q = self.world.player.q + dq
-        target_r = self.world.player.r + dr
+        """
+        Try to move the player by (dq, dr).
+        Returns True if movement succeeds, otherwise False.
+        """
+        player = self.world.player
+        target_q = player.q + dq
+        target_r = player.r + dr
 
-        if self.world.is_passable(target_q, target_r):
-            self.world.player.move(dq, dr)
-            self.world.update_fog_of_war()
-            self.db.save_player(self.session_id, self.world.player)
-        else:
-            pass
+        if not self.world.is_passable(target_q, target_r):
+            return False
+
+        player.move(dq, dr)
+        self.world.update_fog_of_war()
+        self.db.save_player(self.session_id, player)
+        return True
 
     def update(self):
-        pass
+        player = self.world.player
+
+        if player.dead:
+            return "GAME_OVER"
+
+        if player.hunger > 0:
+            player.hunger -= 1
+
+        if player.hunger <= 0:
+            player.hunger = 0
+            if player.health > 0:
+                player.health -= 1
+
+        if player.health <= 0:
+            player.health = 0
+            player.dead = True
+
+            if hasattr(player, "death_count"):
+                player.death_count += 1
+
+            self.db.save_player(self.session_id, player)
+            return "GAME_OVER"
+
+        self.db.save_player(self.session_id, player)
+        return "UPDATED"
