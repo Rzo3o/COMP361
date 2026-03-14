@@ -74,7 +74,11 @@ CREATE TABLE monsters (
     health INTEGER DEFAULT 50,
     damage INTEGER DEFAULT 10,
     is_defeated BOOLEAN DEFAULT 0,
-    texture_file TEXT
+    texture_file TEXT,
+    weapon_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    head_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    chest_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    legs_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL
 );
 
 -- ==========================================

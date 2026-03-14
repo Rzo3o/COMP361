@@ -3,6 +3,7 @@ from core.hexmath import HexMath
 from gameplay.models import Tile
 from gameplay.player import Player
 from gameplay.monster import Monster
+from gameplay.item import Item
 
 class World:
     def __init__(self, db, session_id):
@@ -13,6 +14,7 @@ class World:
         self.player = None
         self.load_world()
         self.load_player()
+        self.load_monsters()
 
     def load_world(self):
         # Use DB abstraction
@@ -29,6 +31,20 @@ class World:
             self.player = Player(p_data)
         else:
             print("ERROR: No player state found for session", self.session_id)
+
+    def load_monsters(self):
+        """Load all alive monsters from DB and equip their saved gear."""
+        self.monsters = []
+        rows = self.db.load_monsters()
+        for data in rows:
+            monster = Monster(data)
+            # Equip saved items for each slot
+            for slot_name in ("weapon", "head", "chest", "legs"):
+                item_data = data.get(f"{slot_name}_item")
+                if item_data:
+                    item = Item(item_data)
+                    monster.equip(item)
+            self.monsters.append(monster)
 
     def get_tile(self, q, r):
         return self.tiles.get((q, r))
