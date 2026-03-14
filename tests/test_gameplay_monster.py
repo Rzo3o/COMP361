@@ -1,5 +1,6 @@
 from gameplay.monster import Monster
 from gameplay.player import Player
+from gameplay.item import Item
 
 
 monster_data = {
@@ -33,25 +34,30 @@ def test_monster_initialization_full_data():
     assert monster.id == "goblin-1"
     assert monster.name == "Goblin"
     assert monster.hp == 30
-    assert monster.damage == 8
+    assert monster.damage == 8  # property: base_damage + weapon bonus (0)
 
 
 def test_monster_take_damage():
     monster = Monster(monster_data)
 
     monster.take_damage(5)
-    assert monster.hp == 25
+    assert monster.hp == 25  # no defense, full damage
     assert monster.is_alive()
 
     monster.take_damage(30)
-    assert monster.hp == 0  # HP should not go below 0
+    assert monster.hp == 0
     assert not monster.is_alive()
 
 
 def test_monster_attack_player():
-    monster = Monster(monster_data)
+    # Place monster adjacent to player (distance 1) so attack can land
+    adj_monster = dict(monster_data)
+    adj_monster["current_q"] = 2
+    adj_monster["current_r"] = 2
+    monster = Monster(adj_monster)
     player = Player(player_data)
 
+    # Player has 0 base defense, so full damage applies
     monster.attack_player(player)
     assert player.hp == 20 - monster.damage
     assert not player.dead
@@ -59,9 +65,11 @@ def test_monster_attack_player():
 
 def test_monster_attack_kill_player():
     """If monster damage is lethal, the player should die."""
-    new_monster_data = dict(monster_data)
-    new_monster_data["damage"] = 25
-    monster = Monster(new_monster_data)
+    adj_monster = dict(monster_data)
+    adj_monster["current_q"] = 2
+    adj_monster["current_r"] = 2
+    adj_monster["damage"] = 25
+    monster = Monster(adj_monster)
     player = Player(player_data)
 
     monster.attack_player(player)
@@ -69,50 +77,124 @@ def test_monster_attack_kill_player():
     assert player.dead
 
 
+def _always_passable(q, r):
+    """Test helper: all tiles are passable."""
+    return True
+
+
 def test_monster_move_towards_player():
-    new_monster_data = dict(monster_data)
-    new_monster_data["current_q"] = 5
-    new_monster_data["current_r"] = 3
+    # Monster at (5,7), player at (1,2) — greedy path goes r-first
     monster = Monster(monster_data)
     player = Player(player_data)
 
-    monster.move_towards_player(player)
-    assert monster.q == 4
-    assert monster.r == 2
+    monster.move_towards_player(player, _always_passable)
+    assert monster.q == 5
+    assert monster.r == 6
 
-    # only move in q direction since r is already aligned
-    monster.move_towards_player(player)
-    assert monster.q == 3
-    assert monster.r == 2
-
-    monster.move_towards_player(player)
-    assert monster.q == 2
-    assert monster.r == 2
-
-    # Can't move closer
-    monster.move_towards_player(player)
-    assert monster.q == 2
-    assert monster.r == 2
+    monster.move_towards_player(player, _always_passable)
+    assert monster.q == 5
+    assert monster.r == 5
 
 
 def test_monster_move_towards_player_other_side():
+    # Monster at (5,7), player at (7,9)
     monster = Monster(monster_data)
     new_player_data = dict(player_data)
     new_player_data["current_q"] = 7
     new_player_data["current_r"] = 9
     player = Player(new_player_data)
 
-    # Monster is at (5, 7), player is at (7, 8) -> move by (1, 1)
-    monster.move_towards_player(player)
+    monster.move_towards_player(player, _always_passable)
     assert monster.q == 6
-    assert monster.r == 8
+    assert monster.r == 7
 
-    # move in q first, then r can't move since it's already aligned
-    monster.move_towards_player(player)
+    monster.move_towards_player(player, _always_passable)
+    assert monster.q == 7
+    assert monster.r == 7
+
+    monster.move_towards_player(player, _always_passable)
     assert monster.q == 7
     assert monster.r == 8
 
-    # Can't move closer
-    monster.move_towards_player(player)
+    # Can't move closer (distance = 1)
+    monster.move_towards_player(player, _always_passable)
     assert monster.q == 7
     assert monster.r == 8
+
+
+# =============================================
+# Equipment and loot tests
+# =============================================
+
+
+def test_monster_equip_weapon_increases_damage():
+    monster = Monster(monster_data)
+    assert monster.damage == 8  # base
+
+    sword = Item({
+        "id": 1, "name": "Goblin Blade", "item_type": "weapon",
+        "slot": "weapon", "base_damage": 5,
+    })
+    monster.equip(sword)
+    assert monster.damage == 13  # 8 + 5
+
+
+def test_monster_equip_armor_increases_defense():
+    monster = Monster(monster_data)
+    assert monster.total_defense == 0
+
+    helmet = Item({
+        "id": 2, "name": "Rusty Helmet", "item_type": "armor",
+        "slot": "head", "defense": 3,
+    })
+    monster.equip(helmet)
+    assert monster.total_defense == 3
+
+
+def test_monster_defense_reduces_incoming_damage():
+    monster = Monster(monster_data)
+    armor = Item({
+        "id": 2, "name": "Shell Armor", "item_type": "armor",
+        "slot": "chest", "defense": 4,
+    })
+    monster.equip(armor)
+
+    monster.take_damage(5)
+    assert monster.hp == 29  # 5 - 4 defense = 1 damage
+
+
+def test_monster_drops_equipment_on_death():
+    monster = Monster(monster_data)
+    sword = Item({
+        "id": 1, "name": "Goblin Blade", "item_type": "weapon",
+        "slot": "weapon", "base_damage": 5,
+    })
+    helmet = Item({
+        "id": 2, "name": "Rusty Helmet", "item_type": "armor",
+        "slot": "head", "defense": 3,
+    })
+    monster.equip(sword)
+    monster.equip(helmet)
+
+    # Kill the monster
+    monster.take_damage(999)
+    assert monster.dead
+
+    # on_death should have cleared equipment and returned drops
+    # Verify equipment slots are now empty
+    assert monster.equipment["weapon"] is None
+    assert monster.equipment["head"] is None
+
+
+def test_monster_unequip_reverts_stats():
+    monster = Monster(monster_data)
+    sword = Item({
+        "id": 1, "name": "Blade", "item_type": "weapon",
+        "slot": "weapon", "base_damage": 7,
+    })
+    monster.equip(sword)
+    assert monster.damage == 15  # 8 + 7
+
+    removed = monster.unequip("weapon")
+    assert removed is sword
+    assert monster.damage == 8  # back to base

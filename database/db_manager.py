@@ -215,18 +215,49 @@ class DatabaseManager:
         self.conn.commit()
 
     def toggle_equip(self, session_id, item_id):
-        """Toggles is_equipped for a weapon item."""
+        """Toggles is_equipped for an equippable item.
+        When equipping, unequips any other item in the same slot first."""
         self.cursor.execute(
-            "SELECT id, is_equipped FROM inventory WHERE session_id=? AND item_id=?",
+            "SELECT inv.id, inv.is_equipped, i.slot FROM inventory inv "
+            "JOIN items i ON inv.item_id = i.id "
+            "WHERE inv.session_id=? AND inv.item_id=?",
             (session_id, item_id),
         )
         row = self.cursor.fetchone()
-        if row:
+        if not row:
+            return
+
+        if row["is_equipped"]:
+            # Unequip
             self.cursor.execute(
-                "UPDATE inventory SET is_equipped=? WHERE id=?",
-                (0 if row["is_equipped"] else 1, row["id"]),
+                "UPDATE inventory SET is_equipped=0 WHERE id=?", (row["id"],)
             )
-            self.conn.commit()
+        else:
+            # Unequip any other item in the same slot first
+            slot = row["slot"]
+            if slot:
+                self.cursor.execute(
+                    "UPDATE inventory SET is_equipped=0 "
+                    "WHERE session_id=? AND is_equipped=1 AND item_id IN "
+                    "(SELECT id FROM items WHERE slot=?)",
+                    (session_id, slot),
+                )
+            # Equip this item
+            self.cursor.execute(
+                "UPDATE inventory SET is_equipped=1 WHERE id=?", (row["id"],)
+            )
+        self.conn.commit()
+
+    def get_equipped_items(self, session_id):
+        """Returns all currently equipped items for the session."""
+        query = """
+        SELECT i.*, inv.is_equipped
+        FROM inventory inv
+        JOIN items i ON inv.item_id = i.id
+        WHERE inv.session_id = ? AND inv.is_equipped = 1
+        """
+        self.cursor.execute(query, (session_id,))
+        return [dict(row) for row in self.cursor.fetchall()]
 
     # =========================
     # Editor / Map Management

@@ -44,11 +44,20 @@ class Monster(Entity):
         super().__init__(data["current_q"], data["current_r"], data.get("texture_file"))
         self.id = data.get("id")
         self.name = data.get("name", "Unknown")
-                
-        # Combat stats
+
+        # Combat stats (base values, before equipment)
         self.max_hp = data.get("max_health", data.get("health", 50))
         self.hp = data.get("health", self.max_hp)
-        self.damage = data.get("damage", 10)
+        self.base_damage = data.get("damage", 10)
+        self.base_defense = 0
+
+        # Equipment slots (same system as Player)
+        self.equipment = {
+            "weapon": None,
+            "head": None,
+            "chest": None,
+            "legs": None,
+        }
 
         # AI configuration
         self.ai = ai or MonsterAIConfig(
@@ -64,9 +73,6 @@ class Monster(Entity):
         self._aggro_memory = 0               # turns remaining to stay aggro when losing sight
         self._attack_cd_remaining = 0        # turns remaining before next attack
 
-        # TODO (animation/modeling): bind sprite/animation controller here
-        # self.anim_state = "idle"
-
     # Hex utilities
     @staticmethod
     def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
@@ -80,15 +86,61 @@ class Monster(Entity):
         for dq, dr in self.HEX_DIRS:
             yield self.q + dq, self.r + dr
 
+    # Equipment helpers
+
+    @property
+    def damage(self):
+        """Base damage + weapon bonus."""
+        bonus = 0
+        weapon = self.equipment.get("weapon")
+        if weapon and not weapon.is_broken():
+            bonus = weapon.damage_bonus
+        return self.base_damage + bonus
+
+    @property
+    def total_defense(self):
+        """Sum of defense from all equipped armor."""
+        total = self.base_defense
+        for _, item in self.equipment.items():
+            if item and not item.is_broken():
+                total += item.defense
+        return total
+
+    def equip(self, item):
+        """Equip an item. Returns the previously equipped item or None."""
+        if not item.is_equippable:
+            return None
+        old = self.equipment.get(item.slot)
+        self.equipment[item.slot] = item
+        return old
+
+    def unequip(self, slot):
+        """Remove item from slot. Returns the removed item or None."""
+        old = self.equipment.get(slot)
+        if old:
+            self.equipment[slot] = None
+        return old
+
+    def get_loot_drops(self):
+        """Returns list of equipped items (to drop on death)."""
+        drops = []
+        for slot in list(self.equipment):
+            item = self.equipment[slot]
+            if item:
+                drops.append(item)
+                self.equipment[slot] = None
+        return drops
+
     # Core Behaviors
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
-    
+
     def take_damage(self, amount):
-        if amount <= 0 or not self.is_alive():
+        reduced = max(1, amount - self.total_defense)
+        if reduced <= 0 or not self.is_alive():
             return
-        
-        self.hp -= amount
+
+        self.hp -= reduced
 
         # TODO (animation/modeling): play hurt animation / flash / sound
         # self.anim_state = "hurt"
@@ -98,11 +150,9 @@ class Monster(Entity):
             self.dead = True
             self.on_death()
 
-    def on_death(self) -> None:
-        """Hook for death logic: drops, removal flags, etc."""
-        # TODO: spawn loot, xp, etc.
-        # TODO (animation/modeling): play death animation then mark removable
-        pass
+    def on_death(self) -> list:
+        """Drop all equipped items on death. Returns list of dropped Items."""
+        return self.get_loot_drops()
 
     def can_attack(self) -> bool:
         return self._attack_cd_remaining <= 0

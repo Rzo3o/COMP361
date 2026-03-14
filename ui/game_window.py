@@ -101,10 +101,14 @@ class GameWindow:
         hunger_text = self.font.render(
             f"Hunger: {p.hunger}/{p.max_hunger}", True, (255, 160, 50)
         )
+        dmg_text = self.font.render(f"ATK: {p.total_damage}", True, (255, 200, 100))
+        def_text = self.font.render(f"DEF: {p.total_defense}", True, (100, 200, 255))
         loc_text = self.font.render(f"Q:{p.q} R:{p.r}", True, (200, 200, 200))
 
         self.screen.blit(hp_text, (20, 10))
         self.screen.blit(hunger_text, (150, 10))
+        self.screen.blit(dmg_text, (320, 10))
+        self.screen.blit(def_text, (420, 10))
         self.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
     def _draw_inventory(self):
@@ -127,26 +131,45 @@ class GameWindow:
 
         # Title
         title = self.font.render(
-            "INVENTORY  (W/S to scroll, F to use/equip, I to close)",
+            "INVENTORY  (W/S scroll, F use/equip, A drop, I close)",
             True,
             (255, 255, 255),
         )
         self.screen.blit(title, (panel_x + 15, panel_y + 10))
 
+        # Equipment summary
+        p = self.engine.world.player
+        equip_y = panel_y + 32
+        equip_summary = f"ATK: {p.total_damage}  DEF: {p.total_defense}"
+        eq_surf = self.font.render(equip_summary, True, (180, 220, 180))
+        self.screen.blit(eq_surf, (panel_x + 15, equip_y))
+
+        # Slot overview on the right side
+        slot_x = panel_x + panel_w - 180
+        slot_y = panel_y + 32
+        for slot_name in ("weapon", "head", "chest", "legs"):
+            equipped = p.equipment.get(slot_name)
+            label = equipped.name if equipped else "--"
+            color = (200, 255, 200) if equipped else (100, 100, 100)
+            slot_surf = self.font.render(f"{slot_name}: {label}", True, color)
+            self.screen.blit(slot_surf, (slot_x, slot_y))
+            slot_y += 18
+
         items = self.engine.inventory
         if not items:
             empty = self.font.render("Your inventory is empty.", True, (150, 150, 150))
-            self.screen.blit(empty, (panel_x + 15, panel_y + 50))
+            self.screen.blit(empty, (panel_x + 15, equip_y + 30))
             return
 
-        y = panel_y + 40
+        y = equip_y + 26
         for i, item in enumerate(items):
             selected = i == self.engine.selected_index
             color = (255, 255, 100) if selected else (200, 200, 200)
             prefix = "> " if selected else "  "
 
             equip_tag = " [E]" if item.equipped else ""
-            label = f"{prefix}{item.name} x{item.quantity}  ({item.type}){equip_tag}"
+            slot_tag = f" [{item.slot}]" if item.is_equippable else ""
+            label = f"{prefix}{item.name} x{item.quantity}  ({item.type}){slot_tag}{equip_tag}"
             text_surf = self.font.render(label, True, color)
             self.screen.blit(text_surf, (panel_x + 15, y))
 
@@ -154,9 +177,15 @@ class GameWindow:
             if selected:
                 y += 22
                 details = []
-                if item.type == "weapon":
+                if item.description:
+                    details.append(f"  {item.description}")
+                if item.type == "weapon" or (item.type == "armor" and item.damage_bonus):
                     details.append(
-                        f"  DMG: {item.damage_bonus}  Durability: {item.durability}/{item.max_durability}"
+                        f"  DMG: +{item.damage_bonus}  Durability: {item.durability}/{item.max_durability}"
+                    )
+                if item.defense:
+                    details.append(
+                        f"  DEF: +{item.defense}  Durability: {item.durability}/{item.max_durability}"
                     )
                 if item.type == "food":
                     details.append(
