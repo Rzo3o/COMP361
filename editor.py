@@ -1054,8 +1054,14 @@ class LibraryTab(ttk.Frame):
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         cx, cy = (w // 2, h // 2) if w > 1 else (200, 200)
 
-        poly = HexEngine.get_hex_polygon(cx, cy)
-        self.canvas.create_polygon(poly, fill="#2e3b28", outline="#555", width=2)
+        preview_data = {
+            "tile_type": "grass",
+            "texture_file": "dirt.png",  # Dummy base
+            "prop_texture_file": None,
+        }
+        self.app.renderer.render_hex_at_pixel(
+            self.canvas, cx, cy, preview_data, selected=True
+        )
         sel = self.lb_anims.curselection()
         if sel:
             key = self.lb_anims.get(sel[0])
