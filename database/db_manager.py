@@ -365,7 +365,8 @@ class DatabaseManager:
         data: dict containing tile attributes
         """
         if data.get("is_spawn"):
-            self.cursor.execute("UPDATE map_tiles SET is_spawn = 0")
+            lvl = data.get("level", 1)
+            self.cursor.execute("UPDATE map_tiles SET is_spawn = 0 WHERE level = ?", (lvl,))
 
         self.cursor.execute(
             """

@@ -16,9 +16,9 @@ class Config:
     HEX_SIZE = BASE_HEX_RADIUS * GAME_SCALE  # 48 pixels
     HEX_ASPECT_RATIO = 0.87
     CALIB_OFFSET_Y = 16 * GAME_SCALE
-    GRID_RANGE = 20
-    MAP_WIDTH = 1400
-    MAP_HEIGHT = 900
+    GRID_RANGE = 25
+    MAP_WIDTH = 5000
+    MAP_HEIGHT = 5000
     CENTER_X = MAP_WIDTH // 2
     CENTER_Y = MAP_HEIGHT // 2
     ASSET_DIR = "assets"
@@ -85,45 +85,14 @@ class DatabaseManager:
         self._init_schema()
 
     def _init_schema(self):
-        # Map Tiles
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS map_tiles (
-                q INTEGER, r INTEGER,
-                tile_type TEXT, texture_file TEXT,
-                prop_texture_file TEXT, prop_scale REAL DEFAULT 1.0, prop_y_shift INTEGER DEFAULT 0,
-                is_spawn BOOLEAN DEFAULT 0,
-                level INTEGER DEFAULT 1,
-                is_permanently_passable BOOLEAN DEFAULT 1,
-                PRIMARY KEY (q, r)
-            )
-        """
-        )
-        # Monsters
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS monsters (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                current_q INTEGER NOT NULL,
-                current_r INTEGER NOT NULL,
-                texture_file TEXT
-            )
-        """
-        )
-        
-        # Migrations for existing tables
-        try:
-            self.cursor.execute("ALTER TABLE map_tiles ADD COLUMN is_spawn BOOLEAN DEFAULT 0")
-        except sqlite3.OperationalError: pass
-        try:
-            self.cursor.execute("ALTER TABLE map_tiles ADD COLUMN level INTEGER DEFAULT 1")
-        except sqlite3.OperationalError: pass
-        try:
-            self.cursor.execute("ALTER TABLE map_tiles ADD COLUMN is_permanently_passable BOOLEAN DEFAULT 1")
-        except sqlite3.OperationalError: pass
-        
-        self.conn.commit()
+        if os.path.exists("database.sql"):
+            with open("database.sql", "r") as f:
+                sql_script = f.read()
+            try:
+                self.cursor.executescript(sql_script)
+                self.conn.commit()
+            except sqlite3.Error as e:
+                print(f"Error initializing database from sql: {e}")
 
     def get_tile(self, q, r):
         self.cursor.execute("SELECT * FROM map_tiles WHERE q=? AND r=?", (q, r))
@@ -140,7 +109,9 @@ class DatabaseManager:
         # self.conn.commit()
 
     def save_tile(self, data):
-        # removed clear_spawn_points to allow multiple spawns (one per level conceptually)
+        if data.get("is_spawn"):
+            lvl = data.get("level", 1)
+            self.cursor.execute("UPDATE map_tiles SET is_spawn = 0 WHERE level = ?", (lvl,))
         
         self.cursor.execute(
             """
@@ -293,7 +264,7 @@ class Renderer:
     def __init__(self, asset_mgr):
         self.am = asset_mgr
 
-    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False):
+    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False, view_mode="Standard"):
         poly = HexEngine.get_hex_polygon(cx, cy)
         fill = ""
         t_type = tile_data.get("tile_type")
@@ -328,9 +299,12 @@ class Renderer:
                 )
         outline = "red" if selected else "#555"
         width = 2 if selected else 1
-        if tile_data.get("is_spawn"):
+        if tile_data.get("is_spawn") and view_mode != "Spawns":
             canvas.create_oval(
                 cx - 5, cy - 5, cx + 5, cy + 5, fill="#00FF00", outline="black"
+            )
+            canvas.create_text(
+                cx, cy + 15, text=f"Lvl {tile_data.get('level', 1)}", fill="white", font=("Arial", 8, "bold")
             )
             outline = "#00FF00"
             width = 3
@@ -348,10 +322,22 @@ class MapTab(ttk.Frame):
         self.selected_r = 0
         self.view_mode = tk.StringVar(value="Standard")
         self.var_paint_mode = tk.BooleanVar(value=False)
+        self.var_paint_delete = tk.BooleanVar(value=False)
         self.brush_size = tk.IntVar(value=1)
 
         self._setup_ui()
         self._bind_events()
+        self.after(100, self._center_view)
+
+    def _center_view(self):
+        self.update_idletasks()
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        if w <= 1 or h <= 1:
+            self.after(50, self._center_view)
+            return
+        self.canvas.xview_moveto((Config.CENTER_X - w / 2) / float(Config.MAP_WIDTH))
+        self.canvas.yview_moveto((Config.CENTER_Y - h / 2) / float(Config.MAP_HEIGHT))
 
     def _setup_ui(self):
         self.paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -382,6 +368,26 @@ class MapTab(ttk.Frame):
         modes = ["Standard", "Levels", "Collision", "Spawns", "Monsters"]
         for m in modes:
             ttk.Radiobutton(view_frame, text=m, variable=self.view_mode, value=m, command=self._on_view_mode_change).pack(anchor="w")
+
+        # Level View Filter
+        self.var_level_view = tk.IntVar(value=0)
+        filter_frame = ttk.LabelFrame(self.sidebar, text="Level View Filter", padding=5)
+        filter_frame.pack(fill="x", pady=(0, 10))
+        
+        def on_view_scale(val):
+            self.var_level_view.set(round(float(val)))
+            self.render()
+            
+        ttk.Scale(filter_frame, from_=0, to=10, variable=self.var_level_view, orient=tk.HORIZONTAL, command=on_view_scale).pack(fill="x")
+        
+        self.lbl_level_view = ttk.Label(filter_frame, text="All Levels")
+        self.lbl_level_view.pack()
+        
+        def update_lbl(*args):
+            v = self.var_level_view.get()
+            self.lbl_level_view.config(text="All Levels" if v == 0 else f"Level {v}")
+            
+        self.var_level_view.trace_add("write", update_lbl)
 
         # Dynamic Inspector Area
         self.inspector_area = ttk.Frame(self.sidebar)
@@ -437,23 +443,18 @@ class MapTab(ttk.Frame):
         self.cb_tiles = ttk.Combobox(frame, state="readonly", values=self.app.asset_mgr.list_assets("tile"))
         self.cb_tiles.pack(fill="x")
         self.cb_tiles.bind("<<ComboboxSelected>>", self._on_tile_preset_select)
-        ttk.Entry(frame, textvariable=self.var_tile).pack(fill="x", pady=(5,0))
-        ttk.Button(frame, text="Browse...", command=lambda: self._browse(self.var_tile)).pack(fill="x")
-
+        
         ttk.Separator(frame).pack(fill="x", pady=10)
         ttk.Label(frame, text="Prop (Overlay)", font=("Bold", 10)).pack(anchor="w")
         self.cb_props = ttk.Combobox(frame, state="readonly", values=self.app.asset_mgr.list_assets("prop"))
         self.cb_props.pack(fill="x")
         self.cb_props.bind("<<ComboboxSelected>>", self._on_prop_preset_select)
-        ttk.Entry(frame, textvariable=self.var_prop).pack(fill="x", pady=(5,0))
-        
-        ttk.Label(frame, text="Scale:").pack(anchor="w")
-        ttk.Scale(frame, from_=0.1, to=3.0, variable=self.var_prop_scale, command=lambda x: self._auto_save()).pack(fill="x")
-        ttk.Label(frame, text="Y-Shift:").pack(anchor="w")
-        ttk.Scale(frame, from_=-50, to=100, variable=self.var_prop_shift, command=lambda x: self._auto_save()).pack(fill="x")
         
         ttk.Button(frame, text="Clear Prop", command=self._clear_prop).pack(fill="x", pady=5)
         ttk.Button(frame, text="DELETE TILE", command=self._delete_tile).pack(fill="x", pady=20)
+        
+        ttk.Separator(frame).pack(fill="x", pady=5)
+        ttk.Checkbutton(frame, text="PAINT DELETE MODE", variable=self.var_paint_delete).pack(pady=10)
 
     def _build_level_inspector(self):
         frame = self.inspector_area
@@ -461,24 +462,33 @@ class MapTab(ttk.Frame):
         ttk.Label(frame, text="Click or Drag to set level").pack()
         
         self.var_level_paint = tk.IntVar(value=1)
+        def on_paint_scale(val):
+            self.var_level_paint.set(round(float(val)))
+            
         ttk.Label(frame, text="Target Level:").pack(anchor="w", pady=(10,0))
-        ttk.Scale(frame, from_=1, to=10, variable=self.var_level_paint, orient=tk.HORIZONTAL).pack(fill="x")
+        ttk.Scale(frame, from_=1, to=10, variable=self.var_level_paint, orient=tk.HORIZONTAL, command=on_paint_scale).pack(fill="x")
         ttk.Label(frame, textvariable=self.var_level_paint).pack()
         
     def _build_collision_inspector(self):
         frame = self.inspector_area
         ttk.Label(frame, text="Collision Editor", font=("Bold", 12)).pack(pady=10)
-        ttk.Label(frame, text="Click or Drag to set passability").pack()
         
-        self.var_collision_paint = tk.BooleanVar(value=True)
-        ttk.Checkbutton(frame, text="Is Passable?", variable=self.var_collision_paint).pack(pady=10)
-        ttk.Label(frame, text="Green = Passable\nRed = Blocked", foreground="#888").pack()
+        self.var_collision_mode = tk.StringVar(value="cursor")
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill="x", pady=2)
+        
+        ttk.Radiobutton(btn_frame, text="🖱️ Cursor", variable=self.var_collision_mode, value="cursor", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True, padx=1)
+        ttk.Radiobutton(btn_frame, text="Pass", variable=self.var_collision_mode, value="passable", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True, padx=1)
+        ttk.Radiobutton(btn_frame, text="Block", variable=self.var_collision_mode, value="unpassable", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True, padx=1)
 
     def _build_spawn_inspector(self):
         frame = self.inspector_area
         ttk.Label(frame, text="Spawn Editor", font=("Bold", 12)).pack(pady=10)
         self.var_spawn_paint = tk.BooleanVar(value=True)
         ttk.Checkbutton(frame, text="Is Spawn Point?", variable=self.var_spawn_paint).pack(pady=10)
+        
+        self.var_spawn_show_levels = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frame, text="Show Levels Overlay", variable=self.var_spawn_show_levels, command=self.render).pack(pady=10)
 
     def _build_monster_inspector(self):
         frame = self.inspector_area
@@ -497,10 +507,29 @@ class MapTab(ttk.Frame):
         self.canvas.bind("<Button-1>", self._on_click)
         self.canvas.bind("<B1-Motion>", self._on_click)
         self.canvas.bind("<Button-3>", self._on_right_click)
+        self.canvas.bind("<Enter>", lambda e: self.canvas.focus_set())
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel_v)
+        self.canvas.bind("<Shift-MouseWheel>", self._on_mousewheel_h)
+
+    def _on_mousewheel_v(self, event):
+        delta = event.delta
+        units = int(-1 * (delta / 120))
+        if units == 0 and delta != 0:
+            units = -1 if delta > 0 else 1
+        self.canvas.yview_scroll(units, "units")
+
+    def _on_mousewheel_h(self, event):
+        delta = event.delta
+        units = int(-1 * (delta / 120))
+        if units == 0 and delta != 0:
+            units = -1 if delta > 0 else 1
+        self.canvas.xview_scroll(units, "units")
 
     def refresh_libraries(self):
-        # Update logic if needed, already handled in builds
-        pass
+        if hasattr(self, 'cb_tiles') and self.cb_tiles.winfo_exists():
+            self.cb_tiles["values"] = self.app.asset_mgr.list_assets("tile")
+        if hasattr(self, 'cb_props') and self.cb_props.winfo_exists():
+            self.cb_props["values"] = self.app.asset_mgr.list_assets("prop")
 
     def render(self):
         self.canvas.delete("all")
@@ -522,6 +551,12 @@ class MapTab(ttk.Frame):
                 if not (0 < draw_x < Config.MAP_WIDTH and 0 < draw_y < Config.MAP_HEIGHT):
                     continue
                 tile_data = db_tiles.get((q, r_idx), {})
+                
+                # Apply level view filter
+                view_lvl = getattr(self, "var_level_view", None) and self.var_level_view.get()
+                if view_lvl and view_lvl > 0 and tile_data.get("level", 1) != view_lvl:
+                    continue
+
                 render_list.append((q, r_idx, draw_x, draw_y, tile_data))
 
         render_list.sort(key=lambda x: x[3])
@@ -530,11 +565,14 @@ class MapTab(ttk.Frame):
             is_selected = q == self.selected_q and r_idx == self.selected_r
             
             # Base Render
-            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected)
+            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected, mode)
             
             poly = HexEngine.get_hex_polygon(x, y)
 
             # OVERLAYS
+            if not data:
+                continue
+
             if mode == "Levels":
                 lvl = data.get("level", 1)
                 # Color map based on level
@@ -548,12 +586,24 @@ class MapTab(ttk.Frame):
             elif mode == "Collision":
                 passable = data.get("is_permanently_passable", 1)
                 color = "#00FF00" if passable else "#FF0000"
-                self.canvas.create_polygon(poly, fill=color, stipple="gray50", outline="")
+                self.canvas.create_polygon(poly, fill=color, stipple="gray12", outline="")
 
             elif mode == "Spawns":
+                if getattr(self, "var_spawn_show_levels", None) and self.var_spawn_show_levels.get():
+                    lvl = data.get("level", 1)
+                    colors = ["#444", "#336699", "#669933", "#ddaa33", "#993333", "#552255"]
+                    c_idx = min(lvl, len(colors)-1)
+                    c = colors[c_idx]
+                    if lvl > 0:
+                        self.canvas.create_polygon(poly, fill=c, stipple="gray50", outline="")
+                        self.canvas.create_text(x, y, text=str(lvl), fill="white", font=("Bold", 14))
+
                 if data.get("is_spawn"):
                     self.canvas.create_oval(x-10, y-10, x+10, y+10, fill="cyan", outline="white", width=2)
                     self.canvas.create_text(x, y+20, text=f"Lvl {data.get('level',1)}", fill="white")
+                    
+                if not data.get("is_permanently_passable", 1):
+                    self.canvas.create_polygon(poly, fill="#FF0000", stipple="gray25", outline="")
 
         # Monster Render (On top)
         if mode == "Monsters":
@@ -572,7 +622,9 @@ class MapTab(ttk.Frame):
         cy = self.canvas.canvasy(event.y)
         q, r = HexEngine.pixel_to_hex(cx - Config.CENTER_X, cy - Config.CENTER_Y)
 
-        if q != self.selected_q or r != self.selected_r:
+        target_changed = (q != self.selected_q or r != self.selected_r)
+
+        if target_changed:
             self.selected_q = q
             self.selected_r = r
             if hasattr(self, 'var_q'): # Check if standard inspector loaded
@@ -581,33 +633,43 @@ class MapTab(ttk.Frame):
         
         mode = self.view_mode.get()
         if mode == "Standard":
-            if q != self.selected_q or r != self.selected_r:
-                 existing = self.app.db.get_tile(q, r)
-                 if existing: self._load_into_inspector(existing)
-                 self.render() # Rerender to show selection
+            paint_del = getattr(self, "var_paint_delete", None) and self.var_paint_delete.get()
+            if paint_del:
+                self._delete_tile()
             elif self.var_paint_mode.get():
-                self._save_from_inspector()
-                self.render()
+                if self.var_tile.get():
+                    self._save_from_inspector()
+                    self.render()
+                elif target_changed:
+                    self.render()
+            elif target_changed:
+                 existing = self.app.db.get_tile(q, r)
+                 if existing: 
+                     self._load_into_inspector(existing)
+                 else:
+                     self._load_into_inspector({})
+                 self.render() # Rerender to show selection
                 
         elif mode == "Levels":
             # Direct Paint
-            data = {"q": q, "r": r, "level": self.var_level_paint.get()}
-            self.app.db.save_tile(data) # This might overwrite other fields if not careful? 
-            # save_tile checks conflicts. My SQL uses ON CONFLICT DO UPDATE SET... 
-            # Wait, save_tile parameters need all fields or they get NULL/Defaults if inserting new.
-            # If updating, I need to preserve existing.
-            # `save_tile` as written replaces everything or sets to provided value. 
-            # I should Fetch then Update.
             self._update_tile_safe(q, r, {"level": self.var_level_paint.get()})
             self.render()
 
         elif mode == "Collision":
-            self._update_tile_safe(q, r, {"is_permanently_passable": self.var_collision_paint.get()})
+            col_mode = getattr(self, "var_collision_mode", None) and self.var_collision_mode.get()
+            if col_mode == "passable":
+                self._update_tile_safe(q, r, {"is_permanently_passable": 1})
+            elif col_mode == "unpassable":
+                self._update_tile_safe(q, r, {"is_permanently_passable": 0})
             self.render()
 
         elif mode == "Spawns":
-            # For spawns, we might want to toggle? Or paint.
-            self._update_tile_safe(q, r, {"is_spawn": self.var_spawn_paint.get()})
+            is_painting_spawn = self.var_spawn_paint.get()
+            data = self.app.db.get_tile(q, r)
+            if is_painting_spawn and data and not data.get("is_permanently_passable", 1):
+                pass
+            else:
+                self._update_tile_safe(q, r, {"is_spawn": is_painting_spawn})
             self.render()
             
         elif mode == "Monsters":
@@ -643,76 +705,48 @@ class MapTab(ttk.Frame):
         data.update(changes)
         self.app.db.save_tile(data)
 
-    def refresh_libraries(self):
-        self.cb_tiles["values"] = self.app.asset_mgr.list_assets("tile")
-        self.cb_props["values"] = self.app.asset_mgr.list_assets("prop")
-
-    def render(self):
-        self.canvas.delete("all")
-        db_tiles = {(t["q"], t["r"]): t for t in self.app.db.get_all_tiles()}
-        cx, cy = Config.CENTER_X, Config.CENTER_Y
-        r_range = Config.GRID_RANGE
-
-        render_list = []
-        for q in range(-r_range, r_range + 1):
-            for r_idx in range(-r_range, r_range + 1):
-                if abs(q + r_idx) > r_range:
-                    continue
-                px, py = HexEngine.hex_to_pixel(q, r_idx)
-                draw_x, draw_y = cx + px, cy + py
-                if not (
-                    0 < draw_x < Config.MAP_WIDTH and 0 < draw_y < Config.MAP_HEIGHT
-                ):
-                    continue
-                tile_data = db_tiles.get((q, r_idx), {})
-                render_list.append((q, r_idx, draw_x, draw_y, tile_data))
-
-        render_list.sort(key=lambda x: x[3])
-        for q, r_idx, x, y, data in render_list:
-            is_selected = q == self.selected_q and r_idx == self.selected_r
-            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected)
-
-    def _on_click(self, event):
-        cx = self.canvas.canvasx(event.x)
-        cy = self.canvas.canvasy(event.y)
-        q, r = HexEngine.pixel_to_hex(cx - Config.CENTER_X, cy - Config.CENTER_Y)
-
-        if q != self.selected_q or r != self.selected_r:
-            self.selected_q = q
-            self.selected_r = r
-            self.var_q.set(str(q))
-            self.var_r.set(str(r))
-
-            if self.var_paint_mode.get():
-                self._save_from_inspector()
-            else:
-                existing = self.app.db.get_tile(q, r)
-                if existing:
-                    self._load_into_inspector(existing)
-                else:
-                    self.var_is_spawn.set(False)
-
-            self.render()
-
     def _load_into_inspector(self, data):
-        self.var_tile.set(data.get("texture_file", ""))
-        self.var_prop.set(data.get("prop_texture_file", ""))
+        tile_tex = data.get("texture_file", "")
+        prop_tex = data.get("prop_texture_file", "")
+        self.var_tile.set(tile_tex)
+        self.var_prop.set(prop_tex)
         self.var_prop_scale.set(data.get("prop_scale", 1.0))
         self.var_prop_shift.set(data.get("prop_y_shift", 0))
-        self.var_is_spawn.set(bool(data.get("is_spawn", 0)))
+
+        if hasattr(self, "cb_tiles"):
+            self.cb_tiles.set("")
+            if tile_tex:
+                for fname in self.cb_tiles["values"]:
+                    jdata = self.app.asset_mgr.load_json("tile", fname)
+                    if jdata.get("texture_file", "") == tile_tex:
+                        self.cb_tiles.set(fname)
+                        break
+
+        if hasattr(self, "cb_props"):
+            self.cb_props.set("")
+            if prop_tex:
+                for fname in self.cb_props["values"]:
+                    jdata = self.app.asset_mgr.load_json("prop", fname)
+                    if jdata.get("texture_file", "") == prop_tex:
+                        self.cb_props.set(fname)
+                        break
 
     def _save_from_inspector(self):
-        data = {
-            "q": self.selected_q,
-            "r": self.selected_r,
+        tile_tex = self.var_tile.get()
+        prop_tex = self.var_prop.get()
+
+        if not tile_tex and prop_tex:
+            prop_tex = ""
+            self.var_prop.set("")
+
+        changes = {
             "tile_type": "grass",
-            "texture_file": self.var_tile.get(),
-            "prop_texture_file": self.var_prop.get(),
+            "texture_file": tile_tex,
+            "prop_texture_file": prop_tex,
             "prop_scale": self.var_prop_scale.get(),
             "prop_y_shift": self.var_prop_shift.get(),
-            "is_spawn": self.var_is_spawn.get(),
         }
-        self.app.db.save_tile(data)
+        self._update_tile_safe(self.selected_q, self.selected_r, changes)
 
     def _auto_save(self):
         self._save_from_inspector()
@@ -737,6 +771,11 @@ class MapTab(ttk.Frame):
         self.render()
 
     def _on_prop_preset_select(self, event):
+        if not self.var_tile.get():
+            self.app.show_toast("Cannot add a prop to an empty tile. Add a base terrain tile first.")
+            self.cb_props.set("")
+            return
+            
         fname = self.cb_props.get()
         data = self.app.asset_mgr.load_json("prop", fname)
         self.var_prop.set(data.get("texture_file", ""))
@@ -752,6 +791,7 @@ class MapTab(ttk.Frame):
 
     def _delete_tile(self):
         self.app.db.delete_tile(self.selected_q, self.selected_r)
+        self.app.db.delete_monsters_at(self.selected_q, self.selected_r)
         self.render()
 
 
@@ -784,12 +824,22 @@ class LibraryTab(ttk.Frame):
                 value=c,
                 command=self._on_category_change,
             ).pack(side=tk.LEFT)
-        ttk.Label(self.ctrl, text="Load / Create File:", font=("Bold", 10)).pack(
-            anchor="w", pady=(15, 0)
-        )
-        self.cb_files = ttk.Combobox(self.ctrl)
-        self.cb_files.pack(fill="x")
+
+        self.var_action_mode = tk.StringVar(value="new")
+        f_action = ttk.Frame(self.ctrl)
+        f_action.pack(fill="x", pady=(10, 5))
+        ttk.Radiobutton(f_action, text="Make new", variable=self.var_action_mode, value="new", style="Toolbutton", command=self._on_action_mode_change).pack(side=tk.LEFT, expand=True, fill="x", padx=1)
+        ttk.Radiobutton(f_action, text="Modify existing", variable=self.var_action_mode, value="modify", style="Toolbutton", command=self._on_action_mode_change).pack(side=tk.LEFT, expand=True, fill="x", padx=1)
+
+        self.file_input_frame = ttk.Frame(self.ctrl)
+        self.file_input_frame.pack(fill="x", pady=5)
+        self.lbl_file = ttk.Label(self.file_input_frame, text="New Asset Name:", font=("Bold", 10))
+        self.lbl_file.pack(anchor="w")
+
+        self.entry_new_file = ttk.Entry(self.file_input_frame)
+        self.cb_files = ttk.Combobox(self.file_input_frame, state="readonly")
         self.cb_files.bind("<<ComboboxSelected>>", self._load_file)
+
         self.prop_frame = ttk.LabelFrame(self.ctrl, text="Properties", padding=5)
         self.prop_frame.pack(fill="both", expand=True, pady=10)
         ttk.Button(self.ctrl, text="SAVE ASSET", command=self._save_asset).pack(
@@ -801,8 +851,39 @@ class LibraryTab(ttk.Frame):
         ttk.Label(self.prev_frame, text="Live Preview", font=("Bold", 12)).pack()
         self.canvas = Canvas(self.prev_frame, bg="#303030")
         self.canvas.pack(fill="both", expand=True)
+
+        self._on_action_mode_change()
         self._build_prop_ui()
         self._refresh_list()
+
+    def _on_action_mode_change(self):
+        mode = self.var_action_mode.get()
+        if mode == "new":
+            self.cb_files.pack_forget()
+            self.lbl_file.config(text="New Asset Name:")
+            self.entry_new_file.pack(fill="x")
+            self._clear_properties()
+        else:
+            self.entry_new_file.pack_forget()
+            self.lbl_file.config(text="Load Existing Asset:")
+            self.cb_files.pack(fill="x")
+            self._refresh_list()
+
+    def _clear_properties(self):
+        if hasattr(self, 'anim_data'):
+            self.anim_data = {}
+        if hasattr(self, 'var_tex') and self.var_tex:
+            self.var_tex.set("")
+        if hasattr(self, 'var_scale') and self.var_scale:
+            self.var_scale.set(1.0)
+        if hasattr(self, 'var_shift') and self.var_shift:
+            self.var_shift.set(0)
+        if hasattr(self, 'lb_anims') and self.lb_anims:
+            self.lb_anims.delete(0, tk.END)
+        if hasattr(self, 'entry_new_file') and self.entry_new_file.winfo_exists():
+            self.entry_new_file.delete(0, tk.END)
+        self.canvas.delete("all")
+        self._stop_anim()
 
     def _on_category_change(self):
         self._stop_anim()
@@ -811,6 +892,7 @@ class LibraryTab(ttk.Frame):
             self._build_anim_ui()
         else:
             self._build_prop_ui()
+        self._on_action_mode_change()
         self._refresh_list()
 
     def _build_prop_ui(self):
@@ -915,8 +997,9 @@ class LibraryTab(ttk.Frame):
         )
 
     def _refresh_list(self):
-        self.cb_files["values"] = self.app.asset_mgr.list_assets(self.var_cat.get())
-        self.cb_files.set("")
+        if hasattr(self, 'cb_files') and self.cb_files.winfo_exists():
+            self.cb_files["values"] = self.app.asset_mgr.list_assets(self.var_cat.get())
+            self.cb_files.set("")
         self.canvas.delete("all")
 
     def _load_file(self, event=None):
@@ -1085,9 +1168,16 @@ class LibraryTab(ttk.Frame):
         self.anim_timer = self.after(150, self._anim_loop)  # 150ms per frame
 
     def _save_asset(self):
-        name = self.cb_files.get()
+        mode = self.var_action_mode.get()
+        if mode == "new":
+            name = getattr(self, "entry_new_file", None) and self.entry_new_file.get()
+        else:
+            name = getattr(self, "cb_files", None) and self.cb_files.get()
+            
         if not name:
+            self.app.show_toast("Please specify an asset name.")
             return
+
         cat = self.var_cat.get()
 
         if cat in ["monster", "player"]:
@@ -1103,7 +1193,7 @@ class LibraryTab(ttk.Frame):
             }
 
         self.app.asset_mgr.save_json(cat, name, data)
-        messagebox.showinfo("Success", f"Saved {name}.json")
+        self.app.show_toast(f"Saved {name}.json")
         self._refresh_list()
         self.app.map_tab.refresh_libraries()
 
@@ -1124,6 +1214,41 @@ class MainApp:
         self.notebook.add(self.lib_tab, text="Asset Library")
         self.map_tab.refresh_libraries()
         self.map_tab.render()
+
+    def show_toast(self, message):
+        toast = tk.Toplevel(self.root)
+        toast.overrideredirect(True)
+        toast.attributes("-alpha", 0.0)
+        toast.configure(bg="#333333")
+        
+        lbl = tk.Label(toast, text=message, fg="white", bg="#333333", font=("Arial", 10, "bold"), padx=15, pady=10)
+        lbl.pack()
+        
+        self.root.update_idletasks()
+        w = toast.winfo_width()
+        h = toast.winfo_height()
+        
+        x = self.root.winfo_x() + self.root.winfo_width() - w - 20
+        y = self.root.winfo_y() + 20
+        toast.geometry(f"+{x}+{y}")
+        
+        def fade_in(alpha=0.0):
+            if alpha < 0.9:
+                alpha += 0.1
+                toast.attributes("-alpha", alpha)
+                self.root.after(20, lambda: fade_in(alpha))
+            else:
+                self.root.after(2000, fade_out)
+                
+        def fade_out(alpha=0.9):
+            if alpha > 0.0:
+                alpha -= 0.1
+                toast.attributes("-alpha", alpha)
+                self.root.after(30, lambda: fade_out(alpha))
+            else:
+                toast.destroy()
+                
+        fade_in()
 
 
 if __name__ == "__main__":

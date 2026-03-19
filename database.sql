@@ -1,7 +1,7 @@
 -- ==========================================
 -- 1. CORE SESSION MANAGEMENT (3 SAVE SLOTS)
 -- ==========================================
-CREATE TABLE game_sessions (
+CREATE TABLE IF NOT EXISTS game_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     slot_number INTEGER UNIQUE CHECK (slot_number BETWEEN 1 AND 3),
     save_name TEXT DEFAULT 'New Game',
@@ -16,7 +16,7 @@ CREATE TABLE game_sessions (
 -- ==========================================
 -- 2. MASTER MAP DATA (THE PREMADE WORLD)
 -- ==========================================
-CREATE TABLE map_tiles (
+CREATE TABLE IF NOT EXISTS map_tiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     q INTEGER NOT NULL, -- Axial Column
     r INTEGER NOT NULL, -- Axial Row
@@ -37,7 +37,7 @@ CREATE TABLE map_tiles (
 -- 3. SESSION STATE (PROGRESS PER SAVE SLOT)
 -- ==========================================
 -- This table tracks what is conquered or unlocked in a specific save slot.
-CREATE TABLE session_world_state (
+CREATE TABLE IF NOT EXISTS session_world_state (
     session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
     tile_id INTEGER REFERENCES map_tiles(id) ON DELETE CASCADE,
     is_discovered BOOLEAN DEFAULT 0, -- Fog of war logic
@@ -50,7 +50,7 @@ CREATE TABLE session_world_state (
 -- ==========================================
 -- 4. PLAYER STATUS
 -- ==========================================
-CREATE TABLE player_state (
+CREATE TABLE IF NOT EXISTS player_state (
     session_id INTEGER PRIMARY KEY REFERENCES game_sessions(id) ON DELETE CASCADE,
     current_q INTEGER NOT NULL,
     current_r INTEGER NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE player_state (
     FOREIGN KEY (current_q, current_r) REFERENCES map_tiles(q, r)
 );
 
-CREATE TABLE monsters (
+CREATE TABLE IF NOT EXISTS monsters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     current_q INTEGER NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE monsters (
 -- ==========================================
 -- 5. ITEMS & INVENTORY
 -- ==========================================
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
@@ -102,7 +102,7 @@ CREATE TABLE items (
     power_bonus INTEGER DEFAULT 0 -- For artifacts that boost conquest stats
 );
 
-CREATE TABLE inventory (
+CREATE TABLE IF NOT EXISTS inventory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
     item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
@@ -114,7 +114,7 @@ CREATE TABLE inventory (
 -- 6. AUTOMATION (TRIGGERS)
 -- ==========================================
 -- Automatically updates the 'last_saved' timestamp when player state changes
-CREATE TRIGGER update_save_time
+CREATE TRIGGER IF NOT EXISTS update_save_time
 AFTER UPDATE ON player_state
 BEGIN
     UPDATE game_sessions 
