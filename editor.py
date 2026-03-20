@@ -175,17 +175,18 @@ class AssetManager:
                             tex = data["animations"].get("idle", {}).get("texture")
                         if tex:
                             s = data.get("prop_scale") or data.get("scale", 1.0)
+                            x = data.get("prop_x_shift") or data.get("x_shift", 0)
                             y = data.get("prop_y_shift") or data.get("y_shift", 0)
-                            self.texture_layout_map[tex] = (float(s), int(y))
+                            self.texture_layout_map[tex] = (float(s), int(x), int(y))
                 except Exception as e:
                     print(f"Error reading {fname}: {e}")
 
     def get_asset_layout(self, texture_file):
         if not texture_file:
-            return 1.0, 0
+            return 1.0, 0, 0
         if texture_file in self.texture_layout_map:
             return self.texture_layout_map[texture_file]
-        return 1.0, 0
+        return 1.0, 0, 0
 
     def get_tk_image(self, filename, scale=1.0):
         if not filename:
@@ -321,22 +322,24 @@ class Renderer:
         tex = tile_data.get("texture_file")
         if tex:
             t_scale = tile_data.get("tile_scale")
-            t_shift = tile_data.get("tile_y_shift")
+            t_x_shift = tile_data.get("tile_x_shift")
+            t_y_shift = tile_data.get("tile_y_shift")
             if t_scale is None:
-                t_scale, t_shift = self.am.get_asset_layout(tex)
+                t_scale, t_x_shift, t_y_shift = self.am.get_asset_layout(tex)
             img = self.am.get_tk_image(tex, scale=t_scale)
             if img:
                 canvas.create_image(
-                    cx, cy - Config.CALIB_OFFSET_Y - t_shift, image=img, tags="hex_art"
+                    cx + t_x_shift, cy - Config.CALIB_OFFSET_Y - t_y_shift, image=img, tags="hex_art"
                 )
         p_tex = tile_data.get("prop_texture_file")
         if p_tex:
             p_scale = tile_data.get("prop_scale", 1.0)
-            p_shift = tile_data.get("prop_y_shift", 0)
+            p_x_shift = tile_data.get("prop_x_shift", 0)
+            p_y_shift = tile_data.get("prop_y_shift", 0)
             img = self.am.get_tk_image(p_tex, scale=p_scale)
             if img:
                 canvas.create_image(
-                    cx, cy - Config.CALIB_OFFSET_Y - p_shift, image=img, tags="hex_prop"
+                    cx + p_x_shift, cy - Config.CALIB_OFFSET_Y - p_y_shift, image=img, tags="hex_prop"
                 )
         outline = "red" if selected else "#555"
         width = 2 if selected else 1
@@ -904,9 +907,58 @@ class LibraryTab(ttk.Frame):
         self.anim_running = False
         self.current_frame = 0
         self.anim_timer = None
-        self.anim_data = {}  # Holds the data being edited
+        self._vars_initialized = False
+        self._init_vars()
 
         self._setup_ui()
+
+    def _init_vars(self):
+        if self._vars_initialized:
+            return
+        
+        self.anim_data = {}
+        self.is_loading = False
+
+        # Shared (Prop/Tile/Anim)
+        self.var_tex = tk.StringVar()
+        self.var_scale = tk.DoubleVar(value=1.0)
+        self.var_shift = tk.IntVar(value=0)
+        self.var_x_shift = tk.IntVar(value=0)
+        
+        # Animation Specific
+        self.var_anim_tex = tk.StringVar()
+        self.var_anim_fw = tk.IntVar(value=32)
+        self.var_anim_fh = tk.IntVar(value=32)
+        self.var_anim_count = tk.IntVar(value=1)
+        
+        # Item Specific
+        self.var_item_type = tk.StringVar()
+        self.var_item_tex = tk.StringVar()
+        self.var_item_crop_x = tk.IntVar(value=0)
+        self.var_item_crop_y = tk.IntVar(value=0)
+        self.var_item_crop_size = tk.IntVar(value=32)
+        self.var_item_desc = tk.StringVar()
+        self.var_item_weight = tk.IntVar(value=1)
+        self.var_item_base_damage = tk.IntVar(value=0)
+        self.var_item_defense = tk.IntVar(value=0)
+        self.var_item_max_durability = tk.IntVar(value=100)
+        self.var_item_healing = tk.IntVar(value=0)
+        self.var_item_hunger = tk.IntVar(value=0)
+        self.var_item_power = tk.IntVar(value=0)
+
+        # Traces
+        for v in [self.var_tex, self.var_scale, self.var_shift, self.var_x_shift]:
+            v.trace_add("write", lambda *a: self._update_preview_static())
+            
+        for v in [self.var_anim_tex, self.var_anim_fw, self.var_anim_fh, self.var_anim_count, self.var_scale, self.var_shift, self.var_x_shift]:
+            v.trace_add("write", lambda *a: self._on_anim_data_change())
+            
+        for v in [self.var_item_tex, self.var_item_crop_x, self.var_item_crop_y, self.var_item_crop_size]:
+            v.trace_add("write", lambda *a: self._update_item_preview())
+            
+        self.var_item_type.trace_add("write", self._update_item_dynamic_fields)
+        
+        self._vars_initialized = True
 
     def _setup_ui(self):
         paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -948,6 +1000,12 @@ class LibraryTab(ttk.Frame):
         self.cb_files = ttk.Combobox(self.file_input_frame, state="readonly")
         self.cb_files.bind("<<ComboboxSelected>>", self._load_file)
 
+        # Item Type selection (shown only for Item category)
+        self.f_item_type = ttk.Frame(self.file_input_frame)
+        ttk.Label(self.f_item_type, text="Item Type:", font=("Bold", 10)).pack(anchor="w")
+        self.cb_item_type = ttk.Combobox(self.f_item_type, textvariable=self.var_item_type, state="readonly")
+        self.cb_item_type.pack(fill="x")
+
         self.prop_frame = ttk.LabelFrame(self.ctrl, text="Properties", padding=5)
         self.prop_frame.pack(fill="both", expand=True, pady=10)
         ttk.Button(self.ctrl, text="SAVE ASSET", command=self._save_asset).pack(
@@ -956,7 +1014,11 @@ class LibraryTab(ttk.Frame):
         self.prev_frame = ttk.Frame(paned, padding=10)
         paned.add(self.prev_frame, weight=2)
 
-        ttk.Label(self.prev_frame, text="Live Preview", font=("Bold", 12)).pack()
+        self.lbl_sheet = ttk.Label(self.prev_frame, text="Sprite Sheet Preview", font=("Bold", 10))
+        self.sheet_canvas = Canvas(self.prev_frame, bg="#151515", height=200)
+
+        self.lbl_anim = ttk.Label(self.prev_frame, text="Live Animation Preview", font=("Bold", 12))
+        self.lbl_anim.pack()
         self.canvas = Canvas(self.prev_frame, bg="#303030")
         self.canvas.pack(fill="both", expand=True)
 
@@ -964,10 +1026,15 @@ class LibraryTab(ttk.Frame):
         self._build_prop_ui()
         self._refresh_list()
 
-    def _on_action_mode_change(self):
+    def _on_action_mode_change(self, select_name=None):
         mode = self.var_action_mode.get()
+        is_item = self.var_cat.get() == "item"
+        
+        # requested layout: load -> item type -> new
         if mode == "new":
             self.cb_files.pack_forget()
+            if is_item:
+                self.f_item_type.pack(fill="x", pady=5)
             self.lbl_file.config(text="New Asset Name:")
             self.entry_new_file.pack(fill="x")
             self._clear_properties()
@@ -975,7 +1042,9 @@ class LibraryTab(ttk.Frame):
             self.entry_new_file.pack_forget()
             self.lbl_file.config(text="Load Existing Asset:")
             self.cb_files.pack(fill="x")
-            self._refresh_list()
+            if is_item:
+                self.f_item_type.pack(fill="x", pady=5)
+            self._refresh_list(select_name=select_name)
 
     def _clear_properties(self):
         if hasattr(self, 'anim_data'):
@@ -988,8 +1057,22 @@ class LibraryTab(ttk.Frame):
             self.var_scale.set(1.0)
         if hasattr(self, 'var_shift') and self.var_shift:
             self.var_shift.set(0)
+        if hasattr(self, 'var_x_shift') and self.var_x_shift:
+            self.var_x_shift.set(0)
         if hasattr(self, 'lb_anims') and self.lb_anims and self.lb_anims.winfo_exists():
             self.lb_anims.delete(0, tk.END)
+            self.lb_anims.insert(tk.END, "idle")
+            self.lb_anims.insert(tk.END, "move")
+            self.lb_anims.insert(tk.END, "attack")
+            
+            if "animations" not in self.anim_data:
+                self.anim_data["animations"] = {}
+            for k in ["idle", "move", "attack"]:
+                self.anim_data["animations"][k] = {"texture": "", "fw": 32, "fh": 32, "count": 1}
+            
+            self.lb_anims.selection_set(0) # Select "idle"
+            self._update_anim_list_colors()
+            self._on_anim_select(None)
             
         if hasattr(self, 'var_item_tex') and self.var_item_tex:
             self.var_item_tex.set("")
@@ -1010,33 +1093,56 @@ class LibraryTab(ttk.Frame):
         if hasattr(self, 'entry_new_file') and self.entry_new_file.winfo_exists():
             self.entry_new_file.delete(0, tk.END)
         self.canvas.delete("all")
+        if hasattr(self, 'sheet_canvas'):
+            self.sheet_canvas.delete("all")
         self._stop_anim()
 
     def _on_category_change(self):
         self._stop_anim()
         cat = self.var_cat.get()
+        
+        # Reset visibility
+        self.lbl_sheet.pack_forget()
+        self.sheet_canvas.pack_forget()
+        self.lbl_anim.pack_forget()
+        self.canvas.pack_forget()
+
         if cat == "item":
             self.f_cat_btns.pack(fill="x", pady=(5,0), before=self.prop_frame)
+            cats = self.app.asset_mgr.load_item_categories()
+            self.cb_item_type["values"] = list(cats.keys())
+            if not self.var_item_type.get() and cats:
+                self.var_item_type.set(list(cats.keys())[0])
+            self.f_item_type.pack(fill="x", pady=5)
             self._build_item_ui()
+            self.lbl_anim.pack()
+            self.canvas.pack(fill="both", expand=True)
         else:
             self.f_cat_btns.pack_forget()
+            self.f_item_type.pack_forget()
             if cat in ["monster", "player"]:
+                self.lbl_sheet.pack(anchor="w")
+                self.sheet_canvas.pack(fill="x", pady=(0, 10))
+                self.lbl_anim.config(text="Live Animation Preview")
+                self.lbl_anim.pack()
+                self.canvas.pack(fill="both", expand=True)
                 self._build_anim_ui()
+                self._start_anim_loop()
             else:
+                self.lbl_anim.config(text="Live Preview")
+                self.lbl_anim.pack()
+                self.canvas.pack(fill="both", expand=True)
                 self._build_prop_ui()
+
+        if self.var_action_mode.get() == "new":
+            self._clear_properties()
+        
         self._on_action_mode_change()
         self._refresh_list()
 
     def _build_prop_ui(self):
         for widget in self.prop_frame.winfo_children():
             widget.destroy()
-
-        self.var_tex = tk.StringVar()
-        self.var_scale = tk.DoubleVar(value=1.0)
-        self.var_shift = tk.IntVar(value=0)
-
-        for v in [self.var_tex, self.var_scale, self.var_shift]:
-            v.trace_add("write", lambda *a: self._update_preview_static())
 
         ttk.Label(self.prop_frame, text="Texture:").pack(anchor="w")
         h = ttk.Frame(self.prop_frame)
@@ -1061,39 +1167,26 @@ class LibraryTab(ttk.Frame):
     def _build_anim_ui(self):
         for widget in self.prop_frame.winfo_children():
             widget.destroy()
-        self.var_scale = tk.DoubleVar(value=1.0)
-        self.var_shift = tk.IntVar(value=0)
-        ttk.Label(self.prop_frame, text="Animations:", font=("Bold", 9)).pack(
-            anchor="w"
-        )
-
-        list_frame = ttk.Frame(self.prop_frame)
-        list_frame.pack(fill="x", pady=5)
-
-        self.lb_anims = tk.Listbox(list_frame, height=4)
+            
+        ttk.Label(self.prop_frame, text="Animations:", font=("Bold", 9)).pack(anchor="w")
+        
+        f_anims = ttk.Frame(self.prop_frame)
+        f_anims.pack(fill="x", pady=5)
+        self.lb_anims = tk.Listbox(f_anims, height=4, exportselection=False)
         self.lb_anims.pack(side=tk.LEFT, fill="x", expand=True)
         self.lb_anims.bind("<<ListboxSelect>>", self._on_anim_select)
 
-        btn_frame = ttk.Frame(list_frame)
+        sc = ttk.Scrollbar(f_anims, orient=tk.VERTICAL, command=self.lb_anims.yview)
+        sc.pack(side=tk.RIGHT, fill="y")
+        self.lb_anims.config(yscrollcommand=sc.set)
+
+        btn_frame = ttk.Frame(f_anims)
         btn_frame.pack(side=tk.LEFT, fill="y")
         ttk.Button(btn_frame, text="+", width=3, command=self._add_anim).pack()
         ttk.Button(btn_frame, text="-", width=3, command=self._del_anim).pack()
 
         ttk.Separator(self.prop_frame).pack(fill="x", pady=5)
-        self.var_anim_tex = tk.StringVar()
-        self.var_anim_fw = tk.IntVar(value=32)  # Weight/Width
-        self.var_anim_fh = tk.IntVar(value=32)  # Height
-        self.var_anim_count = tk.IntVar(value=1)
-        for v in [
-            self.var_anim_tex,
-            self.var_anim_fw,
-            self.var_anim_fh,
-            self.var_anim_count,
-            self.var_scale,
-            self.var_shift,
-        ]:
-            v.trace_add("write", lambda *a: self._on_anim_data_change())
-
+        
         ttk.Label(self.prop_frame, text="Sprite Sheet:").pack(anchor="w")
         h = ttk.Frame(self.prop_frame)
         h.pack(fill="x")
@@ -1107,14 +1200,19 @@ class LibraryTab(ttk.Frame):
         grid = ttk.Frame(self.prop_frame)
         grid.pack(fill="x", pady=5)
 
+        grid.columnconfigure(2, weight=1)
+
         ttk.Label(grid, text="Frame Width:").grid(row=0, column=0, sticky="w")
-        ttk.Entry(grid, textvariable=self.var_anim_fw, width=5).grid(row=0, column=1)
+        ttk.Entry(grid, textvariable=self.var_anim_fw, width=5).grid(row=0, column=1, padx=2)
+        ttk.Scale(grid, from_=8, to=256, variable=self.var_anim_fw, orient=tk.HORIZONTAL, command=lambda v: self.var_anim_fw.set(round(float(v)))).grid(row=0, column=2, sticky="we")
 
         ttk.Label(grid, text="Frame Height:").grid(row=1, column=0, sticky="w")
-        ttk.Entry(grid, textvariable=self.var_anim_fh, width=5).grid(row=1, column=1)
+        ttk.Entry(grid, textvariable=self.var_anim_fh, width=5).grid(row=1, column=1, padx=2)
+        ttk.Scale(grid, from_=8, to=256, variable=self.var_anim_fh, orient=tk.HORIZONTAL, command=lambda v: self.var_anim_fh.set(round(float(v)))).grid(row=1, column=2, sticky="we")
 
         ttk.Label(grid, text="Image Count:").grid(row=2, column=0, sticky="w")
-        ttk.Entry(grid, textvariable=self.var_anim_count, width=5).grid(row=2, column=1)
+        ttk.Entry(grid, textvariable=self.var_anim_count, width=5).grid(row=2, column=1, padx=2)
+        ttk.Scale(grid, from_=1, to=64, variable=self.var_anim_count, orient=tk.HORIZONTAL, command=lambda v: self.var_anim_count.set(round(float(v)))).grid(row=2, column=2, sticky="we")
 
         ttk.Separator(self.prop_frame).pack(fill="x", pady=5)
 
@@ -1123,12 +1221,29 @@ class LibraryTab(ttk.Frame):
             fill="x"
         )
 
+        ttk.Label(self.prop_frame, text="Global X-Shift:").pack(anchor="w")
+        ttk.Scale(self.prop_frame, from_=-50, to=100, variable=self.var_x_shift).pack(
+            fill="x"
+        )
+
         ttk.Label(self.prop_frame, text="Global Y-Shift:").pack(anchor="w")
         ttk.Scale(self.prop_frame, from_=-50, to=100, variable=self.var_shift).pack(
             fill="x"
         )
 
+    def _reset_item_stats(self):
+        self.var_item_weight.set(1)
+        self.var_item_base_damage.set(0)
+        self.var_item_defense.set(0)
+        self.var_item_max_durability.set(100)
+        self.var_item_healing.set(0)
+        self.var_item_hunger.set(0)
+        self.var_item_power.set(0)
+
     def _update_item_dynamic_fields(self, *args):
+        if not self.is_loading:
+            self._reset_item_stats()
+            
         cat_name = self.var_item_type.get()
         cats = self.app.asset_mgr.load_item_categories()
         active_props = cats.get(cat_name, [])
@@ -1295,29 +1410,59 @@ class LibraryTab(ttk.Frame):
             widget.destroy()
 
         self.item_data = getattr(self, "item_data", {})
-        cats = self.app.asset_mgr.load_item_categories()
         
-        self.var_item_tex = tk.StringVar()
-        self.var_item_crop_x = tk.IntVar(value=0)
-        self.var_item_crop_y = tk.IntVar(value=0)
-        self.var_item_crop_size = tk.IntVar(value=32)
+        self._update_item_dynamic_fields()
+
+        style = ttk.Style()
+        bg_color = style.lookup("TFrame", "background") or "#f0f0f0"
         
-        self.var_item_desc = tk.StringVar()
-        self.var_item_type = tk.StringVar(value=list(cats.keys())[0] if cats else "")
-        # Removing `var_item_slot` from per-item basis
+        canvas = tk.Canvas(self.prop_frame, highlightthickness=0, bg=bg_color)
+        scrollbar = ttk.Scrollbar(self.prop_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(window_id, width=e.width))
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
-        self.var_item_weight = tk.IntVar(value=1)
-        self.var_item_base_damage = tk.IntVar(value=0)
-        self.var_item_defense = tk.IntVar(value=0)
-        self.var_item_max_durability = tk.IntVar(value=100)
-        self.var_item_healing = tk.IntVar(value=0)
-        self.var_item_hunger = tk.IntVar(value=0)
-        self.var_item_power = tk.IntVar(value=0)
+        row = 0
+        ttk.Label(scrollable_frame, text="Description:").grid(row=row, column=0, sticky="w")
+        ttk.Entry(scrollable_frame, textvariable=self.var_item_desc).grid(row=row, column=1, sticky="we"); row+=1
 
-        for v in [self.var_item_tex, self.var_item_crop_x, self.var_item_crop_y, self.var_item_crop_size]:
-            v.trace_add("write", lambda *a: self._update_item_preview())
+        self.dynamic_widgets = {}
 
-        self.var_item_type.trace_add("write", self._update_item_dynamic_fields)
+        lbl = ttk.Label(scrollable_frame, text="Weight:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_weight)
+        self.dynamic_widgets["weight"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Base Damage:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_base_damage)
+        self.dynamic_widgets["base_damage"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Defense:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_defense)
+        self.dynamic_widgets["defense"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Max Durability:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_max_durability)
+        self.dynamic_widgets["max_durability"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Healing:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_healing)
+        self.dynamic_widgets["healing_amount"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Hunger Restore:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_hunger)
+        self.dynamic_widgets["hunger_restore"] = (lbl, ent, row); row+=1
+
+        lbl = ttk.Label(scrollable_frame, text="Power Bonus:")
+        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_power)
+        self.dynamic_widgets["power_bonus"] = (lbl, ent, row); row+=1
+
+        self._update_item_dynamic_fields()
 
         style = ttk.Style()
         bg_color = style.lookup("TFrame", "background") or "#f0f0f0"
@@ -1354,10 +1499,6 @@ class LibraryTab(ttk.Frame):
 
         ttk.Label(scrollable_frame, text="Description:").grid(row=row, column=0, sticky="w")
         ttk.Entry(scrollable_frame, textvariable=self.var_item_desc).grid(row=row, column=1, sticky="we"); row+=1
-
-        ttk.Label(scrollable_frame, text="Item Type:").grid(row=row, column=0, sticky="w")
-        self.cb_item_type = ttk.Combobox(scrollable_frame, textvariable=self.var_item_type, values=list(cats.keys()), state="readonly")
-        self.cb_item_type.grid(row=row, column=1, sticky="we"); row+=1
 
         self.dynamic_widgets = {}
 
@@ -1428,64 +1569,72 @@ class LibraryTab(ttk.Frame):
         except:
             pass
 
-    def _refresh_list(self):
+    def _refresh_list(self, select_name=None):
         if hasattr(self, 'cb_files') and self.cb_files.winfo_exists():
-            self.cb_files["values"] = self.app.asset_mgr.list_assets(self.var_cat.get())
-            self.cb_files.set("")
-        self.canvas.delete("all")
+            assets = self.app.asset_mgr.list_assets(self.var_cat.get())
+            self.cb_files["values"] = assets
+            if select_name and select_name in assets:
+                self.cb_files.set(select_name)
+            else:
+                self.cb_files.set("")
+                self.canvas.delete("all")
 
     def _load_file(self, event=None):
-        name = self.cb_files.get()
-        if not name:
-            return
-        data = self.app.asset_mgr.load_json(self.var_cat.get(), name)
+        self.is_loading = True
+        try:
+            name = self.cb_files.get()
+            if not name:
+                return
+            data = self.app.asset_mgr.load_json(self.var_cat.get(), name)
 
-        cat = self.var_cat.get()
-        if cat in ["monster", "player"]:
-            self.anim_data = data
-            self.var_scale.set(data.get("scale", 1.0))
-            self.var_shift.set(data.get("y_shift", 0))
-            self.lb_anims.delete(0, tk.END)
-            anims = data.get("animations", {})
-            for k in anims.keys():
-                self.lb_anims.insert(tk.END, k)
-            if "idle" in anims:
-                idx = self.lb_anims.get(0, tk.END).index("idle")
-                self.lb_anims.selection_set(idx)
-                self._on_anim_select(None)
-            elif anims:
-                self.lb_anims.selection_set(0)
-                self._on_anim_select(None)
+            cat = self.var_cat.get()
+            if cat in ["monster", "player"]:
+                self.anim_data = data
+                self.var_scale.set(data.get("scale", 1.0))
+                self.var_x_shift.set(data.get("x_shift", 0))
+                self.var_shift.set(data.get("y_shift", 0))
+                self.lb_anims.delete(0, tk.END)
+                anims = data.get("animations", {})
+                for k in anims.keys():
+                    self.lb_anims.insert(tk.END, k)
+                self._update_anim_list_colors()
+                if "idle" in anims:
+                    idx = self.lb_anims.get(0, tk.END).index("idle")
+                    self.lb_anims.selection_set(idx)
+                    self._on_anim_select(None)
+                elif anims:
+                    self.lb_anims.selection_set(0)
+                    self._on_anim_select(None)
 
-            self._start_anim_loop()
+                self._start_anim_loop()
 
-        elif cat == "item":
-            self.item_data = data
-            if hasattr(self, "var_item_tex"):
-                self.var_item_tex.set(data.get("texture_file", ""))
-                self.var_item_crop_x.set(data.get("crop_x", 0))
-                self.var_item_crop_y.set(data.get("crop_y", 0))
-                self.var_item_crop_size.set(data.get("crop_size", 32))
-                self.var_item_desc.set(data.get("description", ""))
-                cats = self.app.asset_mgr.load_item_categories() if hasattr(self, 'app') else {}
-                fallback = list(cats.keys())[0] if cats else ""
-                self.var_item_type.set(data.get("item_type", fallback))
-                if hasattr(self, "var_item_slot"):
-                    self.var_item_slot.set(data.get("slot", fallback))
-                self.var_item_weight.set(data.get("weight", 1))
-                self.var_item_base_damage.set(data.get("base_damage", 0))
-                self.var_item_defense.set(data.get("defense", 0))
-                self.var_item_max_durability.set(data.get("max_durability", 100))
-                self.var_item_healing.set(data.get("healing_amount", 0))
-                self.var_item_hunger.set(data.get("hunger_restore", 0))
-                self.var_item_power.set(data.get("power_bonus", 0))
-                self._update_item_preview()
+            elif cat == "item":
+                self.item_data = data
+                if hasattr(self, "var_item_tex"):
+                    self.var_item_tex.set(data.get("texture_file", ""))
+                    self.var_item_crop_x.set(data.get("crop_x", 0))
+                    self.var_item_crop_y.set(data.get("crop_y", 0))
+                    self.var_item_crop_size.set(data.get("crop_size", 32))
+                    self.var_item_desc.set(data.get("description", ""))
+                    cats = self.app.asset_mgr.load_item_categories() if hasattr(self, 'app') else {}
+                    fallback = list(cats.keys())[0] if cats else ""
+                    self.var_item_type.set(data.get("item_type", fallback))
+                    if hasattr(self, "var_item_slot"):
+                        self.var_item_slot.set(data.get("slot", fallback))
+                    self.var_item_weight.set(data.get("weight", 1))
+                    self.var_item_base_damage.set(data.get("base_damage", 0))
+                    self.var_item_defense.set(data.get("defense", 0))
+                    self.var_item_max_durability.set(data.get("max_durability", 100))
+                    self.var_item_healing.set(data.get("healing_amount", 0))
+                    self.var_item_hunger.set(data.get("hunger_restore", 0))
+                    self.var_item_power.set(data.get("power_bonus", 0))
+                    self._update_item_preview()
 
-        else:
-            self.var_tex.set(data.get("texture_file", ""))
-            self.var_scale.set(data.get("prop_scale", 1.0))
-            self.var_shift.set(data.get("prop_y_shift", 0))
-            self._update_preview_static()
+            else:
+                self.var_shift.set(data.get("prop_y_shift", 0))
+                self._update_preview_static()
+        finally:
+            self.is_loading = False
 
     def _add_anim(self):
         name = simpledialog.askstring(
@@ -1501,6 +1650,7 @@ class LibraryTab(ttk.Frame):
                 "count": 1,
             }
             self.lb_anims.insert(tk.END, name)
+            self._update_anim_list_colors()
 
     def _del_anim(self):
         sel = self.lb_anims.curselection()
@@ -1534,15 +1684,21 @@ class LibraryTab(ttk.Frame):
         if "animations" not in self.anim_data:
             self.anim_data["animations"] = {}
 
-        self.anim_data["scale"] = self.var_scale.get()
-        self.anim_data["y_shift"] = self.var_shift.get()
+        try:
+            self.anim_data["scale"] = self.var_scale.get()
+            self.anim_data["x_shift"] = self.var_x_shift.get()
+            self.anim_data["y_shift"] = self.var_shift.get()
 
-        self.anim_data["animations"][key] = {
-            "texture": self.var_anim_tex.get(),
-            "fw": self.var_anim_fw.get(),
-            "fh": self.var_anim_fh.get(),
-            "count": self.var_anim_count.get(),
-        }
+            self.anim_data["animations"][key] = {
+                "texture": self.var_anim_tex.get(),
+                "fw": self.var_anim_fw.get(),
+                "fh": self.var_anim_fh.get(),
+                "count": self.var_anim_count.get(),
+            }
+            self._update_spritesheet_preview()
+            self._update_anim_list_colors()
+        except (tk.TclError, ValueError):
+            pass
 
     def _browse(self, var):
         f = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg")])
@@ -1562,12 +1718,14 @@ class LibraryTab(ttk.Frame):
             "texture_file": "dirt.png",  # Dummy base
             "prop_texture_file": self.var_tex.get(),
             "prop_scale": self.var_scale.get(),
+            "prop_x_shift": self.var_x_shift.get() if hasattr(self, 'var_x_shift') else 0,
             "prop_y_shift": self.var_shift.get(),
         }
 
         if self.var_cat.get() == "tile":
             preview_data["texture_file"] = self.var_tex.get()
             preview_data["tile_scale"] = self.var_scale.get()
+            preview_data["tile_x_shift"] = self.var_x_shift.get() if hasattr(self, 'var_x_shift') else 0
             preview_data["tile_y_shift"] = self.var_shift.get()
             preview_data["prop_texture_file"] = None
 
@@ -1586,6 +1744,63 @@ class LibraryTab(ttk.Frame):
         self.anim_running = True
         self.current_frame = 0
         self._anim_loop()
+
+    def _update_spritesheet_preview(self):
+        if not hasattr(self, 'sheet_canvas'):
+            return
+        self.sheet_canvas.delete("all")
+        
+        try:
+            tex = self.var_anim_tex.get()
+            fw = self.var_anim_fw.get()
+            fh = self.var_anim_fh.get()
+            count = self.var_anim_count.get()
+        except (tk.TclError, ValueError):
+            return
+
+        if not tex:
+            return
+
+        path = os.path.join(Config.ASSET_DIR, tex)
+        if not os.path.exists(path):
+            return
+
+        try:
+            pil = Image.open(path)
+            cw = self.sheet_canvas.winfo_width()
+            ch = self.sheet_canvas.winfo_height()
+            if ch <= 1: ch = 200
+            if cw <= 1: cw = 600
+            
+            # Use smaller scale to fit the entire image (width or height)
+            scale_w = cw / float(pil.size[0])
+            scale_h = ch / float(pil.size[1])
+            fit_scale = min(scale_w, scale_h, 1.0) # Don't scale up too much if small
+            
+            w_size = int(pil.size[0] * fit_scale)
+            h_size = int(pil.size[1] * fit_scale)
+            
+            display_pil = pil.resize((w_size, h_size), Image.Resampling.NEAREST)
+            self.sheet_tk_img = ImageTk.PhotoImage(display_pil)
+            
+            # Center the image in the canvas
+            dx = (cw - w_size) // 2
+            dy = (ch - h_size) // 2
+            self.sheet_canvas.create_image(dx, dy, anchor="nw", image=self.sheet_tk_img)
+            
+            scale_x = w_size / pil.size[0]
+            scale_y = h_size / pil.size[1]
+            
+            for i in range(count):
+                x = dx + (i * fw) * scale_x
+                y = dy
+                w = fw * scale_x
+                h = fh * scale_y
+                self.sheet_canvas.create_rectangle(x, y, x + w, y + h, outline="red", width=2)
+                self.sheet_canvas.create_text(x + 5, y + 5, text=str(i + 1), fill="white", anchor="nw", font=("Arial", 8, "bold"))
+                
+        except Exception as e:
+            pass
 
     def _anim_loop(self):
         if not self.anim_running:
@@ -1612,17 +1827,30 @@ class LibraryTab(ttk.Frame):
                 fh = anim.get("fh", 32)
                 count = anim.get("count", 1)
                 scale = self.var_scale.get()
-                shift = self.var_shift.get()
+                x_shift = self.var_x_shift.get()
+                y_shift = self.var_shift.get()
                 img = self.app.asset_mgr.get_anim_frame(
                     tex, self.current_frame, fw, fh, count, scale
                 )
                 if img:
                     self.canvas.create_image(
-                        cx, cy - Config.CALIB_OFFSET_Y - shift, image=img
+                        cx + x_shift, cy - Config.CALIB_OFFSET_Y - y_shift, image=img
                     )
                     self.canvas.image = img  # Keep ref
         self.current_frame += 1
         self.anim_timer = self.after(150, self._anim_loop)  # 150ms per frame
+
+    def _update_anim_list_colors(self):
+        if not hasattr(self, "lb_anims") or not self.lb_anims.winfo_exists():
+            return
+        anims = self.anim_data.get("animations", {})
+        for i in range(self.lb_anims.size()):
+            name = self.lb_anims.get(i)
+            anim = anims.get(name, {})
+            if not anim.get("texture"):
+                self.lb_anims.itemconfig(i, foreground="red")
+            else:
+                self.lb_anims.itemconfig(i, foreground="black")
 
     def _save_asset(self):
         mode = self.var_action_mode.get()
@@ -1640,6 +1868,9 @@ class LibraryTab(ttk.Frame):
         if cat in ["monster", "player"]:
             self.anim_data["category"] = cat
             self.anim_data["name"] = name
+            self.anim_data["scale"] = self.var_scale.get()
+            self.anim_data["x_shift"] = self.var_x_shift.get()
+            self.anim_data["y_shift"] = self.var_shift.get()
             data = self.anim_data
         elif cat == "item":
             cats_load = self.app.asset_mgr.load_item_categories()
@@ -1673,9 +1904,16 @@ class LibraryTab(ttk.Frame):
                 "prop_y_shift": self.var_shift.get(),
             }
 
+        full_name = name if name.endswith(".json") else name + ".json"
         self.app.asset_mgr.save_json(cat, name, data)
-        self.app.show_toast(f"Saved {name}.json")
-        self._refresh_list()
+        self.app.show_toast(f"Saved {full_name}")
+        
+        if mode == "new":
+            self.var_action_mode.set("modify")
+            self._on_action_mode_change(select_name=full_name)
+        else:
+            self._refresh_list(select_name=full_name)
+            
         self.app.map_tab.refresh_libraries()
 
 
@@ -1693,8 +1931,22 @@ class MainApp:
         self.lib_tab = LibraryTab(self.notebook, self)
         self.notebook.add(self.map_tab, text="Map Designer")
         self.notebook.add(self.lib_tab, text="Asset Library")
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+        
         self.map_tab.refresh_libraries()
         self.map_tab.render()
+
+    def _on_tab_changed(self, event):
+        # Determine which tab is selected
+        selected_id = self.notebook.select()
+        if not selected_id:
+            return
+            
+        tab_name = self.notebook.tab(selected_id, "text")
+        if tab_name == "Map Designer":
+            # Refresh libraries (dropdowns) and render (art/props)
+            self.map_tab.refresh_libraries()
+            self.map_tab.render()
 
     def show_toast(self, message):
         toast = tk.Toplevel(self.root)

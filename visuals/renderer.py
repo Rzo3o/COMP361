@@ -65,6 +65,21 @@ class GameRenderer:
         object_layer.append(
             {"depth": cy, "type": "entity", "entity": player, "x": cx, "y": cy}
         )
+
+        # Add Monsters
+        for monster in world.monsters:
+            mqx, mqy = HexMath.hex_to_pixel(monster.q, monster.r)
+            mdx = cx + (mqx - ppx)
+            mdy = cy + (mqy - ppy)
+            
+            # Culling
+            if (
+                -100 < mdx < Config.WINDOW_WIDTH + 100
+                and -100 < mdy < Config.WINDOW_HEIGHT + 100
+            ):
+                object_layer.append(
+                    {"depth": mdy, "type": "entity", "entity": monster, "x": mdx, "y": mdy}
+                )
         
         # Draw Terrain (Sorted by Y for slight depth effect if needed, but mostly Z-order matters)
         terrain_layer.sort(key=lambda t: t[2])
@@ -100,27 +115,27 @@ class GameRenderer:
         pygame.draw.polygon(screen, self.COLOR_OUTLINE, poly_points, 1)
 
         if tile.texture:
-            scale, shift = self.assets.get_layout(tile.texture)
+            scale, x_shift, y_shift = self.assets.get_layout(tile.texture)
             img = self.assets.get_image(tile.texture, scale=scale)
             if img:
-                # Center horizontally, shift vertically
-                rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - shift)
+                # Center horizontally, shift vertically or horizontally
+                rect = img.get_rect(centerx=x + x_shift, centery=y - Config.CALIB_OFFSET_Y - y_shift)
                 screen.blit(img, rect)
 
     def _draw_prop(self, screen, tile, x, y):
         if tile.prop_texture:
             img = self.assets.get_image(tile.prop_texture, scale=tile.prop_scale)
             if img:
-               rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - tile.prop_shift)
+               rect = img.get_rect(centerx=x + tile.prop_x_shift, centery=y - Config.CALIB_OFFSET_Y - tile.prop_shift)
                screen.blit(img, rect)
 
     def _draw_entity(self, screen, entity, x, y, frame_index):
         if entity.texture:
             img = self.assets.get_anim_frame(entity.texture, frame_index)
-            scale, shift = self.assets.get_layout(entity.texture)
+            scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
 
             if img:
-                rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - shift)
+                rect = img.get_rect(centerx=x + x_shift, centery=y - Config.CALIB_OFFSET_Y - y_shift)
                 screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)

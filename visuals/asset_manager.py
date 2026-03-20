@@ -35,10 +35,12 @@ class AssetManager:
                                             "fh": anim_data.get("fh", 32),
                                             "count": anim_data.get("count", 1),
                                             "scale": data.get("scale", 1.0),
+                                            "x_shift": data.get("x_shift", 0),
                                             "y_shift": data.get("y_shift", 0),
                                         }
                                         self.layouts[tex] = (
                                             float(data.get("scale", 1.0)),
+                                            int(data.get("x_shift", 0)),
                                             int(data.get("y_shift", 0)),
                                         )
                             
@@ -48,14 +50,15 @@ class AssetManager:
 
                             if tex:
                                 s = data.get("prop_scale") or data.get("scale", 1.0)
+                                x = data.get("prop_x_shift") or data.get("x_shift", 0)
                                 y = data.get("prop_y_shift") or data.get("y_shift", 0)
-                                self.layouts[tex] = (float(s), int(y))
+                                self.layouts[tex] = (float(s), int(x), int(y))
                     except Exception as e:
                         print(f"Error loading layout {f}: {e}")
 
     def get_layout(self, filename):
-        """Returns (scale, y_shift) for a given texture file."""
-        return self.layouts.get(filename, (1.0, 0))
+        """Returns (scale, x_shift, y_shift) for a given texture file."""
+        return self.layouts.get(filename, (1.0, 0, 0))
 
     def get_anim_frame(self, filename, frame_index=0):
         """Extracts and scales a specific frame from a sprite sheet."""

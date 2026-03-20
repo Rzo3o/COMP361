@@ -7,6 +7,7 @@ class Tile:
         self.texture = data.get("texture_file")
         self.prop_texture = data.get("prop_texture_file")
         self.prop_scale = data.get("prop_scale", 1.0)
+        self.prop_x_shift = data.get("prop_x_shift", 0)
         self.prop_shift = data.get("prop_y_shift", 0)
         self.passable = bool(data.get("is_permanently_passable", 1))
         self.discovered = bool(data.get("is_discovered", 0))
