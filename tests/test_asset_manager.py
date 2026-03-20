@@ -20,10 +20,10 @@ class TestAssetManagerSmoke(unittest.TestCase):
         self.assertIsNotNone(self.am.anim_metadata)
 
     def test_get_layout_returns_tuple(self):
-        """get_layout should always return a (scale, y_shift) tuple."""
+        """get_layout should always return a (scale, x_shift, y_shift) tuple."""
         layout = self.am.get_layout("non_existing.png")
         self.assertIsInstance(layout, tuple)
-        self.assertEqual(len(layout), 2)
+        self.assertEqual(len(layout), 3)
 
     def test_get_image_returns_surface_or_none(self):
         """get_image should return a Pygame Surface or None if missing."""

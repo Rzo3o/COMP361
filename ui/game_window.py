@@ -8,7 +8,7 @@ from ui.button import Button
 
 
 class GameWindow:
-    def __init__(self, slot_id=1):
+    def __init__(self, slot_id=1, selected_skin=None):
         pygame.init()
         self.screen = pygame.display.set_mode(
             (Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT)
@@ -22,6 +22,10 @@ class GameWindow:
         # Ensure session exists (auto-create slot 1)
         if not self.db.get_session(1):
             self.db.create_session(1)
+            
+        if selected_skin:
+            self.db.cursor.execute("UPDATE player_state SET texture_file=? WHERE session_id=1", (selected_skin,))
+            self.db.conn.commit()
 
         self.engine = GameEngine(self.db, 1)
         self.assets = AssetManager()

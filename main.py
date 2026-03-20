@@ -5,9 +5,10 @@ import shutil
 
 if __name__ == "__main__":
     menu = SaveSelectMenu()
-    slot = menu.run()
+    res = menu.run()
     
-    if slot:
+    if res and res[0]:
+        slot, selected_skin = res
         target_db = f"game_data_{slot}.db"
         
         # If the save file doesn't exist, create it from default.db (template)
@@ -18,5 +19,5 @@ if __name__ == "__main__":
             else:
                 print("No default.db found! Starting with empty database.")
         
-        game = GameWindow(slot)
+        game = GameWindow(slot, selected_skin)
         game.run()

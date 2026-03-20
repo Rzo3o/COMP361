@@ -68,6 +68,10 @@ class GameRenderer:
 
         # Add Monsters
         for monster in world.monsters:
+            tile = world.get_tile(monster.q, monster.r)
+            if not tile or not tile.discovered:
+                continue
+
             mqx, mqy = HexMath.hex_to_pixel(monster.q, monster.r)
             mdx = cx + (mqx - ppx)
             mdy = cy + (mqy - ppy)
