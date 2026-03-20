@@ -139,8 +139,17 @@ class DatabaseManager:
         self.cursor.execute("SELECT * FROM monsters")
         return [dict(row) for row in self.cursor.fetchall()]
 
-    def add_monster(self, name, q, r, texture):
-        self.cursor.execute("INSERT INTO monsters (name, current_q, current_r, texture_file) VALUES (?, ?, ?, ?)", (name, q, r, texture))
+    def get_monster_at(self, q, r):
+        self.cursor.execute("SELECT * FROM monsters WHERE current_q=? AND current_r=?", (q, r))
+        row = self.cursor.fetchone()
+        return dict(row) if row else None
+
+    def add_monster(self, name, q, r, texture, health, damage):
+        self.cursor.execute("INSERT INTO monsters (name, current_q, current_r, texture_file, health, damage) VALUES (?, ?, ?, ?, ?, ?)", (name, q, r, texture, health, damage))
+        self.conn.commit()
+
+    def update_monster_stats(self, q, r, health, damage):
+        self.cursor.execute("UPDATE monsters SET health=?, damage=? WHERE current_q=? AND current_r=?", (health, damage, q, r))
         self.conn.commit()
 
     def delete_monsters_at(self, q, r):
@@ -585,8 +594,32 @@ class MapTab(ttk.Frame):
         if self.cb_monsters["values"]:
             self.cb_monsters.current(0)
             
-        ttk.Label(frame, text="Left Click: Place").pack(pady=(20,0))
+        ttk.Label(frame, text="Left Click: Place/Select").pack(pady=(20,0))
         ttk.Label(frame, text="Right Click: Remove").pack()
+        
+        ttk.Separator(frame).pack(fill="x", pady=10)
+        ttk.Label(frame, text="Selected Monster Stats", font=("Bold", 10)).pack(anchor="w")
+        
+        self.var_monster_health = tk.IntVar(value=50)
+        self.var_monster_damage = tk.IntVar(value=10)
+        
+        v_frame = ttk.Frame(frame)
+        v_frame.pack(fill="x", pady=5)
+        
+        ttk.Label(v_frame, text="Health:").grid(row=0, column=0, sticky="w")
+        ttk.Entry(v_frame, textvariable=self.var_monster_health, width=8).grid(row=0, column=1, padx=5)
+        
+        ttk.Label(v_frame, text="Damage:").grid(row=1, column=0, sticky="w")
+        ttk.Entry(v_frame, textvariable=self.var_monster_damage, width=8).grid(row=1, column=1, padx=5, pady=5)
+        
+        self.btn_update_monster = ttk.Button(frame, text="Update Stats", command=self._update_selected_monster_stats, state="disabled")
+        self.btn_update_monster.pack(fill="x", pady=5)
+
+    def _update_selected_monster_stats(self):
+        hp = self.var_monster_health.get()
+        dmg = self.var_monster_damage.get()
+        self.app.db.update_monster_stats(self.selected_q, self.selected_r, hp, dmg)
+        self.app.show_toast(f"Updated monster at ({self.selected_q},{self.selected_r})")
         
     def _bind_events(self):
         self.canvas.bind("<Button-1>", self._on_click)
@@ -757,13 +790,34 @@ class MapTab(ttk.Frame):
                 self.render()
             
         elif mode == "Monsters":
+            existing = self.app.db.get_monster_at(q, r)
+            if existing:
+                self.var_monster_health.set(existing.get("health", 50))
+                self.var_monster_damage.set(existing.get("damage", 10))
+                if hasattr(self, "btn_update_monster"):
+                    self.btn_update_monster.config(state="normal")
+                self.render()
+                return
+
             # Left click places monster
             name = self.cb_monsters.get()
             if name:
                  # Need texture... load json to find it
                  m_data = self.app.asset_mgr.load_json("monster", name)
                  tex = m_data.get("animations", {}).get("idle", {}).get("texture", "")
-                 self.app.db.add_monster(name, q, r, tex)
+                 def_hp = m_data.get("default_health", 50)
+                 def_dmg = m_data.get("default_damage", 10)
+                 self.app.db.add_monster(name, q, r, tex, def_hp, def_dmg)
+                 self.var_monster_health.set(def_hp)
+                 self.var_monster_damage.set(def_dmg)
+                 if hasattr(self, "btn_update_monster"):
+                     self.btn_update_monster.config(state="normal")
+                 self.render()
+            else:
+                 if hasattr(self, "btn_update_monster"):
+                     self.btn_update_monster.config(state="disabled")
+                 self.var_monster_health.set(0)
+                 self.var_monster_damage.set(0)
                  self.render()
 
     def _on_right_click(self, event):
@@ -773,6 +827,10 @@ class MapTab(ttk.Frame):
             cy = self.canvas.canvasy(event.y)
             q, r = HexEngine.pixel_to_hex(cx - Config.CENTER_X, cy - Config.CENTER_Y)
             self.app.db.delete_monsters_at(q, r)
+            if hasattr(self, "btn_update_monster") and self.selected_q == q and self.selected_r == r:
+                self.btn_update_monster.config(state="disabled")
+                self.var_monster_health.set(0)
+                self.var_monster_damage.set(0)
             self.render()
 
     def _update_tile_safe(self, q, r, changes):
@@ -932,6 +990,8 @@ class LibraryTab(ttk.Frame):
         self.var_anim_fw = tk.IntVar(value=32)
         self.var_anim_fh = tk.IntVar(value=32)
         self.var_anim_count = tk.IntVar(value=1)
+        self.var_monster_def_health = tk.IntVar(value=50)
+        self.var_monster_def_damage = tk.IntVar(value=10)
         
         # Item Specific
         self.var_item_type = tk.StringVar()
@@ -1109,6 +1169,11 @@ class LibraryTab(ttk.Frame):
             self.var_item_healing.set(0)
             self.var_item_hunger.set(0)
             self.var_item_power.set(0)
+            self.var_item_slot.set("general")
+
+        if hasattr(self, 'var_monster_def_health'):
+            self.var_monster_def_health.set(50)
+            self.var_monster_def_damage.set(10)
 
         if hasattr(self, 'entry_new_file') and self.entry_new_file.winfo_exists():
             self.entry_new_file.delete(0, tk.END)
@@ -1253,6 +1318,19 @@ class LibraryTab(ttk.Frame):
         ttk.Scale(self.prop_frame, from_=-50, to=100, variable=self.var_shift).pack(
             fill="x"
         )
+        
+        if self.var_cat.get() == "monster":
+            ttk.Separator(self.prop_frame).pack(fill="x", pady=10)
+            ttk.Label(self.prop_frame, text="Default Stats:", font=("Bold", 9)).pack(anchor="w")
+            
+            m_frame = ttk.Frame(self.prop_frame)
+            m_frame.pack(fill="x", pady=5)
+            
+            ttk.Label(m_frame, text="Health:").grid(row=0, column=0, sticky="w")
+            ttk.Entry(m_frame, textvariable=self.var_monster_def_health, width=8).grid(row=0, column=1, padx=5)
+            
+            ttk.Label(m_frame, text="Damage:").grid(row=1, column=0, sticky="w")
+            ttk.Entry(m_frame, textvariable=self.var_monster_def_damage, width=8).grid(row=1, column=1, padx=5, pady=5)
 
     def _reset_item_stats(self):
         self.var_item_weight.set(1)
@@ -1262,6 +1340,7 @@ class LibraryTab(ttk.Frame):
         self.var_item_healing.set(0)
         self.var_item_hunger.set(0)
         self.var_item_power.set(0)
+        self.var_item_slot.set("general")
 
     def _update_item_dynamic_fields(self, *args):
         if not self.is_loading:
@@ -1548,6 +1627,7 @@ class LibraryTab(ttk.Frame):
         self.dynamic_widgets = {}
 
         stats_to_add = [
+            ("slot", "Slot:"),
             ("weight", "Weight:"),
             ("base_damage", "Base Damage:"),
             ("defense", "Defense:"),
@@ -1667,6 +1747,11 @@ class LibraryTab(ttk.Frame):
                 elif anims:
                     self.lb_anims.selection_set(0)
                     self._on_anim_select(None)
+                    
+                if cat == "monster":
+                    if hasattr(self, "var_monster_def_health"):
+                        self.var_monster_def_health.set(data.get("default_health", 50))
+                        self.var_monster_def_damage.set(data.get("default_damage", 10))
 
                 self._start_anim_loop()
 
@@ -1681,7 +1766,7 @@ class LibraryTab(ttk.Frame):
                     cats = self.app.asset_mgr.load_item_categories() if hasattr(self, 'app') else {}
                     fallback = list(cats.keys())[0] if cats else ""
                     self.var_item_type.set(data.get("item_type", fallback))
-                    self.var_item_slot.set(data.get("item_slot", "general"))
+                    self.var_item_slot.set(data.get("slot", data.get("item_slot", "general")))
                     self.var_item_weight.set(data.get("weight", 1))
                     self.var_item_base_damage.set(data.get("base_damage", 0))
                     self.var_item_defense.set(data.get("defense", 0))
@@ -1936,12 +2021,14 @@ class LibraryTab(ttk.Frame):
             self.anim_data["scale"] = self.var_scale.get()
             self.anim_data["x_shift"] = self.var_x_shift.get()
             self.anim_data["y_shift"] = self.var_shift.get()
+            if cat == "monster":
+                if hasattr(self, "var_monster_def_health"):
+                    self.anim_data["default_health"] = self.var_monster_def_health.get()
+                    self.anim_data["default_damage"] = self.var_monster_def_damage.get()
             data = self.anim_data
         elif cat == "item":
             cats_load = self.app.asset_mgr.load_item_categories()
             itype = self.var_item_type.get() if hasattr(self, "var_item_type") else "weapon"
-            idata = cats_load.get(itype, {})
-            slot_val = idata.get("slot", "general") if isinstance(idata, dict) else "general"
 
             data = {
                 "category": cat,
@@ -1953,7 +2040,7 @@ class LibraryTab(ttk.Frame):
                 "description": self.var_item_desc.get() if hasattr(self, "var_item_desc") else "",
                 "item_type": itype,
                 "item_slot": self.var_item_slot.get() if hasattr(self, "var_item_slot") else "general",
-                "slot": slot_val,
+                "slot": self.var_item_slot.get() if hasattr(self, "var_item_slot") else "general",
                 "weight": self.var_item_weight.get() if hasattr(self, "var_item_weight") else 1,
                 "base_damage": self.var_item_base_damage.get() if hasattr(self, "var_item_base_damage") else 0,
                 "defense": self.var_item_defense.get() if hasattr(self, "var_item_defense") else 0,
