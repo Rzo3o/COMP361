@@ -823,6 +823,11 @@ class MapTab(ttk.Frame):
         prop_tex = self.var_prop.get()
 
         existing = self.app.db.get_tile(self.selected_q, self.selected_r)
+        
+        # Preserve existing texture if no new one is selected in the brush
+        if not tile_tex and existing:
+            tile_tex = existing.get("texture_file", "")
+
         if existing and existing.get("is_spawn") and prop_tex:
             self.app.show_toast("Cannot place a prop on a spawn point.")
             if not getattr(self, "var_paint_mode", None) or not self.var_paint_mode.get():
@@ -833,16 +838,13 @@ class MapTab(ttk.Frame):
             return
 
         if not tile_tex and prop_tex:
-            if not existing or not existing.get("texture_file"):
-                self.app.show_toast("Cannot place a prop on an empty tile.")
-                if not getattr(self, "var_paint_mode", None) or not self.var_paint_mode.get():
-                    prop_tex = ""
-                    self.var_prop.set("")
-                    if hasattr(self, "cb_props"):
-                        self.cb_props.set("")
-                return
-            else:
-                tile_tex = existing.get("texture_file")
+            self.app.show_toast("Cannot place a prop on an empty tile.")
+            if not getattr(self, "var_paint_mode", None) or not self.var_paint_mode.get():
+                prop_tex = ""
+                self.var_prop.set("")
+                if hasattr(self, "cb_props"):
+                    self.cb_props.set("")
+            return
 
         changes = {
             "tile_type": existing.get("tile_type", "grass") if existing else "grass",
@@ -945,6 +947,9 @@ class LibraryTab(ttk.Frame):
         self.var_item_healing = tk.IntVar(value=0)
         self.var_item_hunger = tk.IntVar(value=0)
         self.var_item_power = tk.IntVar(value=0)
+        self.var_item_slot = tk.StringVar(value="general")
+        
+        self.available_slots = ["head", "chest", "pants", "boots"]
 
         # Traces
         for v in [self.var_tex, self.var_scale, self.var_shift, self.var_x_shift]:
@@ -979,12 +984,6 @@ class LibraryTab(ttk.Frame):
                 command=self._on_category_change,
             ).pack(side=tk.LEFT)
 
-        self.f_cat_btns = ttk.Frame(self.ctrl)
-        self.btn_new_cat = ttk.Button(self.f_cat_btns, text="➕ New Item Type", command=self._add_item_category)
-        self.btn_new_cat.pack(side=tk.LEFT, expand=True, fill="x", padx=(0, 2))
-        self.btn_del_cat = ttk.Button(self.f_cat_btns, text="➖ Delete Item Type", command=self._delete_item_category)
-        self.btn_del_cat.pack(side=tk.LEFT, expand=True, fill="x", padx=(2, 0))
-
         self.var_action_mode = tk.StringVar(value="new")
         self.f_action = ttk.Frame(self.ctrl)
         self.f_action.pack(fill="x", pady=(10, 5))
@@ -1003,8 +1002,18 @@ class LibraryTab(ttk.Frame):
         # Item Type selection (shown only for Item category)
         self.f_item_type = ttk.Frame(self.file_input_frame)
         ttk.Label(self.f_item_type, text="Item Type:", font=("Bold", 10)).pack(anchor="w")
-        self.cb_item_type = ttk.Combobox(self.f_item_type, textvariable=self.var_item_type, state="readonly")
-        self.cb_item_type.pack(fill="x")
+        
+        type_row = ttk.Frame(self.f_item_type)
+        type_row.pack(fill="x")
+        self.cb_item_type = ttk.Combobox(type_row, textvariable=self.var_item_type, state="readonly")
+        self.cb_item_type.pack(side=tk.LEFT, fill="x", expand=True)
+        
+        self.btn_new_cat = ttk.Button(type_row, text="+", width=3, command=self._add_item_category)
+        self.btn_new_cat.pack(side=tk.LEFT, padx=2)
+        self.btn_edit_cat = ttk.Button(type_row, text="📝", width=3, command=self._edit_item_category)
+        self.btn_edit_cat.pack(side=tk.LEFT, padx=2)
+        self.btn_del_cat = ttk.Button(type_row, text="-", width=3, command=self._delete_item_category)
+        self.btn_del_cat.pack(side=tk.LEFT, padx=2)
 
         self.prop_frame = ttk.LabelFrame(self.ctrl, text="Properties", padding=5)
         self.prop_frame.pack(fill="both", expand=True, pady=10)
@@ -1015,7 +1024,12 @@ class LibraryTab(ttk.Frame):
         paned.add(self.prev_frame, weight=2)
 
         self.lbl_sheet = ttk.Label(self.prev_frame, text="Sprite Sheet Preview", font=("Bold", 10))
-        self.sheet_canvas = Canvas(self.prev_frame, bg="#151515", height=200)
+        self.f_sheet = ttk.Frame(self.prev_frame)
+        self.sheet_canvas = Canvas(self.f_sheet, bg="#151515", height=200, highlightthickness=0)
+        self.h_scroll = ttk.Scrollbar(self.f_sheet, orient=tk.HORIZONTAL, command=self.sheet_canvas.xview)
+        self.sheet_canvas.config(xscrollcommand=self.h_scroll.set)
+        self.sheet_canvas.pack(side=tk.TOP, fill="x", expand=True)
+        self.h_scroll.pack(side=tk.BOTTOM, fill="x")
 
         self.lbl_anim = ttk.Label(self.prev_frame, text="Live Animation Preview", font=("Bold", 12))
         self.lbl_anim.pack()
@@ -1030,21 +1044,27 @@ class LibraryTab(ttk.Frame):
         mode = self.var_action_mode.get()
         is_item = self.var_cat.get() == "item"
         
-        # requested layout: load -> item type -> new
+        # Unpack all to ensure order
+        self.lbl_file.pack_forget()
+        self.entry_new_file.pack_forget()
+        self.cb_files.pack_forget()
+        self.f_item_type.pack_forget()
+        
+        # Pack Label first
+        self.lbl_file.pack(fill="x", pady=(10, 0))
+        
         if mode == "new":
-            self.cb_files.pack_forget()
-            if is_item:
-                self.f_item_type.pack(fill="x", pady=5)
             self.lbl_file.config(text="New Asset Name:")
             self.entry_new_file.pack(fill="x")
             self._clear_properties()
         else:
-            self.entry_new_file.pack_forget()
             self.lbl_file.config(text="Load Existing Asset:")
             self.cb_files.pack(fill="x")
-            if is_item:
-                self.f_item_type.pack(fill="x", pady=5)
             self._refresh_list(select_name=select_name)
+            
+        # Pack Type selector AFTER the name/file input
+        if is_item:
+            self.f_item_type.pack(fill="x", pady=5)
 
     def _clear_properties(self):
         if hasattr(self, 'anim_data'):
@@ -1103,12 +1123,11 @@ class LibraryTab(ttk.Frame):
         
         # Reset visibility
         self.lbl_sheet.pack_forget()
-        self.sheet_canvas.pack_forget()
+        self.f_sheet.pack_forget()
         self.lbl_anim.pack_forget()
         self.canvas.pack_forget()
 
         if cat == "item":
-            self.f_cat_btns.pack(fill="x", pady=(5,0), before=self.prop_frame)
             cats = self.app.asset_mgr.load_item_categories()
             self.cb_item_type["values"] = list(cats.keys())
             if not self.var_item_type.get() and cats:
@@ -1118,11 +1137,10 @@ class LibraryTab(ttk.Frame):
             self.lbl_anim.pack()
             self.canvas.pack(fill="both", expand=True)
         else:
-            self.f_cat_btns.pack_forget()
             self.f_item_type.pack_forget()
             if cat in ["monster", "player"]:
                 self.lbl_sheet.pack(anchor="w")
-                self.sheet_canvas.pack(fill="x", pady=(0, 10))
+                self.f_sheet.pack(fill="x", pady=(0, 10))
                 self.lbl_anim.config(text="Live Animation Preview")
                 self.lbl_anim.pack()
                 self.canvas.pack(fill="both", expand=True)
@@ -1156,6 +1174,11 @@ class LibraryTab(ttk.Frame):
 
         ttk.Label(self.prop_frame, text="Scale:").pack(anchor="w", pady=(5, 0))
         ttk.Scale(self.prop_frame, from_=0.1, to=3.0, variable=self.var_scale).pack(
+            fill="x"
+        )
+
+        ttk.Label(self.prop_frame, text="X-Shift:").pack(anchor="w", pady=(5, 0))
+        ttk.Scale(self.prop_frame, from_=-50, to=100, variable=self.var_x_shift).pack(
             fill="x"
         )
 
@@ -1243,10 +1266,10 @@ class LibraryTab(ttk.Frame):
     def _update_item_dynamic_fields(self, *args):
         if not self.is_loading:
             self._reset_item_stats()
-            
         cat_name = self.var_item_type.get()
         cats = self.app.asset_mgr.load_item_categories()
-        active_props = cats.get(cat_name, [])
+        data = cats.get(cat_name, {})
+        active_props = data.get("props", []) if isinstance(data, dict) else data
         for prop_name, (lbl, widget, row_idx) in getattr(self, "dynamic_widgets", {}).items():
             if not lbl.winfo_exists() or not widget.winfo_exists():
                 continue
@@ -1373,6 +1396,7 @@ class LibraryTab(ttk.Frame):
         ttk.Label(top, text="Select Properties:").pack(pady=(10,0))
         
         props_available = [
+            ("slot", "Slot (per item)"),
             ("weight", "Weight"),
             ("base_damage", "Base Damage"),
             ("defense", "Defense"),
@@ -1394,7 +1418,8 @@ class LibraryTab(ttk.Frame):
                 return
             selected = [p_id for p_id, var in var_checks.items() if var.get()]
             cats = self.app.asset_mgr.load_item_categories()
-            cats[name] = selected
+            # Slot is now per-item property, so category-level slot defaults to general
+            cats[name] = {"slot": "general", "props": selected}
             self.app.asset_mgr.save_item_categories(cats)
             
             if hasattr(self, "cb_item_type"):
@@ -1405,65 +1430,76 @@ class LibraryTab(ttk.Frame):
             
         ttk.Button(top, text="Save Category", command=on_save).pack(pady=10)
 
+    def _edit_item_category(self):
+        cats = self.app.asset_mgr.load_item_categories()
+        if not cats:
+            self.app.show_toast("No categories to edit.")
+            return
+
+        top = tk.Toplevel(self)
+        top.title("Edit Item Category")
+        top.geometry("300x400")
+        
+        ttk.Label(top, text="Select Category to Edit:").pack(pady=(10,0))
+        var_name = tk.StringVar(value=self.var_item_type.get() if self.var_item_type.get() in cats else list(cats.keys())[0])
+        cb_cat = ttk.Combobox(top, textvariable=var_name, values=list(cats.keys()), state="readonly")
+        cb_cat.pack(fill="x", padx=10)
+        
+        ttk.Label(top, text="Properties:").pack(pady=(10,0))
+        
+        props_available = [
+            ("slot", "Slot (per item)"),
+            ("weight", "Weight"),
+            ("base_damage", "Base Damage"),
+            ("defense", "Defense"),
+            ("max_durability", "Max Durability"),
+            ("healing_amount", "Healing Amount"),
+            ("hunger_restore", "Hunger Restore"),
+            ("power_bonus", "Power Bonus")
+        ]
+        
+        var_checks = {}
+        for p_id, p_label in props_available:
+            var_checks[p_id] = tk.BooleanVar(value=False)
+            ttk.Checkbutton(top, text=p_label, variable=var_checks[p_id]).pack(anchor="w", padx=20)
+
+        def update_checks(*args):
+            selected_cat = var_name.get()
+            if selected_cat in cats:
+                data = cats[selected_cat]
+                # Handle both migrated dict and legacy list formats safely
+                current_props = data.get("props", []) if isinstance(data, dict) else data
+                
+                for p_id, var in var_checks.items():
+                    var.set(p_id in current_props)
+        
+        var_name.trace_add("write", update_checks)
+        update_checks() # Initial load
+
+        def on_save():
+            name = var_name.get()
+            if not name: return
+            selected = [p_id for p_id, var in var_checks.items() if var.get()]
+            
+            cats[name] = {"slot": "general", "props": selected}
+            self.app.asset_mgr.save_item_categories(cats)
+            
+            # Refresh UI
+            if hasattr(self, "cb_item_type"):
+                self.cb_item_type["values"] = list(cats.keys())
+            self.var_item_type.set(name)
+            self._build_item_ui() # Rebuild the property fields in the sidebar
+            self.app.show_toast(f"Updated category: {name}")
+            top.destroy()
+            
+        ttk.Button(top, text="Save Changes", command=on_save).pack(pady=10)
+
     def _build_item_ui(self):
         for widget in self.prop_frame.winfo_children():
             widget.destroy()
 
         self.item_data = getattr(self, "item_data", {})
         
-        self._update_item_dynamic_fields()
-
-        style = ttk.Style()
-        bg_color = style.lookup("TFrame", "background") or "#f0f0f0"
-        
-        canvas = tk.Canvas(self.prop_frame, highlightthickness=0, bg=bg_color)
-        scrollbar = ttk.Scrollbar(self.prop_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.bind("<Configure>", lambda e: canvas.itemconfig(window_id, width=e.width))
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        row = 0
-        ttk.Label(scrollable_frame, text="Description:").grid(row=row, column=0, sticky="w")
-        ttk.Entry(scrollable_frame, textvariable=self.var_item_desc).grid(row=row, column=1, sticky="we"); row+=1
-
-        self.dynamic_widgets = {}
-
-        lbl = ttk.Label(scrollable_frame, text="Weight:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_weight)
-        self.dynamic_widgets["weight"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Base Damage:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_base_damage)
-        self.dynamic_widgets["base_damage"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Defense:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_defense)
-        self.dynamic_widgets["defense"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Max Durability:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_max_durability)
-        self.dynamic_widgets["max_durability"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Healing:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_healing)
-        self.dynamic_widgets["healing_amount"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Hunger Restore:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_hunger)
-        self.dynamic_widgets["hunger_restore"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Power Bonus:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_power)
-        self.dynamic_widgets["power_bonus"] = (lbl, ent, row); row+=1
-
-        self._update_item_dynamic_fields()
-
         style = ttk.Style()
         bg_color = style.lookup("TFrame", "background") or "#f0f0f0"
         
@@ -1482,10 +1518,16 @@ class LibraryTab(ttk.Frame):
         scrollbar.pack(side="right", fill="y")
         
         row = 0
-        ttk.Label(scrollable_frame, text="Texture:").grid(row=row, column=0, sticky="w"); h = ttk.Frame(scrollable_frame); h.grid(row=row, column=1, sticky="we")
+        
+        # 1. Texture
+        ttk.Label(scrollable_frame, text="Texture:").grid(row=row, column=0, sticky="w")
+        h = ttk.Frame(scrollable_frame)
+        h.grid(row=row, column=1, sticky="we")
         ttk.Entry(h, textvariable=self.var_item_tex).pack(side=tk.LEFT, fill="x", expand=True)
-        ttk.Button(h, text="...", width=3, command=lambda: self._browse(self.var_item_tex)).pack(side=tk.LEFT); row += 1
+        ttk.Button(h, text="...", width=3, command=lambda: self._browse(self.var_item_tex)).pack(side=tk.LEFT)
+        row += 1
 
+        # 2. Crop Settings
         ttk.Label(scrollable_frame, text="Crop X:").grid(row=row, column=0, sticky="w")
         ttk.Scale(scrollable_frame, from_=0, to=512, variable=self.var_item_crop_x, orient="horizontal").grid(row=row, column=1, sticky="we"); row+=1
         
@@ -1495,43 +1537,63 @@ class LibraryTab(ttk.Frame):
         ttk.Label(scrollable_frame, text="Crop Size:").grid(row=row, column=0, sticky="w")
         ttk.Scale(scrollable_frame, from_=8, to=256, variable=self.var_item_crop_size, orient="horizontal").grid(row=row, column=1, sticky="we"); row+=1
 
+        # 3. Separator
         ttk.Label(scrollable_frame, text="- - - - - -").grid(row=row, column=0, columnspan=2); row+=1
 
+        # 4. Description
         ttk.Label(scrollable_frame, text="Description:").grid(row=row, column=0, sticky="w")
         ttk.Entry(scrollable_frame, textvariable=self.var_item_desc).grid(row=row, column=1, sticky="we"); row+=1
 
+        # 5. Dynamic Stats
         self.dynamic_widgets = {}
 
-        lbl = ttk.Label(scrollable_frame, text="Weight:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_weight, width=5)
-        self.dynamic_widgets["weight"] = (lbl, ent, row); row+=1
+        stats_to_add = [
+            ("weight", "Weight:"),
+            ("base_damage", "Base Damage:"),
+            ("defense", "Defense:"),
+            ("max_durability", "Max Durability:"),
+            ("healing_amount", "Healing Amount:"),
+            ("hunger_restore", "Hunger Restore:"),
+            ("power_bonus", "Power Bonus:")
+        ]
 
-        lbl = ttk.Label(scrollable_frame, text="Base Damage:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_base_damage, width=5)
-        self.dynamic_widgets["base_damage"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Defense:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_defense, width=5)
-        self.dynamic_widgets["defense"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Max Durability:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_max_durability, width=5)
-        self.dynamic_widgets["max_durability"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Healing Amount:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_healing, width=5)
-        self.dynamic_widgets["healing_amount"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Hunger Restore:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_hunger, width=5)
-        self.dynamic_widgets["hunger_restore"] = (lbl, ent, row); row+=1
-
-        lbl = ttk.Label(scrollable_frame, text="Power Bonus:")
-        ent = ttk.Entry(scrollable_frame, textvariable=self.var_item_power, width=5)
-        self.dynamic_widgets["power_bonus"] = (lbl, ent, row); row+=1
+        for p_id, p_label in stats_to_add:
+            lbl = ttk.Label(scrollable_frame, text=p_label)
+            if p_id == "slot":
+                var = self.var_item_slot
+                ent = ttk.Combobox(scrollable_frame, textvariable=var, values=self.available_slots, state="readonly", width=12)
+            else:
+                # Map p_id to variable name
+                var_base = p_id.replace('healing_amount', 'healing').replace('hunger_restore', 'hunger').replace('power_bonus', 'power')
+                var = getattr(self, f"var_item_{var_base}")
+                ent = ttk.Entry(scrollable_frame, textvariable=var, width=8)
+            
+            self.dynamic_widgets[p_id] = (lbl, ent, row)
+            row += 1
 
         self._update_item_dynamic_fields()
         self._update_item_preview()
+
+    def _update_item_dynamic_fields(self, *args):
+        if not hasattr(self, 'dynamic_widgets'):
+            return
+        
+        # Determine which properties are active for the current item type
+        cats = self.app.asset_mgr.load_item_categories()
+        current_type = self.var_item_type.get().lower()
+        data = cats.get(current_type, {})
+        # Extract props list from the dict structure
+        active_props = data.get("props", []) if isinstance(data, dict) else data
+        
+        # Toggle visibility of each dynamic widget
+        for p_id, (lbl, ent, row) in self.dynamic_widgets.items():
+            if p_id in active_props:
+                lbl.grid(row=row, column=0, sticky="w", pady=2)
+                ent.grid(row=row, column=1, sticky="we", pady=2)
+            else:
+                lbl.grid_forget()
+                ent.grid_forget()
+
 
     def _update_item_preview(self):
         self.canvas.delete("all")
@@ -1619,8 +1681,7 @@ class LibraryTab(ttk.Frame):
                     cats = self.app.asset_mgr.load_item_categories() if hasattr(self, 'app') else {}
                     fallback = list(cats.keys())[0] if cats else ""
                     self.var_item_type.set(data.get("item_type", fallback))
-                    if hasattr(self, "var_item_slot"):
-                        self.var_item_slot.set(data.get("slot", fallback))
+                    self.var_item_slot.set(data.get("item_slot", "general"))
                     self.var_item_weight.set(data.get("weight", 1))
                     self.var_item_base_damage.set(data.get("base_damage", 0))
                     self.var_item_defense.set(data.get("defense", 0))
@@ -1631,6 +1692,9 @@ class LibraryTab(ttk.Frame):
                     self._update_item_preview()
 
             else:
+                self.var_tex.set(data.get("texture_file", ""))
+                self.var_scale.set(data.get("prop_scale", 1.0))
+                self.var_x_shift.set(data.get("prop_x_shift", 0))
                 self.var_shift.set(data.get("prop_y_shift", 0))
                 self._update_preview_static()
         finally:
@@ -1772,10 +1836,9 @@ class LibraryTab(ttk.Frame):
             if ch <= 1: ch = 200
             if cw <= 1: cw = 600
             
-            # Use smaller scale to fit the entire image (width or height)
-            scale_w = cw / float(pil.size[0])
-            scale_h = ch / float(pil.size[1])
-            fit_scale = min(scale_w, scale_h, 1.0) # Don't scale up too much if small
+            # Scale to fit height of the canvas (max 200px)
+            fit_scale = ch / float(pil.size[1])
+            # fit_scale = min(fit_scale, 2.0) # Optional limit
             
             w_size = int(pil.size[0] * fit_scale)
             h_size = int(pil.size[1] * fit_scale)
@@ -1783,16 +1846,18 @@ class LibraryTab(ttk.Frame):
             display_pil = pil.resize((w_size, h_size), Image.Resampling.NEAREST)
             self.sheet_tk_img = ImageTk.PhotoImage(display_pil)
             
-            # Center the image in the canvas
-            dx = (cw - w_size) // 2
+            # Use scrollregion to handle overflow
+            self.sheet_canvas.config(scrollregion=(0, 0, w_size, ch))
+            
+            # Center the image vertically if it's smaller than canvas height
             dy = (ch - h_size) // 2
-            self.sheet_canvas.create_image(dx, dy, anchor="nw", image=self.sheet_tk_img)
+            self.sheet_canvas.create_image(0, dy, anchor="nw", image=self.sheet_tk_img)
             
             scale_x = w_size / pil.size[0]
             scale_y = h_size / pil.size[1]
             
             for i in range(count):
-                x = dx + (i * fw) * scale_x
+                x = (i * fw) * scale_x
                 y = dy
                 w = fw * scale_x
                 h = fh * scale_y
@@ -1887,6 +1952,7 @@ class LibraryTab(ttk.Frame):
                 "crop_size": self.var_item_crop_size.get() if hasattr(self, "var_item_crop_size") else 32,
                 "description": self.var_item_desc.get() if hasattr(self, "var_item_desc") else "",
                 "item_type": itype,
+                "item_slot": self.var_item_slot.get() if hasattr(self, "var_item_slot") else "general",
                 "slot": slot_val,
                 "weight": self.var_item_weight.get() if hasattr(self, "var_item_weight") else 1,
                 "base_damage": self.var_item_base_damage.get() if hasattr(self, "var_item_base_damage") else 0,
@@ -1901,6 +1967,7 @@ class LibraryTab(ttk.Frame):
                 "category": cat,
                 "texture_file": self.var_tex.get(),
                 "prop_scale": self.var_scale.get(),
+                "prop_x_shift": self.var_x_shift.get(),
                 "prop_y_shift": self.var_shift.get(),
             }
 

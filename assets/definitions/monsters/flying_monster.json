@@ -1,10 +1,10 @@
 {
     "animations": {
         "idle": {
-            "texture": "Enemy1-FlyIdle.png",
-            "fw": 64,
-            "fh": 64,
-            "count": 6
+            "texture": "",
+            "fw": 32,
+            "fh": 32,
+            "count": 1
         },
         "move": {
             "texture": "",
@@ -16,12 +16,12 @@
             "texture": "Enemy1-AttackV2.png",
             "fw": 64,
             "fh": 64,
-            "count": 14
+            "count": 13
         }
     },
     "scale": 1.6818181818181817,
     "x_shift": 0,
-    "y_shift": -37,
+    "y_shift": 0,
     "category": "monster",
     "name": "flying_monster.json"
 }
