@@ -1,0 +1,18 @@
+{
+    "category": "item",
+    "name": "dog",
+    "texture_file": "dog.png",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 43,
+    "description": "yum yum",
+    "item_type": "food",
+    "slot": "general",
+    "weight": 1,
+    "base_damage": 0,
+    "defense": 0,
+    "max_durability": 100,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 0
+}

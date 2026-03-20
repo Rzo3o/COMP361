@@ -1,10 +1,10 @@
 {
     "weapon": {
-        "slot": "general",
+        "slot": "weapon",
         "props": [
+            "weight",
             "base_damage",
-            "max_durability",
-            "weight"
+            "max_durability"
         ]
     },
     "armor": {
@@ -18,9 +18,8 @@
     "food": {
         "slot": "general",
         "props": [
-            "healing_amount",
-            "hunger_restore",
-            "weight"
+            "slot",
+            "hunger_restore"
         ]
     },
     "tribute": {
