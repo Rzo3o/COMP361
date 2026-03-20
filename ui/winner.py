@@ -31,8 +31,13 @@ class Winner:
         self.text_color = (154, 205, 50)
 
         self.decoration_images = [
-            ('sprite1.png', 1295, 581, 0, 6.4)
-            
+            ('sprite1.png', 1295, 550, 0, 8),
+            ('Grass.png', 942, 491, -15, 2.6999999999999997),
+            ('Grass_Pine.png', 200, 350, -15, 3.4000000000000004),
+            ('Magic_Crystals.png', 270, 448, 20, 3.2),
+            ('FrosenWater_Lilypads.png', 140, 460, 10, 2.1999999999999993),
+            ('Magic.png', 849, 474, -20, 1.9000000000000006),
+            ('Snow_Trees.png', 913, 378, 15, 3.0)
         ]
 
     
@@ -49,7 +54,7 @@ class Winner:
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
 
         text = font.render("Winner!", antialias=True, color=self.text_color)
-        rect = text.get_rect(midtop=(1/4 * self.width, self.height // 4)) # middle
+        rect = text.get_rect(midtop=(1/4 * self.width + 200, self.height // 4)) # middle
         self.screen.blit(source=text, dest=rect) 
         
         # images
@@ -73,10 +78,13 @@ class Winner:
         Output: None
         """
         # path
-        image_path = os. path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Castles', image_name)
-        
-        image = pygame.image.load(image_path)
-        
+        if "sprite1" in image_name:
+            castle_image_path = os. path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Castles', image_name)
+            image = pygame.image.load(castle_image_path)
+        else:
+            hex_image_path = os. path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)
+            image = pygame.image.load(hex_image_path)
+
         # adjust image
         original_w, original_h = image.get_size()
         scaled_image = pygame.transform.scale(image, (int(original_w * scale), int(original_h * scale)))
