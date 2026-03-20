@@ -454,13 +454,39 @@ class MapTab(ttk.Frame):
         
         self.render()
 
+    def _on_paint_mode_toggle(self):
+        if self.var_paint_mode.get():
+            self._reset_brush()
+            if hasattr(self, "btn_reset_brush"):
+                self.btn_reset_brush.pack(side=tk.TOP, fill="x", padx=5, pady=(0, 5))
+        else:
+            if hasattr(self, "btn_reset_brush"):
+                self.btn_reset_brush.pack_forget()
+
+    def _reset_brush(self):
+        self.selected_q = None
+        self.selected_r = None
+        if hasattr(self, 'var_q'):
+            self.var_q.set("")
+            self.var_r.set("")
+        if hasattr(self, 'var_tile'):
+            self.var_tile.set("")
+        if hasattr(self, 'var_prop'):
+            self.var_prop.set("")
+        if hasattr(self, 'cb_tiles'):
+            self.cb_tiles.set("")
+        if hasattr(self, 'cb_props'):
+            self.cb_props.set("")
+        self.render()
+
     def _build_standard_inspector(self):
         frame = self.inspector_area
         
         # Paint Mode & Coords
         paint_frame = ttk.LabelFrame(frame, text="Editor Mode", padding=5)
         paint_frame.pack(fill="x", pady=(0, 10))
-        ttk.Checkbutton(paint_frame, text="PAINT MODE (On/Off)", variable=self.var_paint_mode).pack()
+        ttk.Checkbutton(paint_frame, text="PAINT MODE (On/Off)", variable=self.var_paint_mode, command=self._on_paint_mode_toggle).pack(side=tk.TOP, anchor="w", pady=2)
+        self.btn_reset_brush = ttk.Button(paint_frame, text="Reset Brush", command=self._reset_brush)
         
         self.var_q = tk.StringVar(value="0")
         self.var_r = tk.StringVar(value="0")
@@ -693,7 +719,7 @@ class MapTab(ttk.Frame):
             if paint_del:
                 self._delete_tile()
             elif self.var_paint_mode.get():
-                if self.var_tile.get():
+                if self.var_tile.get() or self.var_prop.get():
                     self._save_from_inspector()
                     self.render()
                 elif target_changed:
@@ -707,6 +733,10 @@ class MapTab(ttk.Frame):
                  self.render() # Rerender to show selection
                 
         elif mode == "Levels":
+            existing = self.app.db.get_tile(q, r)
+            if not existing or not existing.get("texture_file"):
+                self.app.show_toast("Cannot set level on an empty tile.")
+                return
             # Direct Paint
             self._update_tile_safe(q, r, {"level": self.var_level_paint.get()})
             self.render()
@@ -783,15 +813,36 @@ class MapTab(ttk.Frame):
                         break
 
     def _save_from_inspector(self):
+        if self.selected_q is None or self.selected_r is None:
+            return
+
         tile_tex = self.var_tile.get()
         prop_tex = self.var_prop.get()
 
+        existing = self.app.db.get_tile(self.selected_q, self.selected_r)
+        if existing and existing.get("is_spawn") and prop_tex:
+            self.app.show_toast("Cannot place a prop on a spawn point.")
+            if not getattr(self, "var_paint_mode", None) or not self.var_paint_mode.get():
+                prop_tex = ""
+                self.var_prop.set("")
+                if hasattr(self, "cb_props"):
+                    self.cb_props.set("")
+            return
+
         if not tile_tex and prop_tex:
-            prop_tex = ""
-            self.var_prop.set("")
+            if not existing or not existing.get("texture_file"):
+                self.app.show_toast("Cannot place a prop on an empty tile.")
+                if not getattr(self, "var_paint_mode", None) or not self.var_paint_mode.get():
+                    prop_tex = ""
+                    self.var_prop.set("")
+                    if hasattr(self, "cb_props"):
+                        self.cb_props.set("")
+                return
+            else:
+                tile_tex = existing.get("texture_file")
 
         changes = {
-            "tile_type": "grass",
+            "tile_type": existing.get("tile_type", "grass") if existing else "grass",
             "texture_file": tile_tex,
             "prop_texture_file": prop_tex,
             "prop_scale": self.var_prop_scale.get(),
@@ -822,7 +873,7 @@ class MapTab(ttk.Frame):
         self.render()
 
     def _on_prop_preset_select(self, event):
-        if not self.var_tile.get():
+        if not self.var_tile.get() and not (getattr(self, "var_paint_mode", None) and self.var_paint_mode.get()):
             self.app.show_toast("Cannot add a prop to an empty tile. Add a base terrain tile first.")
             self.cb_props.set("")
             return
