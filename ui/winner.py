@@ -5,12 +5,13 @@ from pygame import font
 from pygame.draw import rect
 
 from screen2_DELETE import Screen2
+from ui.screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
 
 
-class Winner:
+class Winner(Screen):
     def __init__(self):
         pygame.init()
 
@@ -40,6 +41,8 @@ class Winner:
             ('Snow_Trees.png', 913, 378, 15, 3.0)
         ]
 
+    def handle_event(self, event):
+        raise NotImplementedError
     
     def draw(self):
         """
@@ -113,6 +116,9 @@ class Winner:
             self.clock.tick(80)
         
         pygame.quit()
+
+   
+
 
 if __name__ == "__main__":
     winner_screen = Winner()

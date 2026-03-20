@@ -4,12 +4,13 @@ import os
 from pygame.draw import rect
 
 from screen2_DELETE import Screen2
+from ui.screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
 
 
-class Welcome:
+class Welcome(Screen):
     def __init__(self):
         pygame.init()
 
