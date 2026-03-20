@@ -120,7 +120,7 @@ class AssetManager:
             return self.get_anim_frame(filename, 0)
         
         if scale is None:
-            scale, _ = self.get_layout(filename)
+            scale, _, _ = self.get_layout(filename)
             
         key = (filename, scale)
         if key in self.cache:

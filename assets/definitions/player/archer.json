@@ -3,25 +3,25 @@
         "idle": {
             "texture": "Archer_Idle.png",
             "fw": 28,
-            "fh": 28,
+            "fh": 25,
             "count": 6
         },
         "move": {
             "texture": "Archer_Move.png",
             "fw": 28,
-            "fh": 28,
+            "fh": 25,
             "count": 6
         },
         "attack": {
             "texture": "Archer_Attack.png",
             "fw": 28,
-            "fh": 28,
+            "fh": 25,
             "count": 9
         }
     },
     "category": "player",
     "name": "archer.json",
-    "scale": 2.2684090909090906,
-    "x_shift": 2,
-    "y_shift": -44
+    "scale": 2.578181818181818,
+    "x_shift": 8,
+    "y_shift": -43
 }

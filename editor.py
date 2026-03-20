@@ -116,12 +116,12 @@ class DatabaseManager:
         
         self.cursor.execute(
             """
-            INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_y_shift, is_spawn, level, is_permanently_passable)
-            VALUES (:q, :r, :tile_type, :texture_file, :prop_texture_file, :prop_scale, :prop_y_shift, :is_spawn, :level, :is_permanently_passable)
+            INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn, level, is_permanently_passable)
+            VALUES (:q, :r, :tile_type, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn, :level, :is_permanently_passable)
             ON CONFLICT(q,r) DO UPDATE SET
                 tile_type=excluded.tile_type, texture_file=excluded.texture_file,
                 prop_texture_file=excluded.prop_texture_file, 
-                prop_scale=excluded.prop_scale, prop_y_shift=excluded.prop_y_shift,
+                prop_scale=excluded.prop_scale, prop_x_shift=excluded.prop_x_shift, prop_y_shift=excluded.prop_y_shift,
                 is_spawn=excluded.is_spawn,
                 level=excluded.level,
                 is_permanently_passable=excluded.is_permanently_passable
@@ -514,6 +514,7 @@ class MapTab(ttk.Frame):
         self.var_tile = tk.StringVar()
         self.var_prop = tk.StringVar()
         self.var_prop_scale = tk.DoubleVar(value=1.0)
+        self.var_prop_x_shift = tk.IntVar(value=0)
         self.var_prop_shift = tk.IntVar(value=0)
         # self.var_is_spawn = tk.BooleanVar(value=False) # Moved to Spawn View
 
@@ -841,7 +842,7 @@ class MapTab(ttk.Frame):
                 "q": q, "r": r, 
                 "tile_type": "grass", "texture_file": "", 
                 "prop_texture_file": "", "prop_scale": 1.0, 
-                "prop_y_shift": 0, "is_spawn": 0, "level": 1, "is_permanently_passable": 1
+                "prop_x_shift": 0, "prop_y_shift": 0, "is_spawn": 0, "level": 1, "is_permanently_passable": 1
             }
         
         data.update(changes)
@@ -853,6 +854,7 @@ class MapTab(ttk.Frame):
         self.var_tile.set(tile_tex)
         self.var_prop.set(prop_tex)
         self.var_prop_scale.set(data.get("prop_scale", 1.0))
+        self.var_prop_x_shift.set(data.get("prop_x_shift", 0))
         self.var_prop_shift.set(data.get("prop_y_shift", 0))
 
         if hasattr(self, "cb_tiles"):
@@ -909,6 +911,7 @@ class MapTab(ttk.Frame):
             "texture_file": tile_tex,
             "prop_texture_file": prop_tex,
             "prop_scale": self.var_prop_scale.get(),
+            "prop_x_shift": self.var_prop_x_shift.get(),
             "prop_y_shift": self.var_prop_shift.get(),
         }
         self._update_tile_safe(self.selected_q, self.selected_r, changes)
@@ -945,6 +948,7 @@ class MapTab(ttk.Frame):
         data = self.app.asset_mgr.load_json("prop", fname)
         self.var_prop.set(data.get("texture_file", ""))
         self.var_prop_scale.set(data.get("prop_scale", 1.0))
+        self.var_prop_x_shift.set(data.get("prop_x_shift", 0))
         self.var_prop_shift.set(data.get("prop_y_shift", 0))
         self._save_from_inspector()
         self.render()
@@ -2025,6 +2029,29 @@ class LibraryTab(ttk.Frame):
                 if hasattr(self, "var_monster_def_health"):
                     self.anim_data["default_health"] = self.var_monster_def_health.get()
                     self.anim_data["default_damage"] = self.var_monster_def_damage.get()
+            
+            # Validation: Prevent out of bounds sprite rectangles
+            if "animations" in self.anim_data:
+                for anim_key, anim in self.anim_data["animations"].items():
+                    tex = anim.get("texture")
+                    if tex:
+                        path_img = os.path.join(Config.ASSET_DIR, tex)
+                        if os.path.exists(path_img):
+                            try:
+                                from PIL import Image
+                                pil_img = Image.open(path_img)
+                                w, h = pil_img.size
+                                fw, fh = anim.get("fw", 32), anim.get("fh", 32)
+                                count = anim.get("count", 1)
+                                if fh > h:
+                                    self.app.show_toast(f"Save failed: {anim_key} frame height ({fh}) exceeds image height ({h}).")
+                                    return
+                                if fw * count > w:
+                                    self.app.show_toast(f"Save failed: {anim_key} total width ({fw*count}) exceeds image width ({w}).")
+                                    return
+                            except Exception:
+                                pass
+                                
             data = self.anim_data
         elif cat == "item":
             cats_load = self.app.asset_mgr.load_item_categories()

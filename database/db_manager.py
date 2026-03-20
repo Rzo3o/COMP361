@@ -370,12 +370,12 @@ class DatabaseManager:
 
         self.cursor.execute(
             """
-            INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_y_shift, is_spawn)
-            VALUES (:q, :r, :tile_type, :texture_file, :prop_texture_file, :prop_scale, :prop_y_shift, :is_spawn)
+            INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn)
+            VALUES (:q, :r, :tile_type, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn)
             ON CONFLICT(q,r) DO UPDATE SET
                 tile_type=excluded.tile_type, texture_file=excluded.texture_file,
                 prop_texture_file=excluded.prop_texture_file, 
-                prop_scale=excluded.prop_scale, prop_y_shift=excluded.prop_y_shift,
+                prop_scale=excluded.prop_scale, prop_x_shift=excluded.prop_x_shift, prop_y_shift=excluded.prop_y_shift,
                 is_spawn=excluded.is_spawn
             """,
             data,

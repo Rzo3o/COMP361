@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS map_tiles (
     prop_texture_file TEXT,
     prop_type TEXT, -- 'tree', 'rock', 'building', etc.
     prop_scale REAL DEFAULT 1.0,
+    prop_x_shift INTEGER DEFAULT 0,
     prop_y_shift INTEGER DEFAULT 0,
     is_permanently_passable BOOLEAN DEFAULT 1, -- 0 for deep water/impassable peaks
     is_spawn BOOLEAN DEFAULT 0, -- NEW: Tracks where the player starts

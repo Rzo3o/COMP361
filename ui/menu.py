@@ -1,6 +1,8 @@
 import pygame
 import sys
 import os
+import json
+from visuals.asset_manager import AssetManager
 
 class SaveSelectMenu:
     def __init__(self):
@@ -13,6 +15,15 @@ class SaveSelectMenu:
         self.clock = pygame.time.Clock()
         self.running = True
         self.selected_slot = None
+        self.selected_skin = None
+        
+        self.am = AssetManager()
+        self._load_skins()
+        self.current_skin_idx = 0
+        
+        # UI Rects for skin selector
+        self.left_btn = pygame.Rect(self.width // 2 - 150, 150 - 20, 40, 40)
+        self.right_btn = pygame.Rect(self.width // 2 + 110, 150 - 20, 40, 40)
         
         # Confirmation State
         self.confirm_delete_slot = None  # None or slot_id
@@ -28,6 +39,27 @@ class SaveSelectMenu:
         self.slots = [1, 2, 3]
         self.buttons = []
         self._create_buttons()
+
+    def _load_skins(self):
+        self.skins = []
+        player_def_dir = "assets/definitions/player"
+        if os.path.exists(player_def_dir):
+            for f in os.listdir(player_def_dir):
+                if f.endswith(".json"):
+                    try:
+                        with open(os.path.join(player_def_dir, f), "r") as jf:
+                            data = json.load(jf)
+                            skin_name = data.get("name", f.replace(".json", ""))
+                            tex = data.get("texture_file")
+                            if not tex and "animations" in data:
+                                tex = data["animations"].get("idle", {}).get("texture")
+                            if tex:
+                                self.skins.append({"name": skin_name, "texture": tex})
+                    except Exception as e:
+                        print(f"Error loading skin {f}: {e}")
+        
+        if not self.skins:
+            self.skins.append({"name": "Default", "texture": None})
 
     def _create_buttons(self):
         self.buttons = []
@@ -57,10 +89,37 @@ class SaveSelectMenu:
         
         # Title
         title_surf = self.font.render("Select Save Slot", True, self.text_color)
-        title_rect = title_surf.get_rect(center=(self.width // 2, 100))
+        title_rect = title_surf.get_rect(center=(self.width // 2, 70))
         self.screen.blit(title_surf, title_rect)
         
         mouse_pos = pygame.mouse.get_pos()
+        
+        # Skin Selector
+        skin_y = 150
+        skin_text = f"Skin: {self.skins[self.current_skin_idx]['name']}"
+        skin_surf = self.small_font.render(skin_text, True, self.text_color)
+        skin_rect = skin_surf.get_rect(center=(self.width // 2, skin_y))
+        self.screen.blit(skin_surf, skin_rect)
+        
+        # Draw Left/Right Arrows for Skin Selector
+        c_left = self.hover_color if self.left_btn.collidepoint(mouse_pos) else self.btn_color
+        c_right = self.hover_color if self.right_btn.collidepoint(mouse_pos) else self.btn_color
+        
+        pygame.draw.rect(self.screen, c_left, self.left_btn, border_radius=5)
+        pygame.draw.rect(self.screen, c_right, self.right_btn, border_radius=5)
+        
+        l_txt = self.font.render("<", True, self.text_color)
+        r_txt = self.font.render(">", True, self.text_color)
+        self.screen.blit(l_txt, l_txt.get_rect(center=self.left_btn.center))
+        self.screen.blit(r_txt, r_txt.get_rect(center=self.right_btn.center))
+        
+        # Draw Skin Sprite Preview
+        tex = self.skins[self.current_skin_idx]["texture"]
+        if tex:
+            skin_img = self.am.get_image(tex, scale=2.0)
+            if skin_img:
+                img_rect = skin_img.get_rect(center=(self.width // 2, skin_y - 40))
+                self.screen.blit(skin_img, img_rect)
         
         for btn in self.buttons:
             rect = btn["rect"]
@@ -156,13 +215,20 @@ class SaveSelectMenu:
                             elif self.confirm_buttons["no"].collidepoint(event.pos):
                                 self.confirm_delete_slot = None
                         else:
+                            # Handle Skin Selection Arrows
+                            if self.left_btn.collidepoint(event.pos):
+                                self.current_skin_idx = (self.current_skin_idx - 1) % len(self.skins)
+                            elif self.right_btn.collidepoint(event.pos):
+                                self.current_skin_idx = (self.current_skin_idx + 1) % len(self.skins)
+                                
                             # Handle Main Menu
                             for btn in self.buttons:
                                 if btn["rect"].collidepoint(event.pos):
                                     if btn["type"] == "slot":
                                         self.selected_slot = btn["value"]
+                                        self.selected_skin = self.skins[self.current_skin_idx]["texture"]
                                         self.running = False
-                                        return self.selected_slot
+                                        return self.selected_slot, self.selected_skin
                                     elif btn["type"] == "delete":
                                         self.confirm_delete_slot = btn["value"]
             
@@ -170,12 +236,12 @@ class SaveSelectMenu:
             self.clock.tick(60)
         
         pygame.quit()
-        return self.selected_slot
+        return self.selected_slot, self.selected_skin
 
 if __name__ == "__main__":
     menu = SaveSelectMenu()
-    slot = menu.run()
-    if slot:
-        print(f"Selected Slot: {slot}")
+    res = menu.run()
+    if res and res[0]:
+        print(f"Selected Slot: {res[0]}, Skin: {res[1]}")
     else:
         print("Cancelled")
