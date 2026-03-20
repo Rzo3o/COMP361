@@ -104,14 +104,14 @@ class GameRenderer:
             img = self.assets.get_image(tile.texture, scale=scale)
             if img:
                 # Center horizontally, shift vertically
-                rect = img.get_rect(centerx=x, bottom=y - Config.CALIB_OFFSET_Y - shift + img.get_height())
+                rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - shift)
                 screen.blit(img, rect)
 
     def _draw_prop(self, screen, tile, x, y):
         if tile.prop_texture:
             img = self.assets.get_image(tile.prop_texture, scale=tile.prop_scale)
             if img:
-               rect = img.get_rect(centerx=x, bottom=y - Config.CALIB_OFFSET_Y - tile.prop_shift + img.get_height())
+               rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - tile.prop_shift)
                screen.blit(img, rect)
 
     def _draw_entity(self, screen, entity, x, y, frame_index):
@@ -120,7 +120,7 @@ class GameRenderer:
             scale, shift = self.assets.get_layout(entity.texture)
 
             if img:
-                rect = img.get_rect(centerx=x, bottom=y - Config.CALIB_OFFSET_Y - shift + img.get_height())
+                rect = img.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - shift)
                 screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)
