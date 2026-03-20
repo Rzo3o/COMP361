@@ -1,90 +1,146 @@
 import pygame
 import sys
+import os
+from button import Button
+
 
 class MainMenu:
-
     def __init__(self):
         pygame.init()
 
-        self.width, self.height = 800, 600
-        self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Beyond Hex")
+        # Window
+        self.width, self.height = pygame.display.get_desktop_sizes()[0]
+        self.screen = pygame.display.set_mode(
+            (self.width, self.height - 60), pygame.RESIZABLE
+        )
+        pygame.display.set_caption("Main Menu")
 
         self.clock = pygame.time.Clock()
         self.running = True
 
-        self.font = pygame.font.Font(None, 72)
-        self.button_font = pygame.font.Font(None, 40)
-
-        self.text_color = (220, 220, 220)
-        self.btn_color = (60, 60, 60)
-        self.hover_color = (80, 80, 100)
-
-        #colours
+        # colour (R G B)
         self.bg_color = (28, 48, 41)
+        self.text_color = (240, 240, 240)
 
-        # simple buttons
-        self.play_btn = pygame.Rect(270, 250, 260, 65)
-        self.rules_btn = pygame.Rect(270, 340, 260, 65)
-        self.exit_btn = pygame.Rect(270, 430, 260, 65)
+        # font 
+        self.title_font = pygame.font.SysFont("arial", 100 , bold=True)
+        self.button_font = pygame.font.SysFont("Roboto Mono", 50, bold=True)
 
-        #monster pic
-        self.monster_img = pygame.image.load("/Users/yasmin/Downloads/361/assets/assetBank/Forest_Monsters_PREMIUM/Forest_Monsters_PREMIUM/Bush_Monster/Bush Monster with VFX/Bush_Monster-AttackTimeFrame.png").convert_alpha()
-        self.monster_img = pygame.transform.scale(self.monster_img, (200, 200))
-        self.monster_rect = self.monster_img.get_rect(center=(400, 100))
+        # Button sizes``
+        self.button_width = 420
+        self.button_height = 100
+        self.button_gap = 30
 
-    def draw_button(self, rect, text):
+        # Create buttons
+        self.update_layout()
 
-        mouse = pygame.mouse.get_pos()
-        color = self.hover_color if rect.collidepoint(mouse) else self.btn_color
+        # Monster image
+        monster_path = os.path.join(
+            "assets",
+            "assetBank",
+            "Forest_Monsters_PREMIUM",
+            "Forest_Monsters_PREMIUM",
+            "Bush_Monster",
+            "Bush Monster with VFX",
+            "Bush_Monster-AttackTimeFrame.png",
+        )
 
-        pygame.draw.rect(self.screen, color, rect, border_radius=10)
+        self.monster_img = pygame.image.load(monster_path).convert_alpha()
+        # monster size image
+        self.monster_img = pygame.transform.scale(self.monster_img, (260, 260))
+        self.monster_rect = self.monster_img.get_rect()
 
-        text_surf = self.button_font.render(text, True, self.text_color)
-        text_rect = text_surf.get_rect(center=rect.center)
-        self.screen.blit(text_surf, text_rect)
+    def update_layout(self):
+        center_x = self.width // 2
+        start_y = self.height // 2 - 60
+
+        self.play_button = Button(
+            center_x - self.button_width // 2,
+            start_y,
+            self.button_width,
+            self.button_height,
+            "PLAY",
+            self.button_font,
+            action_name="play",
+            bg_color=(70, 70, 90),
+            hover_color=(120, 100, 160), #purple when hover over
+            text_color=(255, 255, 255),
+        )
+
+        self.rules_button = Button(
+            center_x - self.button_width // 2,
+            start_y + self.button_height + self.button_gap,
+            self.button_width,
+            self.button_height,
+            "GAME RULES",
+            self.button_font,
+            action_name="rules",
+            bg_color=(70, 70, 90),
+            hover_color=(120, 100, 160),
+            text_color=(255, 255, 255),
+        )
+
+        self.exit_button = Button(
+            center_x - self.button_width // 2,
+            start_y + 2 * (self.button_height + self.button_gap),
+            self.button_width,
+            self.button_height,
+            "EXIT",
+            self.button_font,
+            action_name="exit",
+            bg_color=(70, 70, 90),
+            hover_color=(120, 100, 160),
+            text_color=(255, 255, 255),
+        )
+
+        self.buttons = [self.play_button, self.rules_button, self.exit_button]
 
     def draw(self):
-
         self.screen.fill(self.bg_color)
 
-        title = self.font.render("Beyond Hex", True, self.text_color)
-        self.screen.blit(title, title.get_rect(center=(400,120)))
-        
-       
-        self.draw_button(self.play_btn, "Play")
-        self.draw_button(self.rules_btn, "Game Rules")
-        self.draw_button(self.exit_btn, "Exit")
-        #monster pic
-        self.monster_img = pygame.image.load("/Users/yasmin/Downloads/361/assets/assetBank/Forest_Monsters_PREMIUM/Forest_Monsters_PREMIUM/Bush_Monster/Bush Monster with VFX/Bush_Monster-AttackTimeFrame.png").convert_alpha()
-        self.monster_img = pygame.transform.scale(self.monster_img, (200, 200))
-        self.monster_rect = self.monster_img.get_rect(center=(400, 100))
-        #bring monster to right below
-        self.monster_rect.bottomright = (self.width - 20, self.height - 20)
+        # main menu title for screen
+        title = self.title_font.render("MAIN MENU", True, self.text_color)
+        title_rect = title.get_rect(center=(self.width // 2, 120))
+        self.screen.blit(title, title_rect)
+
+        # Buttons
+        for button in self.buttons:
+            button.draw(self.screen)
+
+        # image
+        self.monster_rect.bottomright = (self.width - 30, self.height - 20)
         self.screen.blit(self.monster_img, self.monster_rect)
-
-
 
         pygame.display.flip()
 
     def run(self):
-
         while self.running:
+            mouse_pos = pygame.mouse.get_pos()
+
+            for button in self.buttons:
+                button.check_hover(mouse_pos)
 
             for event in pygame.event.get():
-
                 if event.type == pygame.QUIT:
                     self.running = False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.VIDEORESIZE:
+                    self.width, self.height = event.w, event.h
+                    self.screen = pygame.display.set_mode(
+                        (self.width, self.height), pygame.RESIZABLE
+                    )
+                    self.update_layout()
 
-                    if self.play_btn.collidepoint(event.pos):
-                        print("Play clicked")
+                for button in self.buttons:
+                    action = button.handle_event(event)
 
-                    if self.rules_btn.collidepoint(event.pos):
-                        print("Rules clicked")
+                    if action == "play":
+                        print("Play clicked") #debugging but replace with the actual logic later to start
 
-                    if self.exit_btn.collidepoint(event.pos):
+                    elif action == "rules":
+                        print("Rules clicked") #debugging but replace with the actual logic later to show game rules
+
+                    elif action == "exit":
                         self.running = False
 
             self.draw()

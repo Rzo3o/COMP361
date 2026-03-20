@@ -1,5 +1,0 @@
-TODO:
-- in editor.py, spawn needs to check 1 per level
-- in editor.py, spawn needs to check if tile is not permanently passable
-- in editor.py, levels should only be integers
-- add food to editor

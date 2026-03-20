@@ -1,0 +1,39 @@
+{
+    "weapon": {
+        "slot": "general",
+        "props": [
+            "base_damage",
+            "max_durability",
+            "weight"
+        ]
+    },
+    "armor": {
+        "slot": "general",
+        "props": [
+            "defense",
+            "max_durability",
+            "weight"
+        ]
+    },
+    "food": {
+        "slot": "general",
+        "props": [
+            "healing_amount",
+            "hunger_restore",
+            "weight"
+        ]
+    },
+    "tribute": {
+        "slot": "general",
+        "props": [
+            "weight"
+        ]
+    },
+    "artifact": {
+        "slot": "general",
+        "props": [
+            "power_bonus",
+            "weight"
+        ]
+    }
+}

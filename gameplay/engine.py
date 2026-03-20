@@ -12,6 +12,7 @@ class GameEngine:
         self.show_inventory = False  # toggle flag
         self.selected_index = 0  # cursor position in inventory
         self.load_inventory()
+        self._apply_equipment()
 
     def load_inventory(self):
         """Load inventory from DB into Item objects."""
@@ -22,6 +23,19 @@ class GameEngine:
             item.quantity = row.get("quantity", 1)
             item.equipped = bool(row.get("is_equipped", 0))
             self.inventory.append(item)
+
+    def _apply_equipment(self):
+        """Sync equipped items from inventory into player equipment slots."""
+        player = self.world.player
+        if not player:
+            return
+        # Clear all slots first
+        for slot in player.equipment:
+            player.equipment[slot] = None
+        # Apply equipped items
+        for item in self.inventory:
+            if item.equipped and item.is_equippable:
+                player.equipment[item.slot] = item
 
     def handle_input(self, action):
         if self.world.player.dead:
@@ -35,11 +49,14 @@ class GameEngine:
             if action == "MOVE_NORTH" and self.selected_index > 0:
                 self.selected_index -= 1
             elif (
-                action == "MOVE_SOUTH" and self.selected_index < len(self.inventory) - 1
+                action == "MOVE_SOUTH"
+                and self.selected_index < len(self.inventory) - 1
             ):
                 self.selected_index += 1
             elif action == "INTERACT":
                 self.use_selected_item()
+            elif action == "MOVE_WEST":
+                self.drop_selected_item()
             return "NO_ACTION"
 
         # --- Normal gameplay controls ---
@@ -51,7 +68,6 @@ class GameEngine:
             "MOVE_SW": (-1, 1),
             "MOVE_NE": (1, -1),
         }
-        # Check if the action is a movement
         if action in move_map:
             dq, dr = move_map[action]
             self.attempt_move(dq, dr)
@@ -60,13 +76,13 @@ class GameEngine:
         if action == "INVENTORY":
             self.show_inventory = True
             self.selected_index = 0
-            self.load_inventory()  # refresh from DB
+            self.load_inventory()
             return "NO_ACTION"
 
         return "NO_ACTION"
 
     def use_selected_item(self):
-        """Use or equip the currently selected inventory item."""
+        """Use or equip/unequip the currently selected inventory item."""
         if not self.inventory or self.selected_index >= len(self.inventory):
             return
         item = self.inventory[self.selected_index]
@@ -77,23 +93,62 @@ class GameEngine:
                 self.db.remove_item(self.session_id, item.id)
                 self.db.save_player(self.session_id, player)
                 self.load_inventory()
-                # Adjust cursor if list got shorter
+                self._apply_equipment()
                 if self.selected_index >= len(self.inventory):
                     self.selected_index = max(0, len(self.inventory) - 1)
-        elif item.type == "weapon":
+
+        elif item.is_equippable:
             self.db.toggle_equip(self.session_id, item.id)
             self.load_inventory()
+            self._apply_equipment()
+
+    def drop_selected_item(self):
+        """Drop one of the selected item from inventory."""
+        if not self.inventory or self.selected_index >= len(self.inventory):
+            return
+        item = self.inventory[self.selected_index]
+        self.db.remove_item(self.session_id, item.id, quantity=1)
+        self.load_inventory()
+        self._apply_equipment()
+        if self.selected_index >= len(self.inventory):
+            self.selected_index = max(0, len(self.inventory) - 1)
 
     def attempt_move(self, dq, dr):
-        target_q = self.world.player.q + dq
-        target_r = self.world.player.r + dr
+        player = self.world.player
+        target_q = player.q + dq
+        target_r = player.r + dr
 
-        if self.world.is_passable(target_q, target_r):
-            self.world.player.move(dq, dr)
-            self.world.update_fog_of_war()
-            self.db.save_player(self.session_id, self.world.player)
-        else:
-            pass
+        if not self.world.is_passable(target_q, target_r):
+            return False
+
+        player.move(dq, dr)
+        self.world.update_fog_of_war()
+        self.db.save_player(self.session_id, player)
+        return True
 
     def update(self):
-        pass
+        player = self.world.player
+
+        if player.dead:
+            return "GAME_OVER"
+
+        if player.hunger > 0:
+            player.hunger -= 1
+
+        if player.hunger <= 0:
+            player.hunger = 0
+            if player.health > 0:
+                player.health -= 1
+
+        if player.health <= 0:
+            player.health = 0
+            player.dead = True
+
+            if hasattr(player, "death_count"):
+                player.death_count += 1
+
+            self.db.save_player(self.session_id, player)
+            return "GAME_OVER"
+
+        self.db.save_player(self.session_id, player)
+        return "UPDATED"
