@@ -71,7 +71,13 @@ class GameWindow:
                     action = "INVENTORY"
 
                 if action:
-                    self.engine.handle_input(action)
+                    result = self.engine.handle_input(action)
+
+                    if result == "TURN_TAKEN":
+                        self.engine.process_monster_turns()
+                        game_state = self.engine.update()
+                        if game_state == "GAME_OVER":
+                            self.running = False
 
     def update(self):
         # Animation tick

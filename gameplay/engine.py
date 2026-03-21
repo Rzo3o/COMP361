@@ -144,6 +144,9 @@ class GameEngine:
     def update(self):
         player = self.world.player
 
+        if player is None:
+            return "NO_PLAYER"
+        
         if player.dead:
             return "GAME_OVER"
 
@@ -152,11 +155,11 @@ class GameEngine:
 
         if player.hunger <= 0:
             player.hunger = 0
-            if player.health > 0:
-                player.health -= 1
+            if player.hp > 0:
+                player.hp -= 1
 
-        if player.health <= 0:
-            player.health = 0
+        if player.hp <= 0:
+            player.hp = 0
             player.dead = True
 
             if hasattr(player, "death_count"):
@@ -171,3 +174,34 @@ class GameEngine:
             return "SAVE_ERROR"
 
         return "UPDATED"
+
+    def process_monster_turns(self):
+        """
+        Run one monster turn for all alive monsters after the player takes a turn.
+        """
+        player = self.world.player
+        if not player or player.dead:
+            return []
+
+        logs = []
+
+        for monster in self.world.monsters:
+            if not monster.is_alive():
+                continue
+
+            result = monster.decide_and_act(self.world, player)
+            logs.append(result)
+
+            # Save each monster after it acts
+            if hasattr(self.db, "save_monster"):
+                self.db.save_monster(monster)
+
+            # Stop early if player died during monster actions
+            if player.dead:
+                break
+
+        # Save player state too, because monsters may have damaged the player
+        self.db.save_player(self.session_id, player)
+        return logs
+        
+        
