@@ -113,6 +113,13 @@ class GameEngine:
         if self.selected_index >= len(self.inventory):
             self.selected_index = max(0, len(self.inventory) - 1)
 
+    def _safe_save_player(self, player):
+        try:
+            self.db.save_player(self.session_id, player)
+            return True
+        except Exception:
+            return False
+
     def attempt_move(self, dq, dr):
         player = self.world.player
         target_q = player.q + dq
@@ -121,9 +128,17 @@ class GameEngine:
         if not self.world.is_passable(target_q, target_r):
             return False
 
+        old_q, old_r = player.q, player.r
+
         player.move(dq, dr)
         self.world.update_fog_of_war()
-        self.db.save_player(self.session_id, player)
+
+        if not self._safe_save_player(player):
+            player.q = old_q
+            player.r = old_r
+            self.world.update_fog_of_war()
+            return False
+
         return True
 
     def update(self):
@@ -147,8 +162,12 @@ class GameEngine:
             if hasattr(player, "death_count"):
                 player.death_count += 1
 
-            self.db.save_player(self.session_id, player)
+            if not self._safe_save_player(player):
+                return "SAVE_ERROR"
+
             return "GAME_OVER"
 
-        self.db.save_player(self.session_id, player)
+        if not self._safe_save_player(player):
+            return "SAVE_ERROR"
+
         return "UPDATED"

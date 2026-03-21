@@ -61,6 +61,19 @@ def test_attempt_move_blocked():
     engine.db.save_player.assert_not_called()
 
 
+def test_attempt_move_rollback_on_save_error():
+    player = DummyPlayer(q=0, r=0)
+    engine = make_engine(player, passable=True)
+    engine.db.save_player.side_effect = Exception("db failed")
+
+    result = engine.attempt_move(1, 0)
+
+    assert result is False
+    assert player.q == 0
+    assert player.r == 0
+    assert engine.world.update_fog_of_war.call_count == 2
+
+
 def test_update_reduces_hunger():
     player = DummyPlayer(health=10, hunger=5)
     engine = make_engine(player)
@@ -91,3 +104,14 @@ def test_update_player_dies():
     assert result == "GAME_OVER"
     assert player.dead is True
     assert player.health == 0
+    assert player.death_count == 1
+
+
+def test_update_returns_save_error():
+    player = DummyPlayer(health=10, hunger=5)
+    engine = make_engine(player)
+    engine.db.save_player.side_effect = Exception("db failed")
+
+    result = engine.update()
+
+    assert result == "SAVE_ERROR"
