@@ -38,7 +38,11 @@ class GameEngine:
                 player.equipment[item.slot] = item
 
     def handle_input(self, action):
-        if self.world.player.dead:
+        player = self.world.player
+
+        if player is None:
+            return "NO_PLAYER"
+        if player.dead:
             return "GAME_OVER"
 
         # --- Inventory screen controls ---
@@ -70,8 +74,29 @@ class GameEngine:
         }
         if action in move_map:
             dq, dr = move_map[action]
-            self.attempt_move(dq, dr)
-            return "TURN_TAKEN"
+            player = self.world.player
+            
+            if player is None:
+                return "NO_PLAYER"
+
+            target_q = player.q + dq
+            target_r = player.r + dr
+
+            # if target hex has a monster, then player attacks
+            monster = self.world.get_monster_at(target_q, target_r)
+            if monster is not None:
+                damage = player.attack_monster(monster)
+
+                if hasattr(self.db, "save_monster"):
+                    self.db.save_monster(monster)
+                self.db.save_player(self.session_id, player)
+
+                print(f"Player attacked {monster.name} for {damage} damage")
+                return "TURN_TAKEN"
+            
+            # if no monster, then try to move
+            moved = self.attempt_move(dq, dr)
+            return "TURN_TAKEN" if moved else "NO_ACTION"
 
         if action == "INVENTORY":
             self.show_inventory = True
@@ -203,5 +228,22 @@ class GameEngine:
         # Save player state too, because monsters may have damaged the player
         self.db.save_player(self.session_id, player)
         return logs
+    
+    def run_turn(self, action):
+        result = self.handle_input(action)
+
+        if result == "GAME_OVER":
+            return "GAME_OVER"
+
+        if result != "TURN_TAKEN":
+            return "NO_ACTION"
+
+        self.process_monster_turns()
+
+        game_state = self.update()
+        if game_state == "GAME_OVER":
+            return "GAME_OVER"
+
+        return "TURN_DONE"
         
         

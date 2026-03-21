@@ -152,6 +152,8 @@ class Monster(Entity):
             self.dead = True
             self.on_death()
 
+        return reduced
+
     def on_death(self) -> list:
         """Drop all equipped items on death. Returns list of dropped Items."""
         return self.get_loot_drops()

@@ -16,8 +16,8 @@ class Player(Entity):
         self.dead = False
 
         # Base stats (without equipment)
-        self.base_damage = 5
-        self.base_defense = 0
+        self.base_damage = 50
+        self.base_defense = 50
 
         # Equipment slots: slot_name -> Item or None
         self.equipment = {
@@ -76,3 +76,18 @@ class Player(Entity):
             self.hp = 0
             self.dead = True
         return reduced
+
+    def attack_monster(self, monster):
+        """
+        Player attacks a monster.
+        Returns the damage dealt
+        """
+        damage = self.total_damage
+
+        if hasattr(monster, "take_damage"):
+            return monster.take_damage(damage)
+        else:
+            monster.hp -= damage
+            if monster.hp <= 0:
+                monster.hp = 0
+            return damage
