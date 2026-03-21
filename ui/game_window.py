@@ -71,8 +71,10 @@ class GameWindow:
                     action = "INVENTORY"
 
                 if action:
-                    self.engine.handle_input(action)
-
+                    result = self.engine.run_turn(action)
+                    if result == "GAME_OVER":
+                        self.running = False
+                    
     def update(self):
         # Animation tick
         self.anim_timer += self.clock.get_time()

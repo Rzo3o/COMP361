@@ -38,7 +38,11 @@ class GameEngine:
                 player.equipment[item.slot] = item
 
     def handle_input(self, action):
-        if self.world.player.dead:
+        player = self.world.player
+
+        if player is None:
+            return "NO_PLAYER"
+        if player.dead:
             return "GAME_OVER"
 
         # --- Inventory screen controls ---
@@ -70,8 +74,29 @@ class GameEngine:
         }
         if action in move_map:
             dq, dr = move_map[action]
-            self.attempt_move(dq, dr)
-            return "TURN_TAKEN"
+            player = self.world.player
+            
+            if player is None:
+                return "NO_PLAYER"
+
+            target_q = player.q + dq
+            target_r = player.r + dr
+
+            # if target hex has a monster, then player attacks
+            monster = self.world.get_monster_at(target_q, target_r)
+            if monster is not None:
+                damage = player.attack_monster(monster)
+
+                if hasattr(self.db, "save_monster"):
+                    self.db.save_monster(monster)
+                self.db.save_player(self.session_id, player)
+
+                print(f"Player attacked {monster.name} for {damage} damage")
+                return "TURN_TAKEN"
+            
+            # if no monster, then try to move
+            moved = self.attempt_move(dq, dr)
+            return "TURN_TAKEN" if moved else "NO_ACTION"
 
         if action == "INVENTORY":
             self.show_inventory = True
@@ -113,6 +138,13 @@ class GameEngine:
         if self.selected_index >= len(self.inventory):
             self.selected_index = max(0, len(self.inventory) - 1)
 
+    def _safe_save_player(self, player):
+        try:
+            self.db.save_player(self.session_id, player)
+            return True
+        except Exception:
+            return False
+
     def attempt_move(self, dq, dr):
         player = self.world.player
         target_q = player.q + dq
@@ -121,14 +153,25 @@ class GameEngine:
         if not self.world.is_passable(target_q, target_r):
             return False
 
+        old_q, old_r = player.q, player.r
+
         player.move(dq, dr)
         self.world.update_fog_of_war()
-        self.db.save_player(self.session_id, player)
+
+        if not self._safe_save_player(player):
+            player.q = old_q
+            player.r = old_r
+            self.world.update_fog_of_war()
+            return False
+
         return True
 
     def update(self):
         player = self.world.player
 
+        if player is None:
+            return "NO_PLAYER"
+        
         if player.dead:
             return "GAME_OVER"
 
@@ -137,18 +180,70 @@ class GameEngine:
 
         if player.hunger <= 0:
             player.hunger = 0
-            if player.health > 0:
-                player.health -= 1
+            if player.hp > 0:
+                player.hp -= 1
 
-        if player.health <= 0:
-            player.health = 0
+        if player.hp <= 0:
+            player.hp = 0
             player.dead = True
 
             if hasattr(player, "death_count"):
                 player.death_count += 1
 
-            self.db.save_player(self.session_id, player)
+            if not self._safe_save_player(player):
+                return "SAVE_ERROR"
+
             return "GAME_OVER"
 
-        self.db.save_player(self.session_id, player)
+        if not self._safe_save_player(player):
+            return "SAVE_ERROR"
+
         return "UPDATED"
+
+    def process_monster_turns(self):
+        """
+        Run one monster turn for all alive monsters after the player takes a turn.
+        """
+        player = self.world.player
+        if not player or player.dead:
+            return []
+
+        logs = []
+
+        for monster in self.world.monsters:
+            if not monster.is_alive():
+                continue
+
+            result = monster.decide_and_act(self.world, player)
+            logs.append(result)
+
+            # Save each monster after it acts
+            if hasattr(self.db, "save_monster"):
+                self.db.save_monster(monster)
+
+            # Stop early if player died during monster actions
+            if player.dead:
+                break
+
+        # Save player state too, because monsters may have damaged the player
+        self.db.save_player(self.session_id, player)
+        return logs
+    
+    def run_turn(self, action):
+        result = self.handle_input(action)
+
+        if result == "GAME_OVER":
+            return "GAME_OVER"
+
+        if result != "TURN_TAKEN":
+            return "NO_ACTION"
+
+        self.process_monster_turns()
+
+        game_state = self.update()
+        if game_state == "GAME_OVER":
+            return "GAME_OVER"
+
+        return "TURN_DONE"
+        
+        

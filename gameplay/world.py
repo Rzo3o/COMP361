@@ -81,3 +81,9 @@ class World:
             if m.q == q and m.r == r:
                 return False
         return True
+    
+    def get_monster_at(self, q, r):
+        for monster in self.monsters:
+            if monster.is_alive() and monster.q == q and monster.r == r:
+                return monster
+        return None

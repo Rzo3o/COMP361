@@ -11,12 +11,12 @@ from gameplay.models import Entity
 class MonsterAIConfig:
 
     """Tunable AI parameters for a monster."""
-    vision_range: int = 6         # How far the monster can "see" the player (hex distance)
-    aggro_persist: int = 2        # How many turns to stay aggro after losing sight
+    vision_range: int = 4         # How far the monster can "see" the player (hex distance)
+    aggro_persist: int = 1        # How many turns to stay aggro after losing sight
     attack_range: int = 1         # Typically 1 for melee
     move_per_turn: int = 1        # Keep 1 for now (turn-based grid)
-    attack_cooldown_turns: int = 1  # Minimum turns between attacks
-    wander_chance: float = 0.20   # Chance to wander when idle (0~1)
+    attack_cooldown_turns: int = 2  # Minimum turns between attacks
+    wander_chance: float = 0.60   # Chance to wander when idle (0~1)
 
 
 class Monster(Entity):
@@ -48,7 +48,7 @@ class Monster(Entity):
         # Combat stats (base values, before equipment)
         self.max_hp = data.get("max_health", data.get("health", 50))
         self.hp = data.get("health", self.max_hp)
-        self.base_damage = data.get("damage", 10)
+        self.base_damage = data.get("damage", 5)
         self.base_defense = 0
 
         # Equipment slots (same system as Player)
@@ -61,10 +61,12 @@ class Monster(Entity):
 
         # AI configuration
         self.ai = ai or MonsterAIConfig(
-            vision_range=data.get("vision_range", 6),
+            vision_range=data.get("vision_range", 4),
+            aggro_persist=data.get("aggro_persist", 1),
             attack_range=data.get("attack_range", 1),
             move_per_turn=data.get("move_per_turn", 1),
-            attack_cooldown_turns=data.get("attack_cooldown_turns", 1),
+            attack_cooldown_turns=data.get("attack_cooldown_turns", 2),
+            wander_chance=data.get("wander_chance", 0.60),
         )
 
         # State
@@ -150,6 +152,8 @@ class Monster(Entity):
             self.dead = True
             self.on_death()
 
+        return reduced
+
     def on_death(self) -> list:
         """Drop all equipped items on death. Returns list of dropped Items."""
         return self.get_loot_drops()
@@ -195,27 +199,34 @@ class Monster(Entity):
         """
         if not self.is_alive():
             return False
-
+        
         current_dist = self.hex_distance(self.q, self.r, player.q, player.r)
         if current_dist <= 1:
             return False
 
-        best = (self.q, self.r)
-        best_dist = current_dist
+        candidates = []
 
-        # Evaluate all walkable neighbors; pick the one that gets closer
         for nq, nr in self.neighbors():
             if not is_passable(nq, nr):
                 continue
             d = self.hex_distance(nq, nr, player.q, player.r)
-            if d < best_dist:
-                best_dist = d
-                best = (nq, nr)
+            candidates.append((d, nq, nr))
 
-        if best != (self.q, self.r):
-            # TODO (animation/modeling): trigger move animation / interpolate pixels
-            # self.anim_state = "move"
-            self.q, self.r = best
+        if not candidates:
+            return False
+
+        candidates.sort(key=lambda x: x[0])
+
+        best_dist, best_q, best_r = candidates[0]
+
+        if best_dist < current_dist:
+            self.q, self.r = best_q, best_r
+            return True
+
+        side_options = [(d, q, r) for (d, q, r) in candidates if d == current_dist]
+        if side_options:
+            _, sq, sr = random.choice(side_options)
+            self.q, self.r = sq, sr
             return True
 
         return False
@@ -270,7 +281,10 @@ class Monster(Entity):
                 return {"id": self.id, "action": "attack", "did": did, "dist": dist}
 
             moved = self.move_towards_player(player, world.is_passable)
-            return {"id": self.id, "action": "chase_move" if moved else "chase_stuck", "dist": dist}
+            if moved:
+                return {"id": self.id, "action": "chase_move", "dist": dist}
+
+            return {"id": self.id, "action": "chase_stuck", "dist": dist}
 
         # If not aggro: optionally wander
         if random.random() < self.ai.wander_chance:
