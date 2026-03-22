@@ -23,12 +23,9 @@ IMAGE_NAMES = [
     "Grass.png",
     "Grass.png",
     "Grass_Pine.png",
-    "Magic_Crystals.png",
-    "FrosenWater_Lilypads.png",
     "Magic.png",
-    "Snow_Trees.png",
+    "Magic.png",
     "Snow_Snowman.png",
-    "Grass_Plants2.png",
 ]
 
 # -----------------------------
