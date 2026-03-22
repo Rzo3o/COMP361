@@ -135,11 +135,23 @@ class GameRenderer:
 
     def _draw_entity(self, screen, entity, x, y, frame_index):
         if entity.texture:
-            img = self.assets.get_anim_frame(entity.texture, frame_index)
+            # monsters can use their own animation tick for attack
+            if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
+                if entity.anim_state == "attack":
+                    use_frame = entity.anim_tick
+                else:
+                    use_frame = frame_index
+            else:
+                use_frame = frame_index
+
+            img = self.assets.get_anim_frame(entity.texture, use_frame)
             scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
 
             if img:
-                rect = img.get_rect(centerx=x + x_shift, centery=y - Config.CALIB_OFFSET_Y - y_shift)
+                rect = img.get_rect(
+                    centerx=x + x_shift,
+                    centery=y - Config.CALIB_OFFSET_Y - y_shift
+                )
                 screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)

@@ -75,6 +75,27 @@ class Monster(Entity):
         self._aggro_memory = 0               # turns remaining to stay aggro when losing sight
         self._attack_cd_remaining = 0        # turns remaining before next attack
 
+        # Animation
+        animations = data.get("animations", {})
+
+        self.idle_texture = (data.get("texture_file")
+            or animations.get("idle", {}).get("texture")
+        )
+
+        self.attack_texture = (
+            data.get("attack_texture_file")
+            or animations.get("attack", {}).get("texture")
+            or self.idle_texture
+        )
+
+        self.texture = self.idle_texture
+        self.anim_state = "idle"
+        self.anim_tick = 0
+        print("MONSTER DB name =", data.get("name"))
+        print("MONSTER DB texture_file =", data.get("texture_file"))
+        print("MONSTER DB attack_texture_file =", data.get("attack_texture_file"))
+        print("MONSTER FINAL attack_texture =", self.attack_texture)
+
     # Hex utilities
     @staticmethod
     def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
@@ -176,16 +197,17 @@ class Monster(Entity):
         if not self.can_attack():
             return False
 
-        # TODO (animation/modeling): trigger attack animation (windup) then apply damage
-        # self.anim_state = "attack"
-
-        if hasattr(player, "take_damage"):
-            player.take_damage(self.damage)
-        else:
-            # Fallback if Player doesn't have take_damage yet
-            player.hp = max(0, player.hp - self.damage)
+        dmg = self.damage
+        player.take_damage(dmg)
 
         self._attack_cd_remaining = self.ai.attack_cooldown_turns
+
+        # switch to attack animation
+        self.anim_state = "attack"
+        self.texture = self.attack_texture
+        self.anim_tick = 0
+        
+        print("ATTACK:", self.name, "texture=", self.attack_texture)
         return True
     
     def move_towards_player(
@@ -292,5 +314,31 @@ class Monster(Entity):
             return {"id": self.id, "action": "wander" if moved else "idle_blocked", "dist": dist}
 
         return {"id": self.id, "action": "idle", "dist": dist}
+    
+    def update_animation(self, asset_manager):
+        """
+        Only handles idle/attack for now.
+        Attack plays once, then returns to idle.
+        """
+        if self.anim_state == "attack":
+            meta = asset_manager.anim_metadata.get(self.attack_texture)
+            print("ANIM META:", self.attack_texture, meta)
+
+            if not meta:
+                print("Missing attack meta, fallback to idle")
+                self.anim_state = "idle"
+                self.texture = self.idle_texture
+                self.anim_tick = 0
+                return
+
+            attack_frame_count = meta.get("count", 1)
+
+            self.anim_tick += 1
+
+            # when attack animation finishes, go back to idle
+            if self.anim_tick >= attack_frame_count:
+                self.anim_state = "idle"
+                self.texture = self.idle_texture
+                self.anim_tick = 0
 
 

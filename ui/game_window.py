@@ -82,6 +82,9 @@ class GameWindow:
             self.anim_timer = 0
             self.frame_index += 1
 
+            for monster in self.engine.world.monsters:
+                monster.update_animation(self.assets)
+
     def draw(self):
         # Render World
         self.renderer.render(self.screen, self.engine.world, self.frame_index)
