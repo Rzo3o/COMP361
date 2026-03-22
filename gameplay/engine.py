@@ -1,5 +1,7 @@
+import time
 from gameplay.world import World
 from gameplay.item import Item
+
 
 
 class GameEngine:
@@ -13,6 +15,7 @@ class GameEngine:
         self.selected_index = 0  # cursor position in inventory
         self.load_inventory()
         self._apply_equipment()
+        self.start_time = time.time()
 
     def load_inventory(self):
         """Load inventory from DB into Item objects."""
@@ -214,6 +217,10 @@ class GameEngine:
             if not monster.is_alive():
                 continue
 
+            tile = self.world.get_tile(monster.q, monster.r)
+            if not tile or not tile.unlocked:
+                continue
+
             result = monster.decide_and_act(self.world, player)
             logs.append(result)
 
@@ -243,7 +250,16 @@ class GameEngine:
         game_state = self.update()
         if game_state == "GAME_OVER":
             return "GAME_OVER"
+        
+        if self.check_level_completed():
+            unlocked = self.world.unlock_next_level()
+            print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
+            if unlocked:
+                self.start_time = time.time()
 
         return "TURN_DONE"
+    
+    def check_level_completed(self):
+        return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
         
         

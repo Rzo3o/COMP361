@@ -117,6 +117,17 @@ class DatabaseManager:
         self.cursor.execute(query, (session_id,))
         return [dict(row) for row in self.cursor.fetchall()]
 
+    def load_world_level(self, session_id, level):
+        query = """
+        SELECT m.*, s.is_discovered, s.is_unlocked, s.is_conquered
+        FROM map_tiles m
+        LEFT JOIN session_world_state s 
+            ON m.id = s.tile_id AND s.session_id = ?
+        WHERE m.level = ?
+        """
+        self.cursor.execute(query, (session_id, level))
+        return [dict(row) for row in self.cursor.fetchall()]
+
     def update_discovery(self, session_id, tile_id):
         self.cursor.execute(
             """
@@ -127,6 +138,19 @@ class DatabaseManager:
             (session_id, tile_id),
         )
         self.conn.commit()
+
+    def unlock_level(self, session_id, level):
+        self.cursor.execute("""
+            INSERT INTO session_world_state (session_id, tile_id, is_unlocked)
+            SELECT ?, id, 1
+            FROM map_tiles
+            WHERE level = ?
+            ON CONFLICT(session_id, tile_id)
+            DO UPDATE SET is_unlocked = 1
+        """, (session_id, level))
+        self.conn.commit()
+
+    
 
     # =========================
     # Player State
@@ -370,10 +394,10 @@ class DatabaseManager:
 
         self.cursor.execute(
             """
-            INSERT INTO map_tiles (q, r, tile_type, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn)
-            VALUES (:q, :r, :tile_type, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn)
+            INSERT INTO map_tiles (q, r, tile_type, level, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn)
+            VALUES (:q, :r, :tile_type, :level, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn)
             ON CONFLICT(q,r) DO UPDATE SET
-                tile_type=excluded.tile_type, texture_file=excluded.texture_file,
+                tile_type=excluded.tile_type, level=excluded.level, texture_file=excluded.texture_file,
                 prop_texture_file=excluded.prop_texture_file, 
                 prop_scale=excluded.prop_scale, prop_x_shift=excluded.prop_x_shift, prop_y_shift=excluded.prop_y_shift,
                 is_spawn=excluded.is_spawn

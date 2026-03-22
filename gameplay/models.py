@@ -11,7 +11,17 @@ class Tile:
         self.prop_shift = data.get("prop_y_shift", 0)
         self.passable = bool(data.get("is_permanently_passable", 1))
         self.discovered = bool(data.get("is_discovered", 0))
-        self.unlocked = bool(data.get("is_unlocked", 1))
+        #self.unlocked = bool(data.get("is_unlocked", 1))
+        
+        self.level = data.get("level", 1)
+
+        #level 1 tiles start unlocked higher levels start locked
+        raw_unlocked = data.get("is_unlocked")
+        if raw_unlocked is None:
+            self.unlocked = (self.level == 1)
+        else:
+            self.unlocked = bool(raw_unlocked)
+
         self.conquered = bool(data.get("is_conquered", 0))
 
 
