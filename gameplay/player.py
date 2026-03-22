@@ -91,3 +91,6 @@ class Player(Entity):
             if monster.hp <= 0:
                 monster.hp = 0
             return damage
+        
+    def is_alive(self) -> bool:
+        return (not self.dead) and self.hp > 0

@@ -144,10 +144,10 @@ class DatabaseManager:
         row = self.cursor.fetchone()
         return dict(row) if row else None
 
-    def add_monster(self, name, q, r, texture, attack_texture, health, damage):
+    def add_monster(self, name, q, r, health, damage):
         self.cursor.execute(
-            "INSERT INTO monsters (name, current_q, current_r, texture_file, attack_texture_file, health, damage) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, q, r, texture, attack_texture, health, damage)
+            "INSERT INTO monsters (name, current_q, current_r, health, damage) VALUES (?, ?, ?, ?, ?)",
+            (name, q, r, health, damage)
         )
         self.conn.commit()
 
@@ -808,11 +808,9 @@ class MapTab(ttk.Frame):
             if name:
                  # Need texture... load json to find it
                 m_data = self.app.asset_mgr.load_json("monster", name)
-                idle_tex = m_data.get("animations", {}).get("idle", {}).get("texture", "")
-                attack_tex = m_data.get("animations", {}).get("attack", {}).get("texture", "")
                 def_hp = m_data.get("default_health", 50)
                 def_dmg = m_data.get("default_damage", 10)
-                self.app.db.add_monster(name, q, r, idle_tex, attack_tex, def_hp, def_dmg)
+                self.app.db.add_monster(name, q, r, def_hp, def_dmg)
                 self.var_monster_health.set(def_hp)
                 self.var_monster_damage.set(def_dmg)
                 if hasattr(self, "btn_update_monster"):

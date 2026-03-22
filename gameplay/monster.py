@@ -41,9 +41,10 @@ class Monster(Entity):
     )
 
     def __init__(self, data: dict, ai: Optional[MonsterAIConfig] = None):
-        super().__init__(data["current_q"], data["current_r"], data.get("texture_file"))
+        super().__init__(data["current_q"], data["current_r"])
         self.id = data.get("id")
         self.name = data.get("name", "Unknown")
+        self.data = data
 
         # Combat stats (base values, before equipment)
         self.max_hp = data.get("max_health", data.get("health", 50))
@@ -78,23 +79,20 @@ class Monster(Entity):
         # Animation
         animations = data.get("animations", {})
 
-        self.idle_texture = (data.get("texture_file")
-            or animations.get("idle", {}).get("texture")
-        )
-
-        self.attack_texture = (
-            data.get("attack_texture_file")
-            or animations.get("attack", {}).get("texture")
-            or self.idle_texture
-        )
-
-        self.texture = self.idle_texture
         self.anim_state = "idle"
         self.anim_tick = 0
-        print("MONSTER DB name =", data.get("name"))
-        print("MONSTER DB texture_file =", data.get("texture_file"))
-        print("MONSTER DB attack_texture_file =", data.get("attack_texture_file"))
-        print("MONSTER FINAL attack_texture =", self.attack_texture)
+        self.texture = animations.get("idle", {}).get("texture")
+
+        print("Monster init:", self.name)
+        print("animations:", animations)
+        print("idle texture from json:", animations.get("idle", {}).get("texture"))
+        print("legacy texture_file:", data.get("texture_file"))
+
+        # Animation runtime state
+        self.pending_attack_target = None
+        self.pending_attack_damage = 0
+        self.attack_damage_applied = False
+        self.attack_hit_frame = 6
 
     # Hex utilities
     @staticmethod
@@ -198,16 +196,15 @@ class Monster(Entity):
             return False
 
         dmg = self.damage
-        player.take_damage(dmg)
-
         self._attack_cd_remaining = self.ai.attack_cooldown_turns
 
+        self.set_anim_state("attack")
+
         # switch to attack animation
-        self.anim_state = "attack"
-        self.texture = self.attack_texture
-        self.anim_tick = 0
-        
-        print("ATTACK:", self.name, "texture=", self.attack_texture)
+        self.pending_attack_target = player
+        self.pending_attack_damage = dmg
+        self.attack_damage_applied = False
+
         return True
     
     def move_towards_player(
@@ -317,28 +314,85 @@ class Monster(Entity):
     
     def update_animation(self, asset_manager):
         """
+        Update the current animation
         Only handles idle/attack for now.
         Attack plays once, then returns to idle.
         """
+        animations = self.data.get("animations", {})
+        anim_cfg = animations.get(self.anim_state) or animations.get("idle")
+
+        if not anim_cfg:
+            return
+
+        # Get the texture file for this animation state
+        texture = anim_cfg.get("texture")
+        if not texture:
+            return
+
+        # Get metadata such as frame count from the asset manager
+        meta = asset_manager.anim_metadata.get(texture)
+        if not meta:
+            return
+
+        frame_count = meta.get("count", 1)
+
+        # Apply attack damage when the animation reaches the hit frame
         if self.anim_state == "attack":
-            meta = asset_manager.anim_metadata.get(self.attack_texture)
-            print("ANIM META:", self.attack_texture, meta)
+            if (
+                not self.attack_damage_applied
+                and self.pending_attack_target is not None
+                and self.anim_tick >= self.attack_hit_frame
+            ):
+                if self.pending_attack_target.is_alive():
+                    self.pending_attack_target.take_damage(self.pending_attack_damage)
+                self.attack_damage_applied = True
 
-            if not meta:
-                print("Missing attack meta, fallback to idle")
-                self.anim_state = "idle"
-                self.texture = self.idle_texture
+        self.anim_tick += 1
+
+        # Handle state change after the animation finishes
+        if self.anim_tick >= frame_count:
+            if self.anim_state in ("attack", "hurt"):
+                # Return to idle after attack or hurt animation
+                self.set_anim_state("idle")
+                self.pending_attack_target = None
+                self.pending_attack_damage = 0
+                self.attack_damage_applied = False
+            elif self.anim_state == "death":
+                # Keep the last frame for death animation
+                self.anim_tick = frame_count - 1
+            else:
                 self.anim_tick = 0
-                return
 
-            attack_frame_count = meta.get("count", 1)
+    def get_animation_config(self):
+        # Get the animation config for the current state
+        animations = self.data.get("animations", {}) if hasattr(self, "data") else {}
+        return animations.get(self.anim_state) or animations.get("idle") or {}
+    
+    def get_texture_for_state(self, state):
+        # Try to get the texture for the requested state
+        animations = self.data.get("animations", {})
+        state_anim = animations.get(state, {})
+        if state_anim.get("texture"):
+            return state_anim["texture"]
+        
+        # Fallback to idle texture if the state texture does not exist
+        idle_anim = animations.get("idle", {})
+        if idle_anim.get("texture"):
+            return idle_anim["texture"]
+        
+        return self.texture
+    
+    def set_anim_state(self, new_state, reset_frame=True):
+        # Do nothing if the state is unchanged and reset is not needed
+        if self.anim_state == new_state and not reset_frame:
+            return
 
-            self.anim_tick += 1
+        # Change animation state and update the texture
+        self.anim_state = new_state
+        self.texture = self.get_texture_for_state(new_state)
 
-            # when attack animation finishes, go back to idle
-            if self.anim_tick >= attack_frame_count:
-                self.anim_state = "idle"
-                self.texture = self.idle_texture
-                self.anim_tick = 0
+        if reset_frame:
+            self.anim_tick = 0
+
 
 

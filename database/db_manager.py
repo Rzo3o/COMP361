@@ -321,14 +321,35 @@ class DatabaseManager:
         """
         self.cursor.execute(query)
         results = []
-        for row in self.cursor.fetchall():
-            row = dict(row)
-            # Build nested item dicts for each slot
-            for prefix, slot_name in [("wi", "weapon"), ("hi", "head"),
-                                       ("ci", "chest"), ("li", "legs")]:
+
+        monster_def_dir = os.path.join("assets", "definitions", "monsters")
+
+        for raw_row in self.cursor.fetchall():
+            row = dict(raw_row)
+
+            # 1) load monster definition json by name
+            definition = {}
+            monster_name = row.get("name")
+            if monster_name:
+                def_path = os.path.join(monster_def_dir, monster_name)
+                if os.path.exists(def_path):
+                    try:
+                        with open(def_path, "r") as f:
+                            definition = json.load(f)
+                    except Exception as e:
+                        print(f"Error loading monster definition {monster_name}: {e}")
+
+            # 2) build nested equipment dicts from DB joins
+            equipment_data = {}
+            for prefix, slot_name in [
+                ("wi", "weapon"),
+                ("hi", "head"),
+                ("ci", "chest"),
+                ("li", "legs"),
+            ]:
                 item_id = row.get(f"{prefix}_id")
                 if item_id:
-                    row[f"{slot_name}_item"] = {
+                    equipment_data[f"{slot_name}_item"] = {
                         "id": item_id,
                         "name": row[f"{prefix}_name"],
                         "item_type": row[f"{prefix}_item_type"],
@@ -339,8 +360,21 @@ class DatabaseManager:
                         "max_durability": row[f"{prefix}_max_durability"],
                     }
                 else:
-                    row[f"{slot_name}_item"] = None
-            results.append(row)
+                    equipment_data[f"{slot_name}_item"] = None
+
+            # 3) merge definition + db row
+            # definition first, row second => runtime DB state overrides defaults
+            merged = {**definition, **row, **equipment_data}
+
+            # 4) if runtime health/damage missing, fall back to monster defaults
+            if merged.get("health") is None:
+                merged["health"] = definition.get("default_health", 50)
+
+            if merged.get("damage") is None:
+                merged["damage"] = definition.get("default_damage", 10)
+
+            results.append(merged)
+
         return results
 
     def save_monster_equipment(self, monster_id, equipment):
