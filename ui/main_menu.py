@@ -2,25 +2,18 @@ import pygame
 import sys
 import os
 from button import Button
+from base_screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
 
 
-class MainMenu:
-    def __init__(self):
+class MainMenu(Screen):
+    def __init__(self, manager):
+        super().__init__(manager)
         pygame.init()
 
-        # Window
-        self.width, self.height = pygame.display.get_desktop_sizes()[0]
-        self.height -= 60
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.RESIZABLE)
-
-        pygame.display.set_caption("Main Menu")
-
-        self.clock = pygame.time.Clock()
-        self.running = True
-
+    
         # Colors
         self.bg_color = (79, 79, 79)
         self.text_color = (154, 205, 50)
@@ -28,12 +21,12 @@ class MainMenu:
 
         # (image name, x, y, angle, scale)
         self.decoration_images = [
-    ('Water_Duck.png', 405, 75, 5, 2.3999999999999995),
-    ('Grass.png', 360, 175, 20, 1.5999999999999996),
-    ('Grass_Pine.png', 1089, 201, -15, 2.1),
-    ('Magic_Crystals.png', 480, 200, -15, 2.8),
-    ('Snow_Trees.png', 1073, 76, 10, 2.4999999999999996),
-    ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
+        ('Water_Duck.png', 405, 75, 5, 2.3999999999999995),
+        ('Grass.png', 360, 175, 20, 1.5999999999999996),
+        ('Grass_Pine.png', 1089, 201, -15, 2.1),
+        ('Magic_Crystals.png', 480, 200, -15, 2.8),
+        ('Snow_Trees.png', 1073, 76, 10, 2.4999999999999996),
+        ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
         ]
 
          # text and font
@@ -50,7 +43,7 @@ class MainMenu:
         self.update_layout()
 
     def update_layout(self):
-        center_x = self.width // 2
+        center_x = self.manager.width // 2
         self.title_y = 68
         start_y = 300
         self.button_width = 420
@@ -115,10 +108,10 @@ class MainMenu:
         rotated_image = pygame.transform.rotate(scaled_image, angle)
         rect = rotated_image.get_rect(center=(x, y))
 
-        self.screen.blit(rotated_image, rect)
+        self.manager.screen.blit(rotated_image, rect)
 
     def draw(self):
-        self.screen.fill(self.bg_color)
+        self.manager.screen.fill(self.bg_color)
 
         # Draw decorative images
         for image_name, x, y, angle, scale in self.decoration_images:
@@ -126,17 +119,16 @@ class MainMenu:
 
         # Main menu title
         title = self.title_font.render("MAIN MENU", True, self.text_color)
-        title_rect = title.get_rect(center=(self.width // 2, 120))
-        self.screen.blit(title, title_rect)
+        title_rect = title.get_rect(center=(self.manager.width // 2, 120))
+        self.manager.screen.blit(title, title_rect)
 
         # Draw buttons
         for button in self.buttons:
-            button.draw(self.screen)
+            button.draw(self.manager.screen)
 
-        pygame.display.flip()
+       
 
-    def run(self):
-        while self.running:
+    def handle_event(self, event):
             mouse_pos = pygame.mouse.get_pos()
 
             for button in self.buttons:
@@ -147,9 +139,9 @@ class MainMenu:
                     self.running = False
 
                 elif event.type == pygame.VIDEORESIZE:
-                    self.width, self.height = event.w, event.h
+                    self.manager.width, self.manager.height = event.w, event.h
                     self.screen = pygame.display.set_mode(
-                        (self.width, self.height), pygame.RESIZABLE
+                        (self.manager.width, self.manager.height), pygame.RESIZABLE
                     )
                     self.update_layout()
 
@@ -157,20 +149,13 @@ class MainMenu:
                     action = button.handle_event(event)
 
                     if action == "play":
-                        print("Play clicked")
+                        self.manager.switch_screen("welcome")
 
                     elif action == "rules":
-                        print("Rules clicked")
+                        self.manager.switch_screen("welcome")
 
                   
 
-            self.draw()
-            self.clock.tick(60)
-
-        pygame.quit()
-        sys.exit()
+            
 
 
-if __name__ == "__main__":
-    menu = MainMenu()
-    menu.run()

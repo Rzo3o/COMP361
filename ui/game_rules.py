@@ -134,7 +134,7 @@ class GameRules(Screen):
         for button in self.buttons:
             action = button.handle_event(event)
             if action == "next":
-                self.manager.switch_screen("welcome")
+                self.manager.switch_screen("main_menu")
 
 
     
