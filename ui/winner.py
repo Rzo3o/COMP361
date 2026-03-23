@@ -34,8 +34,7 @@ class Winner(Screen):
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("welcome")
-    
+                    self.manager.switch_screen("game_rules")
 
     def draw(self):
         """
@@ -43,13 +42,13 @@ class Winner(Screen):
         Input: None
         Output: None
         """
-        self.manager.screen.fill(self.bg_color)
+        self.manager.screen.fill(self.bg_color) #fill covers the previous screen
 
         # text
         pygame.font.init()
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
 
-        text = font.render("Winner!", antialias=True, color=self.text_color)
+        text = font.render("Winner!", True, self.text_color)
         rect = text.get_rect(midtop=(1/4 * self.manager.width + 200, self.manager.height // 4)) # middle
         self.manager.screen.blit(source=text, dest=rect) 
         

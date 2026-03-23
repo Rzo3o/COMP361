@@ -7,6 +7,7 @@ from base_screen import Screen
 #screens (only place all the screens are imported)
 import welcome as screen1
 import winner as screen2
+import game_rules as screen3
 
 # singleton and state design pattern
 class ScreenManager:
@@ -25,9 +26,10 @@ class ScreenManager:
        
         self.available_screens = {
             "welcome": screen1.Welcome,
-            "winner": screen2.Winner
-        } 
-        
+            "winner": screen2.Winner,
+            "game_rules": screen3.GameRules
+        }
+
         #start screen
         self.current_screen = self.available_screens["welcome"](self)
 

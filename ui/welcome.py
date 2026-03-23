@@ -67,7 +67,7 @@ class Welcome(Screen):
 
         rendered_texts = []
         for text in self.texts:
-            text = font.render(text, antialias=True, color=self.text_color)
+            text = font.render(text, True, self.text_color)
             rendered_texts.append(text)
 
         spacing = -70
