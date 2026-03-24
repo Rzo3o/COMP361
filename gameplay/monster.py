@@ -156,7 +156,7 @@ class Monster(Entity):
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
 
-    def take_damage(self, amount):
+    def take_damage(self, amount, player):
         reduced = max(1, amount - self.total_defense)
         if reduced <= 0 or not self.is_alive():
             return
@@ -169,7 +169,7 @@ class Monster(Entity):
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
-            self.on_death()
+            player.add_items(*self.on_death())
 
         return reduced
 

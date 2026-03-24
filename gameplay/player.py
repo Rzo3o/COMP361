@@ -1,4 +1,5 @@
 from gameplay.models import Entity
+from gameplay.item import Item
 
 
 class Player(Entity):
@@ -26,6 +27,9 @@ class Player(Entity):
             "chest": None,
             "legs": None,
         }
+
+        # Inventory for consumable items
+        self.inventory = []
 
     @property
     def total_damage(self):
@@ -59,6 +63,57 @@ class Player(Entity):
         if old:
             self.equipment[slot] = None
         return old
+
+    def load_inventory(self, db, session_id):
+        """Load inventory from DB into Item objects."""
+        rows = db.load_inventory(session_id)
+        self.inventory = []
+        for row in rows:
+            item = Item(row)
+            item.quantity = row.get("quantity", 1)
+            item.equipped = bool(row.get("is_equipped", 0))
+            self.inventory.append(item)
+        self.apply_equipment()
+
+    def apply_equipment(self):
+        """Sync equipped items from inventory into player equipment slots."""
+        # Clear all slots first
+        for slot in self.equipment:
+            self.equipment[slot] = None
+        # Apply equipped items
+        for item in self.inventory:
+            if item.equipped and item.is_equippable:
+                self.equipment[item.slot] = item
+
+    def use_item(self, index, db, session_id):
+        if not self.inventory or index >= len(self.inventory):
+            return False
+        item = self.inventory[index]
+
+        if item.type == "food":
+            if item.use(self):
+                db.remove_item(session_id, item.id)
+                db.save_player(session_id, self)
+                self.load_inventory(db, session_id)
+                return True
+
+        elif item.is_equippable:
+            db.toggle_equip(session_id, item.id)
+            self.load_inventory(db, session_id)
+            return True
+        return False
+
+    def drop_item(self, index, db, session_id):
+        if not self.inventory or index >= len(self.inventory):
+            return False
+        item = self.inventory[index]
+        db.remove_item(session_id, item.id, quantity=1)
+        self.load_inventory(db, session_id)
+        return True
+
+    def add_items(self, *items):
+        self.inventory.extend(items)
+        self.apply_equipment()
 
     def move(self, dq, dr):
         self.q += dq

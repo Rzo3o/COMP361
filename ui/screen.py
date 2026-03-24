@@ -5,21 +5,25 @@ from base_screen import Screen
 
 
 #screens (only place all the screens are imported)
+# add to available screen dictionaty attribute
 import welcome as screen1
 import winner as screen2
 import game_rules as screen3
 import main_menu as screen4
+
+TOP_MARGIN = 60
 
 # singleton and state design pattern
 class ScreenManager:
     def __init__(self):
         pygame.init()
 
-        pygame.display.set_caption("Beyond")
+        pygame.display.set_caption("Beyond") 
 
-         # window size full screen 
-        self.width, self.height = pygame.display.get_desktop_sizes()[0]
-        self.screen = pygame.display.set_mode(size=(self.width, self.height - 60))
+        # window size full screen 
+        info = pygame.display.Info()
+        self.width, self.height = info.current_w, info.current_h - TOP_MARGIN
+        self.screen = pygame.display.set_mode(size=(self.width, self.height))
         
         self.clock = pygame.time.Clock()
         self.running = True

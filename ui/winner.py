@@ -5,6 +5,7 @@ from pygame import font
 from pygame.draw import rect
 
 
+import button
 from base_screen import Screen
 
 
@@ -31,10 +32,37 @@ class Winner(Screen):
             ('Snow_Trees.png', 913, 378, 15, 3.0)
         ]
 
+        self.button_height = 50
+        self.button_width = 150
+        self.button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30)
+    
+
+        #create the button
+        play_again_button = button.Button(
+            ((self.manager.width / 3) + 50) - (self.button_width / 2),      
+            (self.manager.height / 2) - (self.button_height/ 2),    
+            self.button_width,
+            self.button_height,
+            "PLAY AGAIN", # text on the button
+            self.button_font,
+            action_name ="play_again",
+            bg_color = (175, 143, 233),
+            hover_color = (120, 100, 160),
+            text_color = (255, 255, 255),
+        )
+
+
+        self.buttons = [play_again_button]
+
+
     def handle_event(self, event):
-        if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("game_rules")
+        mouse_position = pygame.mouse.get_pos()
+        for button in self.buttons:
+            button.check_hover(mouse_position)
+            action = button.handle_event(event)
+            if action == "play_again":
+                self.manager.switch_screen("game_rules")
+
 
     def draw(self):
         """
@@ -55,6 +83,9 @@ class Winner(Screen):
         # images
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
+
+        for button in self.buttons:
+            button.draw(self.manager.screen)
 
     
     
@@ -84,5 +115,8 @@ class Winner(Screen):
         rect = rotated_image.get_rect(center=(x, y))
         self.manager.screen.blit(rotated_image, rect)
         
+    
 
+        
+       
     

@@ -85,7 +85,7 @@ class MainMenu(Screen):
             self.button_height,
             "SAVED GAMES",
             self.button_font,
-            action_name="exit",
+            action_name="saved_games",
             bg_color=(147, 112, 219),
             hover_color=(120, 100, 160),
             text_color=(255, 255, 255),
@@ -129,17 +129,30 @@ class MainMenu(Screen):
        
 
     def handle_event(self, event):
-        mouse_pos = pygame.mouse.get_pos()
-          
-        for button in self.buttons:
-            button.check_hover(mouse_pos)
-            action = button.handle_event(event)
+            mouse_pos = pygame.mouse.get_pos()
 
-            if action == "play":
-                self.manager.switch_screen("welcome")
+            for button in self.buttons:
+                button.check_hover(mouse_pos)
 
-            elif action == "rules":
-                 self.manager.switch_screen("welcome")
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+
+                elif event.type == pygame.VIDEORESIZE:
+                    self.manager.width, self.manager.height = event.w, event.h
+                    self.screen = pygame.display.set_mode(
+                        (self.manager.width, self.manager.height), pygame.RESIZABLE
+                    )
+                    self.update_layout()
+
+                for button in self.buttons:
+                    action = button.handle_event(event)
+
+                    if action == "play":
+                        self.manager.switch_screen("welcome")
+
+                    elif action == "rules":
+                        self.manager.switch_screen("welcome")
 
                   
 

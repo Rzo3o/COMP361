@@ -7,8 +7,24 @@
             "max_durability"
         ]
     },
-    "armor": {
-        "slot": "general",
+    "head": {
+        "slot": "head",
+        "props": [
+            "defense",
+            "max_durability",
+            "weight"
+        ]
+    },
+    "chest": {
+        "slot": "chest",
+        "props": [
+            "defense",
+            "max_durability",
+            "weight"
+        ]
+    },
+    "legs": {
+        "slot": "legs",
         "props": [
             "defense",
             "max_durability",

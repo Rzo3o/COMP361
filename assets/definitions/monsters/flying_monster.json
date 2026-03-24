@@ -7,10 +7,10 @@
             "count": 6
         },
         "move": {
-            "texture": "",
-            "fw": 32,
-            "fh": 32,
-            "count": 1
+            "texture": "Enemy1-Charge.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
         },
         "attack": {
             "texture": "Enemy1-AttackV2.png",
@@ -21,7 +21,7 @@
     },
     "scale": 1.826818181818182,
     "x_shift": 1,
-    "y_shift": -19,
+    "y_shift": -50,
     "category": "monster",
     "name": "flying_monster.json",
     "default_health": 30,

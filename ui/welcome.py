@@ -37,8 +37,14 @@ class Welcome(Screen):
             "Welcome",
             "Beyond"
         ]
-        
     
+
+    def handle_event(self, event):    
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    self.manager.switch_screen("winner")    
+    
+
     def draw(self):
         """
         Draw the welcome screen with title and images.
@@ -53,8 +59,7 @@ class Welcome(Screen):
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
 
-        
-
+    
     def draw_title(self):
         """
         draw title on the screen
@@ -110,9 +115,5 @@ class Welcome(Screen):
         rect = rotated_image.get_rect(center=(x, y))
         self.manager.screen.blit(rotated_image, rect)
 
-    def handle_event(self, event):    
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("winner")
    
   
