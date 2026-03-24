@@ -10,35 +10,11 @@ class GameEngine:
         self.session_id = session_id
         self.world = World(db, session_id)
         self.world.update_fog_of_war()
-        self.inventory = []  # list of Item objects
         self.show_inventory = False  # toggle flag
         self.selected_index = 0  # cursor position in inventory
-        self.load_inventory()
-        self._apply_equipment()
+        if self.world.player:
+            self.world.player.load_inventory(self.db, self.session_id)
         self.start_time = time.time()
-
-    def load_inventory(self):
-        """Load inventory from DB into Item objects."""
-        rows = self.db.load_inventory(self.session_id)
-        self.inventory = []
-        for row in rows:
-            item = Item(row)
-            item.quantity = row.get("quantity", 1)
-            item.equipped = bool(row.get("is_equipped", 0))
-            self.inventory.append(item)
-
-    def _apply_equipment(self):
-        """Sync equipped items from inventory into player equipment slots."""
-        player = self.world.player
-        if not player:
-            return
-        # Clear all slots first
-        for slot in player.equipment:
-            player.equipment[slot] = None
-        # Apply equipped items
-        for item in self.inventory:
-            if item.equipped and item.is_equippable:
-                player.equipment[item.slot] = item
 
     def handle_input(self, action):
         player = self.world.player
@@ -57,7 +33,7 @@ class GameEngine:
                 self.selected_index -= 1
             elif (
                 action == "MOVE_SOUTH"
-                and self.selected_index < len(self.inventory) - 1
+                and self.selected_index < len(player.inventory) - 1
             ):
                 self.selected_index += 1
             elif action == "INTERACT":
@@ -104,42 +80,29 @@ class GameEngine:
         if action == "INVENTORY":
             self.show_inventory = True
             self.selected_index = 0
-            self.load_inventory()
+            if player:
+                player.load_inventory(self.db, self.session_id)
             return "NO_ACTION"
 
         return "NO_ACTION"
 
     def use_selected_item(self):
         """Use or equip/unequip the currently selected inventory item."""
-        if not self.inventory or self.selected_index >= len(self.inventory):
-            return
-        item = self.inventory[self.selected_index]
         player = self.world.player
-
-        if item.type == "food":
-            if item.use(player):
-                self.db.remove_item(self.session_id, item.id)
-                self.db.save_player(self.session_id, player)
-                self.load_inventory()
-                self._apply_equipment()
-                if self.selected_index >= len(self.inventory):
-                    self.selected_index = max(0, len(self.inventory) - 1)
-
-        elif item.is_equippable:
-            self.db.toggle_equip(self.session_id, item.id)
-            self.load_inventory()
-            self._apply_equipment()
+        if not player:
+            return
+        player.use_item(self.selected_index, self.db, self.session_id)
+        if self.selected_index >= len(player.inventory):
+            self.selected_index = max(0, len(player.inventory) - 1)
 
     def drop_selected_item(self):
         """Drop one of the selected item from inventory."""
-        if not self.inventory or self.selected_index >= len(self.inventory):
+        player = self.world.player
+        if not player:
             return
-        item = self.inventory[self.selected_index]
-        self.db.remove_item(self.session_id, item.id, quantity=1)
-        self.load_inventory()
-        self._apply_equipment()
-        if self.selected_index >= len(self.inventory):
-            self.selected_index = max(0, len(self.inventory) - 1)
+        player.drop_item(self.selected_index, self.db, self.session_id)
+        if self.selected_index >= len(player.inventory):
+            self.selected_index = max(0, len(player.inventory) - 1)
 
     def _safe_save_player(self, player):
         try:
