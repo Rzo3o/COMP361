@@ -1,5 +1,5 @@
 from ui.game_window import GameWindow
-from ui.menu import SaveSelectMenu
+from ui.save_menu import SaveSelectMenu
 import os
 import shutil
 
