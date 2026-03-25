@@ -5,8 +5,8 @@ from pygame import font
 from pygame.draw import rect
 
 
-import button
-from base_screen import Screen
+import ui.button
+from ui.base_screen import Screen
 
 
 # Constants

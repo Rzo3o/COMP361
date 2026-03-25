@@ -1,8 +1,8 @@
 import pygame
 import sys
 import os
-from button import Button
-from base_screen import Screen
+from ui.button import Button
+from ui.base_screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
@@ -70,10 +70,10 @@ class GameRules(Screen):
         self.button_height = 50
         self.button_gap = 30
 
-        self.update_layout()
+        self.create_button()
 
         #create button
-    def update_layout(self):
+    def create_button(self):
             self.next_button = Button(
             self.manager.width - self.button_width - 30,      # 30px from right edge
             self.manager.height - self.button_height - 30,    

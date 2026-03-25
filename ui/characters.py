@@ -5,8 +5,8 @@ from pygame import font
 from pygame.draw import rect
 
 
-import button
-from base_screen import Screen
+import ui.button
+from ui.base_screen import Screen
 
 
 # Constants
@@ -87,7 +87,7 @@ class Characters(Screen):
             x = start_x + col * gap_x - button_width // 2
             y = start_y + row * gap_y
 
-            btn = button.Button(
+            btn = ui.button.Button(
                 x,
                 y,
                 button_width,

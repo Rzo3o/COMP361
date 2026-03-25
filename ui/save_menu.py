@@ -2,29 +2,32 @@ import pygame
 import sys
 import os
 import json
+import shutil
 from visuals.asset_manager import AssetManager
+import ui.button
 
-class SaveSelectMenu:
-    def __init__(self):
-        pygame.init()
-        self.width, self.height = 800, 600
-        self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Select Save Slot")
-        self.font = pygame.font.Font(None, 48)
-        self.small_font = pygame.font.Font(None, 32)
-        self.clock = pygame.time.Clock()
-        self.running = True
-        self.selected_slot = None
-        self.selected_skin = None
+#state design pattern
+from ui.base_screen import Screen
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class SaveSelectMenu(Screen):
+    def __init__(self, manager):
+        super().__init__(manager)
+        font_path = os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf')
+        self.font = pygame.font.Font(font_path, 48)
+        self.small_font = pygame.font.Font(font_path, 32)
+       
         
         self.am = AssetManager()
         self._load_skins()
         self.current_skin_idx = 0
         
         # UI Rects for skin selector
-        self.left_btn = pygame.Rect(self.width // 2 - 150, 150 - 20, 40, 40)
-        self.right_btn = pygame.Rect(self.width // 2 + 110, 150 - 20, 40, 40)
-        
+        self.left_btn = pygame.Rect(self.manager.width // 2 - 150, 150 - 20, 40, 40)
+        self.right_btn = pygame.Rect(self.manager.width // 2 + 110, 150 - 20, 40, 40)
+
         # Confirmation State
         self.confirm_delete_slot = None  # None or slot_id
         
@@ -85,12 +88,12 @@ class SaveSelectMenu:
             start_y += 80
 
     def draw(self):
-        self.screen.fill(self.bg_color)
+        self.manager.screen.fill(self.bg_color)
         
         # Title
         title_surf = self.font.render("Select Save Slot", True, self.text_color)
-        title_rect = title_surf.get_rect(center=(self.width // 2, 70))
-        self.screen.blit(title_surf, title_rect)
+        title_rect = title_surf.get_rect(center=(self.manager.width // 2, 70))
+        self.manager.screen.blit(title_surf, title_rect)
         
         mouse_pos = pygame.mouse.get_pos()
         
@@ -98,28 +101,28 @@ class SaveSelectMenu:
         skin_y = 150
         skin_text = f"Skin: {self.skins[self.current_skin_idx]['name']}"
         skin_surf = self.small_font.render(skin_text, True, self.text_color)
-        skin_rect = skin_surf.get_rect(center=(self.width // 2, skin_y))
-        self.screen.blit(skin_surf, skin_rect)
+        skin_rect = skin_surf.get_rect(center=(self.manager.width // 2, skin_y))
+        self.manager.screen.blit(skin_surf, skin_rect)
         
         # Draw Left/Right Arrows for Skin Selector
         c_left = self.hover_color if self.left_btn.collidepoint(mouse_pos) else self.btn_color
         c_right = self.hover_color if self.right_btn.collidepoint(mouse_pos) else self.btn_color
         
-        pygame.draw.rect(self.screen, c_left, self.left_btn, border_radius=5)
-        pygame.draw.rect(self.screen, c_right, self.right_btn, border_radius=5)
+        pygame.draw.rect(self.manager.screen, c_left, self.left_btn, border_radius=5)
+        pygame.draw.rect(self.manager.screen, c_right, self.right_btn, border_radius=5)
         
         l_txt = self.font.render("<", True, self.text_color)
         r_txt = self.font.render(">", True, self.text_color)
-        self.screen.blit(l_txt, l_txt.get_rect(center=self.left_btn.center))
-        self.screen.blit(r_txt, r_txt.get_rect(center=self.right_btn.center))
+        self.manager.screen.blit(l_txt, l_txt.get_rect(center=self.left_btn.center))
+        self.manager.screen.blit(r_txt, r_txt.get_rect(center=self.right_btn.center))
         
         # Draw Skin Sprite Preview
         tex = self.skins[self.current_skin_idx]["texture"]
         if tex:
             skin_img = self.am.get_image(tex, scale=2.0)
             if skin_img:
-                img_rect = skin_img.get_rect(center=(self.width // 2, skin_y - 40))
-                self.screen.blit(skin_img, img_rect)
+                img_rect = skin_img.get_rect(center=(self.manager.width // 2, skin_y - 40))
+                self.manager.screen.blit(skin_img, img_rect)
         
         for btn in self.buttons:
             rect = btn["rect"]
@@ -127,45 +130,45 @@ class SaveSelectMenu:
             
             if btn["type"] == "slot":
                 color = self.hover_color if is_hover else self.btn_color
-                pygame.draw.rect(self.screen, color, rect, border_radius=10)
-                pygame.draw.rect(self.screen, (100, 100, 100), rect, 2, border_radius=10)
+                pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
+                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
                 
                 text_surf = self.small_font.render(btn["text"], True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
-                self.screen.blit(text_surf, text_rect)
+                self.manager.screen.blit(text_surf, text_rect)
             
             elif btn["type"] == "delete":
                 color = self.del_hover if is_hover else self.del_color
-                pygame.draw.rect(self.screen, color, rect, border_radius=10)
-                pygame.draw.rect(self.screen, (100, 100, 100), rect, 2, border_radius=10)
+                pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
+                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
                 
                 text_surf = self.small_font.render("X", True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
-                self.screen.blit(text_surf, text_rect)
+                self.manager.screen.blit(text_surf, text_rect)
 
         # Confirmation Dialouge
         if self.confirm_delete_slot:
             self._draw_confirmation()
 
-        pygame.display.flip()
+        
 
     def _draw_confirmation(self):
         # Darken background
-        overlay = pygame.Surface((self.width, self.height))
+        overlay = pygame.Surface((self.manager.width, self.manager.height))
         overlay.set_alpha(180)
         overlay.fill((0, 0, 0))
-        self.screen.blit(overlay, (0, 0))
+        self.manager.screen.blit(overlay, (0, 0))
         
         # Popup Box
         box_rect = pygame.Rect(200, 200, 400, 200)
-        pygame.draw.rect(self.screen, (50, 50, 50), box_rect, border_radius=15)
-        pygame.draw.rect(self.screen, (200, 50, 50), box_rect, 2, border_radius=15)
+        pygame.draw.rect(self.manager.screen, (50, 50, 50), box_rect, border_radius=15)
+        pygame.draw.rect(self.manager.screen, (200, 50, 50), box_rect, 2, border_radius=15)
         
         # Text
         msg = f"Delete Save Slot {self.confirm_delete_slot}?"
         text_surf = self.font.render(msg, True, (255, 255, 255))
-        text_rect = text_surf.get_rect(center=(self.width // 2, 250))
-        self.screen.blit(text_surf, text_rect)
+        text_rect = text_surf.get_rect(center=(self.manager.width // 2, 250))
+        self.manager.screen.blit(text_surf, text_rect)
         
         # Yes / No Buttons
         yes_rect = pygame.Rect(250, 320, 100, 50)
@@ -175,15 +178,15 @@ class SaveSelectMenu:
         
         # Yes
         c_yes = (200, 50, 50) if yes_rect.collidepoint(mouse_pos) else (150, 50, 50)
-        pygame.draw.rect(self.screen, c_yes, yes_rect, border_radius=5)
+        pygame.draw.rect(self.manager.screen, c_yes, yes_rect, border_radius=5)
         yes_txt = self.small_font.render("YES", True, (255, 255, 255))
-        self.screen.blit(yes_txt, yes_txt.get_rect(center=yes_rect.center))
+        self.manager.screen.blit(yes_txt, yes_txt.get_rect(center=yes_rect.center))
         
         # No
         c_no = (100, 100, 100) if no_rect.collidepoint(mouse_pos) else (80, 80, 80)
-        pygame.draw.rect(self.screen, c_no, no_rect, border_radius=5)
+        pygame.draw.rect(self.manager.screen, c_no, no_rect, border_radius=5)
         no_txt = self.small_font.render("NO", True, (255, 255, 255))
-        self.screen.blit(no_txt, no_txt.get_rect(center=no_rect.center))
+        self.manager.screen.blit(no_txt, no_txt.get_rect(center=no_rect.center))
         
         self.confirm_buttons = {"yes": yes_rect, "no": no_rect}
 
@@ -198,50 +201,42 @@ class SaveSelectMenu:
         else:
              print(f"File {filename} does not exist.")
 
-    def run(self):
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    return None
-                
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        if self.confirm_delete_slot:
-                            # Handle Confirmation
-                            if self.confirm_buttons["yes"].collidepoint(event.pos):
-                                self._delete_save(self.confirm_delete_slot)
-                                self.confirm_delete_slot = None
-                            elif self.confirm_buttons["no"].collidepoint(event.pos):
-                                self.confirm_delete_slot = None
-                        else:
-                            # Handle Skin Selection Arrows
-                            if self.left_btn.collidepoint(event.pos):
-                                self.current_skin_idx = (self.current_skin_idx - 1) % len(self.skins)
-                            elif self.right_btn.collidepoint(event.pos):
-                                self.current_skin_idx = (self.current_skin_idx + 1) % len(self.skins)
-                                
-                            # Handle Main Menu
-                            for btn in self.buttons:
-                                if btn["rect"].collidepoint(event.pos):
-                                    if btn["type"] == "slot":
-                                        self.selected_slot = btn["value"]
-                                        self.selected_skin = self.skins[self.current_skin_idx]["texture"]
-                                        self.running = False
-                                        return self.selected_slot, self.selected_skin
-                                    elif btn["type"] == "delete":
-                                        self.confirm_delete_slot = btn["value"]
-            
-            self.draw()
-            self.clock.tick(60)
-        
-        pygame.quit()
-        return self.selected_slot, self.selected_skin
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.confirm_delete_slot:
+                    # Handle Confirmation
+                    if self.confirm_buttons["yes"].collidepoint(event.pos):
+                        self._delete_save(self.confirm_delete_slot)
+                        self.confirm_delete_slot = None
+                    elif self.confirm_buttons["no"].collidepoint(event.pos):
+                        self.confirm_delete_slot = None
+                else:
+                    # Handle Skin Selection Arrows
+                    if self.left_btn.collidepoint(event.pos):
+                        self.current_skin_idx = (self.current_skin_idx - 1) % len(self.skins)
+                    elif self.right_btn.collidepoint(event.pos):
+                        self.current_skin_idx = (self.current_skin_idx + 1) % len(self.skins)
+                        
+                    # Handle Slot Buttons
+                    for btn in self.buttons:
+                        if btn["rect"].collidepoint(event.pos):
+                            if btn["type"] == "slot":
+                                slot = btn["value"]
+                                selected_skin = self.skins[self.current_skin_idx]["texture"]
 
-if __name__ == "__main__":
-    menu = SaveSelectMenu()
-    res = menu.run()
-    if res and res[0]:
-        print(f"Selected Slot: {res[0]}, Skin: {res[1]}")
-    else:
-        print("Cancelled")
+                                target_db = f"game_data_{slot}.db"
+                                if not os.path.exists(target_db):
+                                    if os.path.exists("default.db"):
+                                        print(f"Creating new save slot {slot} from default.db...")
+                                        shutil.copy("default.db", target_db)
+                                    else:
+                                        print("No default.db found! Starting with empty database.")
+
+                                self.manager.selected_slot = slot
+                                self.manager.selected_skin = selected_skin
+                                self.manager.switch_screen("game_window")
+
+                            elif btn["type"] == "delete":
+                                self.confirm_delete_slot = btn["value"]
+            

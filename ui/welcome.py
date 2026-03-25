@@ -4,7 +4,7 @@ import os
 from pygame.draw import rect
 
 
-from base_screen import Screen
+from ui.base_screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script

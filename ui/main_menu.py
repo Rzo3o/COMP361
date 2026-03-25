@@ -1,8 +1,9 @@
 import pygame
 import sys
 import os
-from button import Button
-from base_screen import Screen
+from ui.button import Button
+from ui.base_screen import Screen
+
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
@@ -11,7 +12,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this scrip
 class MainMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-        pygame.init()
+     
 
     
         # Colors
@@ -40,9 +41,9 @@ class MainMenu(Screen):
         self.button_gap = 30
 
         # Create buttons
-        self.update_layout()
+        self.create_button()
 
-    def update_layout(self):
+    def create_button(self):
         center_x = self.manager.width // 2
         self.title_y = 68
         start_y = 300
@@ -133,26 +134,15 @@ class MainMenu(Screen):
 
             for button in self.buttons:
                 button.check_hover(mouse_pos)
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-
-                elif event.type == pygame.VIDEORESIZE:
-                    self.manager.width, self.manager.height = event.w, event.h
-                    self.screen = pygame.display.set_mode(
-                        (self.manager.width, self.manager.height), pygame.RESIZABLE
-                    )
-                    self.update_layout()
-
+    
                 for button in self.buttons:
                     action = button.handle_event(event)
 
                     if action == "play":
-                        self.manager.switch_screen("welcome")
+                        self.manager.switch_screen("save_menu")
 
                     elif action == "rules":
-                        self.manager.switch_screen("welcome")
+                        self.manager.switch_screen("game_rules")
 
                   
 
