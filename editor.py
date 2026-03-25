@@ -1856,7 +1856,7 @@ class LibraryTab(ttk.Frame):
             pass
 
     def _browse(self, var):
-        f = filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg")])
+        f = filedialog.askopenfilename(filetypes=[("Images", "*.png *.jpg")])
         if f:
             base = os.path.basename(f)
             dest = os.path.join(Config.ASSET_DIR, base)

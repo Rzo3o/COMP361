@@ -25,9 +25,13 @@ class Item:
 
     def use(self, player):
         """Consume food/potion: heal HP and restore hunger."""
+        if self.is_broken():
+            return False
+        
         if self.type == "food":
             player.hp = min(player.max_hp, player.hp + self.healing_amount)
             player.hunger = min(player.max_hunger, player.hunger + self.hunger_restore)
+            self.degrade()
             return True
         return False
 
@@ -36,4 +40,5 @@ class Item:
         self.durability = max(0, self.durability - amount)
 
     def is_broken(self):
+        """Returns True if this item is broken."""
         return self.durability <= 0
