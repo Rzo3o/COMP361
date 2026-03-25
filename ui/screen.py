@@ -10,10 +10,11 @@ import welcome as screen1
 import winner as screen2
 import game_rules as screen3
 import main_menu as screen4
+import characters as screen5
 
 TOP_MARGIN = 60
 
-# singleton and state design pattern
+# singleton (to do) and state design pattern
 class ScreenManager:
     def __init__(self):
         pygame.init()
@@ -33,7 +34,8 @@ class ScreenManager:
             "welcome": screen1.Welcome,
             "winner": screen2.Winner,
             "game_rules": screen3.GameRules,
-            "main_menu": screen4.MainMenu
+            "main_menu": screen4.MainMenu,
+            "characters": screen5.Characters
         }
 
         #start screen

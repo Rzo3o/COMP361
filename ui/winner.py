@@ -32,27 +32,33 @@ class Winner(Screen):
             ('Snow_Trees.png', 913, 378, 15, 3.0)
         ]
 
-        self.button_height = 50
-        self.button_width = 150
-        self.button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30)
+        self.buttons = self.create_buttons()
+        
     
-
-        #create the button
+    def create_buttons(self):
+        # 1 button on this screen
+        button_height = 50
+        button_width = 150
+        button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30)
+        x = ((self.manager.width / 3) + 50) - (button_width / 2)
+        y = (self.manager.height / 2) - (button_height/ 2)
+    
+        # create the button
         play_again_button = button.Button(
-            ((self.manager.width / 3) + 50) - (self.button_width / 2),      
-            (self.manager.height / 2) - (self.button_height/ 2),    
-            self.button_width,
-            self.button_height,
+            x,      
+            y,    
+            button_width,
+            button_height,
             "PLAY AGAIN", # text on the button
-            self.button_font,
+            button_font,
             action_name ="play_again",
             bg_color = (175, 143, 233),
             hover_color = (120, 100, 160),
             text_color = (255, 255, 255),
         )
 
-
-        self.buttons = [play_again_button]
+        return [play_again_button]
+    
 
 
     def handle_event(self, event):
@@ -115,7 +121,6 @@ class Winner(Screen):
         rect = rotated_image.get_rect(center=(x, y))
         self.manager.screen.blit(rotated_image, rect)
         
-    
 
         
        

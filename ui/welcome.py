@@ -42,7 +42,7 @@ class Welcome(Screen):
     def handle_event(self, event):    
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("winner")    
+                    self.manager.switch_screen("characters")    
     
 
     def draw(self):
@@ -51,7 +51,7 @@ class Welcome(Screen):
         Input: None
         Output: None
         """
-        self.manager.screen.fill(self.bg_color)
+        self.manager.screen.fill(self.bg_color) # fill backgroud 
 
         self.draw_title()
         
