@@ -17,11 +17,23 @@
             "fw": 64,
             "fh": 64,
             "count": 13
+        },
+        "hit": {
+            "texture": "Enemy1-Hit.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Enemy1-DieV1.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 16
         }
     },
     "scale": 1.826818181818182,
-    "x_shift": 1,
-    "y_shift": -50,
+    "x_shift": 0,
+    "y_shift": 0,
     "category": "monster",
     "name": "flying_monster.json",
     "default_health": 30,

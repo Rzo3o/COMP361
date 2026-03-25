@@ -82,8 +82,16 @@ class GameWindow:
             self.anim_timer = 0
             self.frame_index += 1
 
+            monsters_to_remove = []
+
             for monster in self.engine.world.monsters:
                 monster.update_animation(self.assets)
+                if getattr(monster, "remove_after_death", False):
+                    monsters_to_remove.append(monster)
+
+            for monster in monsters_to_remove:
+                if monster in self.engine.world.monsters:
+                    self.engine.world.monsters.remove(monster)
 
     def draw(self):
         # Render World

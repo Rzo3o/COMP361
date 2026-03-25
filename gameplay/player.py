@@ -17,8 +17,8 @@ class Player(Entity):
         self.dead = False
 
         # Base stats (without equipment)
-        self.base_damage = 50
-        self.base_defense = 50
+        self.base_damage = 10
+        self.base_defense = 100
 
         # Equipment slots: slot_name -> Item or None
         self.equipment = {

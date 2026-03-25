@@ -94,6 +94,16 @@ class Monster(Entity):
         self.attack_damage_applied = False
         self.attack_hit_frame = 6
 
+        # Hurt animation settings
+        self.hurt_interrupts_attack = True
+        self.queued_attack_target = None
+        self.queued_attack_damage = 0
+
+        # Death lifecycle
+        self.death_finished = False
+        self.remove_after_death = False
+        self.death_loot_dropped = False
+
     # Hex utilities
     @staticmethod
     def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
@@ -156,20 +166,35 @@ class Monster(Entity):
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
 
-    def take_damage(self, amount, player):
+    def take_damage(self, amount):
         reduced = max(1, amount - self.total_defense)
         if reduced <= 0 or not self.is_alive():
-            return
+            return 0
 
         self.hp -= reduced
 
-        # TODO (animation/modeling): play hurt animation / flash / sound
-        # self.anim_state = "hurt"
-
+        # Fatal hit: enter death animation
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
-            player.add_items(*self.on_death())
+
+            self.pending_attack_target = None
+            self.pending_attack_damage = 0
+            self.attack_damage_applied = False
+            self.queued_attack_target = None
+            self.queued_attack_damage = 0
+
+            if not self.death_loot_dropped:
+                self.on_death()
+                self.death_loot_dropped = True
+
+            self.set_anim_state("die", reset_frame=True)
+            return reduced
+
+        # Non-fatal hit: switch to hurt animation.
+        if self.anim_state != "die":
+            if self.anim_state != "attack" or self.hurt_interrupts_attack:
+                self.set_anim_state("hit", reset_frame=True)
 
         return reduced
 
@@ -198,7 +223,12 @@ class Monster(Entity):
         dmg = self.damage
         self._attack_cd_remaining = self.ai.attack_cooldown_turns
 
-        self.set_anim_state("attack")
+        if self.anim_state == "hit":
+            self.queued_attack_target = player
+            self.queued_attack_damage = dmg
+            return True
+        
+        self.set_anim_state("attack", reset_frame=True)
 
         # switch to attack animation
         self.pending_attack_target = player
@@ -351,15 +381,29 @@ class Monster(Entity):
 
         # Handle state change after the animation finishes
         if self.anim_tick >= frame_count:
-            if self.anim_state in ("attack", "hurt"):
+            if self.anim_state in ("attack"):
                 # Return to idle after attack or hurt animation
-                self.set_anim_state("idle")
                 self.pending_attack_target = None
                 self.pending_attack_damage = 0
                 self.attack_damage_applied = False
-            elif self.anim_state == "death":
+                self.set_anim_state("idle", reset_frame=True)
+            elif self.anim_state == "hit":
+                if self.queued_attack_target is not None and self.queued_attack_target.is_alive():
+                    self.set_anim_state("attack", reset_frame=True)
+                    self.pending_attack_target = self.queued_attack_target
+                    self.pending_attack_damage = self.queued_attack_damage
+                    self.attack_damage_applied = False
+                else:
+                    self.set_anim_state("idle", reset_frame=True)
+
+                self.queued_attack_target = None
+                self.queued_attack_damage = 0
+
+            elif self.anim_state == "die":
                 # Keep the last frame for death animation
                 self.anim_tick = frame_count - 1
+                self.death_finished = True
+                self.remove_after_death = True
             else:
                 self.anim_tick = 0
 
