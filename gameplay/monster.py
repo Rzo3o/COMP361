@@ -104,6 +104,15 @@ class Monster(Entity):
         self.remove_after_death = False
         self.death_loot_dropped = False
 
+        # Move animation runtime state
+        self.is_moving = False
+        self.move_from_q = self.q
+        self.move_from_r = self.r
+        self.move_to_q = self.q
+        self.move_to_r = self.r
+        self.move_progress = 1.0
+        self.move_speed = 0.25 
+
     # Hex utilities
     @staticmethod
     def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
@@ -237,6 +246,19 @@ class Monster(Entity):
 
         return True
     
+    def start_move(self, to_q, to_r):
+        self.move_from_q = self.q
+        self.move_from_r = self.r
+        self.move_to_q = to_q
+        self.move_to_r = to_r
+
+        self.q = to_q
+        self.r = to_r
+
+        self.move_progress = 0.0
+        self.is_moving = True
+        self.set_anim_state("move", reset_frame=True)
+
     def move_towards_player(
         self,
         player: Any,
@@ -269,7 +291,7 @@ class Monster(Entity):
         best_dist, best_q, best_r = candidates[0]
 
         if best_dist < current_dist:
-            self.q, self.r = best_q, best_r
+            self.start_move(best_q, best_r)
             return True
 
         side_options = [(d, q, r) for (d, q, r) in candidates if d == current_dist]
@@ -290,8 +312,8 @@ class Monster(Entity):
         if not candidates:
             return False
 
-        self.q, self.r = random.choice(candidates)
-        # TODO (animation/modeling): idle->move animation
+        nq, nr = random.choice(candidates)
+        self.start_move(nq, nr)
         return True
 
     # AI decision
@@ -344,9 +366,14 @@ class Monster(Entity):
     
     def update_animation(self, asset_manager):
         """
-        Update the current animation
-        Only handles idle/attack for now.
-        Attack plays once, then returns to idle.
+        Update the current animation state.
+
+        States handled:
+        - idle: loops
+        - move: interpolates from one tile to another, then returns to idle
+        - attack: applies damage at hit frame, then returns to idle
+        - hit: plays once, then optionally chains into queued attack
+        - die: plays once, then stays on last frame and marks monster removable
         """
         animations = self.data.get("animations", {})
         anim_cfg = animations.get(self.anim_state) or animations.get("idle")
@@ -365,6 +392,29 @@ class Monster(Entity):
             return
 
         frame_count = meta.get("count", 1)
+
+        # move animation: advance interpolation + animate frames
+        if self.anim_state == "move":
+            # advance tile-to-tile interpolation
+            if getattr(self, "is_moving", False):
+                self.move_progress += self.move_speed
+
+                if self.move_progress >= 1.0:
+                    self.move_progress = 1.0
+                    self.is_moving = False
+
+            # animate move frames
+            self.anim_tick += 1
+
+            # loop move frames while moving
+            if self.anim_tick >= frame_count:
+                self.anim_tick = 0
+
+            # once movement finishes, return to idle
+            if not getattr(self, "is_moving", False):
+                self.set_anim_state("idle", reset_frame=True)
+
+            return
 
         # Apply attack damage when the animation reaches the hit frame
         if self.anim_state == "attack":

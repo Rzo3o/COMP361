@@ -72,7 +72,16 @@ class GameRenderer:
             if not tile or not tile.discovered:
                 continue
 
-            mqx, mqy = HexMath.hex_to_pixel(monster.q, monster.r)
+            if getattr(monster, "is_moving", False):
+                from_px, from_py = HexMath.hex_to_pixel(monster.move_from_q, monster.move_from_r)
+                to_px, to_py = HexMath.hex_to_pixel(monster.move_to_q, monster.move_to_r)
+                t = monster.move_progress
+
+                mqx = from_px + (to_px - from_px) * t
+                mqy = from_py + (to_py - from_py) * t
+            else:
+                mqx, mqy = HexMath.hex_to_pixel(monster.q, monster.r)
+                
             mdx = cx + (mqx - ppx)
             mdy = cy + (mqy - ppy)
             
