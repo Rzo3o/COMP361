@@ -3,23 +3,15 @@ import sys
 import os
 from pygame.draw import rect
 
-
 from ui.base_screen import Screen
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
 
-
 class Welcome(Screen):
     def __init__(self, manager):
         super().__init__(manager)
     
-     
-        # Colors
-        #red, green, blue
-        self.bg_color = (79, 79, 79)
-        self.text_color = (154, 205, 50)
-
         # (image name, x, y , anngle, scale)
         self.decoration_images = [
             ('Water_Duck.png', 98, 68, 30, 4.7),
@@ -34,24 +26,22 @@ class Welcome(Screen):
         ]
 
         self.texts = [
-            "Welcome",
-            "Beyond"
+            "WELCOME",
+            "BEYOND"
         ]
     
-
     def handle_event(self, event):    
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self.manager.switch_screen("characters")    
     
-
     def draw(self):
         """
         Draw the welcome screen with title and images.
         Input: None
         Output: None
         """
-        self.manager.screen.fill(self.bg_color) # fill backgroud 
+        self.manager.screen.fill(self.manager.bg_color) # fill backgroud 
 
         self.draw_title()
         
@@ -59,7 +49,6 @@ class Welcome(Screen):
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
 
-    
     def draw_title(self):
         """
         draw title on the screen
@@ -69,10 +58,9 @@ class Welcome(Screen):
         pygame.font.init()
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
         
-
         rendered_texts = []
         for text in self.texts:
-            text = font.render(text, True, self.text_color)
+            text = font.render(text, True, self.manager.text_color_green)
             rendered_texts.append(text)
 
         spacing = -70
@@ -91,7 +79,6 @@ class Welcome(Screen):
             self.manager.screen.blit(source=text, dest=rect) 
             y_offset += text.get_height() + spacing
     
-
     def draw_image(self, image_name: str, x: int, y: int, angle: int, scale: float):
         """
         draw image on the screen

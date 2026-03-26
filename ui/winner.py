@@ -12,16 +12,10 @@ from ui.base_screen import Screen
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
 
-
 class Winner(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-     
-        # Colors
-        #red, green, blue
-        self.bg_color = (79, 79, 79)
-        self.text_color = (154, 205, 50)
-
+    
         self.decoration_images = [
             ('sprite1.png', 1295, 550, 0, 8),
             ('Grass.png', 942, 491, -15, 2.6),
@@ -34,7 +28,6 @@ class Winner(Screen):
 
         self.buttons = self.create_buttons()
         
-    
     def create_buttons(self):
         # 1 button on this screen
         button_height = 50
@@ -44,7 +37,7 @@ class Winner(Screen):
         y = (self.manager.height / 2) - (button_height/ 2)
     
         # create the button
-        play_again_button = button.Button(
+        play_again_button = ui.button.Button(
             x,      
             y,    
             button_width,
@@ -54,7 +47,7 @@ class Winner(Screen):
             action_name ="play_again",
             bg_color = (175, 143, 233),
             hover_color = (120, 100, 160),
-            text_color = (255, 255, 255),
+            text_color = self.manager.text_color_white,
         )
 
         return [play_again_button]
@@ -76,13 +69,13 @@ class Winner(Screen):
         Input: None
         Output: None
         """
-        self.manager.screen.fill(self.bg_color) #fill covers the previous screen
+        self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
 
         # text
         pygame.font.init()
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
 
-        text = font.render("Winner!", True, self.text_color)
+        text = font.render("Winner!", True, self.manager.text_color_green)
         rect = text.get_rect(midtop=(1/4 * self.manager.width + 200, self.manager.height // 4)) # middle
         self.manager.screen.blit(source=text, dest=rect) 
         

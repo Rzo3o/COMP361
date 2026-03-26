@@ -7,19 +7,9 @@ from ui.base_screen import Screen
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
 
-
-
-
 class GameRules(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-
-    
-        # Colors
-        self.bg_color = (79, 79, 79)
-        self.text_color = (154, 205, 50)
-        self.title_color = (255, 255, 255)
-      
 
         # Fonts
         self.title_font = pygame.font.Font(
@@ -46,6 +36,7 @@ class GameRules(Screen):
             40,
         )
 
+        # green
         self.rules_text = [
             "Goal: Conquer all castles, defeat the final castle, and win!",
             "1. Choose a character to begin your adventure.",
@@ -63,7 +54,6 @@ class GameRules(Screen):
         ('Magic.png', 480, 170, -20, 2.3999999999999995),
         ('Snow_Snowman.png', 400, 75, -20, 2.2999999999999994),
         ]
-
 
         #button size
         self.button_width = 150
@@ -84,22 +74,21 @@ class GameRules(Screen):
             action_name="next",
             bg_color=(175, 143, 233),
             hover_color=(120, 100, 160),
-            text_color=(255, 255, 255),
+            text_color=self.manager.text_color_white,
         )
 
             self.buttons = [self.next_button]
 
     def draw(self):
 
-        self.manager.screen.fill(self.bg_color) #fill covers the previous screen
+        self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
 
         # Draw decorative images
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
 
-
         # Title
-        title = self.title_font.render("Game Rules", True, self.title_color)
+        title = self.title_font.render("GAME RULES", True, self.manager.text_color_white)
         title_rect = title.get_rect(center=(self.manager.width // 2, 100))
         self.manager.screen.blit(title, title_rect)
 
@@ -109,14 +98,13 @@ class GameRules(Screen):
 
         for i, line in enumerate(self.rules_text):
             font = self.goal_font if i == 0 else self.rules_font  
-            text_surface = font.render(line, True, self.text_color) 
+            text_surface = font.render(line, True, self.manager.text_color_green) 
             text_rect = text_surface.get_rect(center=(self.manager.width // 2, start_y + i * line_gap))
             self.manager.screen.blit(text_surface, text_rect)
 
         # Draw buttons
         for button in self.buttons:
             button.draw(self.manager.screen)
-
 
     def draw_image(self, image_name: str, x: int, y: int, angle: int, scale: float):
         image_path = os.path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)

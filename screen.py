@@ -23,6 +23,16 @@ class ScreenManager:
 
         pygame.display.set_caption("Beyond") 
 
+        # font has differnet sizes
+
+        # background color (grey)
+        self.bg_color = (79, 79, 79)
+        # text color (green)
+        self.text_color_green = (154, 205, 50)
+        # text color (white)
+        self.text_color_white = (255, 255, 255)
+
+
         # window size full screen 
         info = pygame.display.Info()
         self.width, self.height = info.current_w, info.current_h - TOP_MARGIN

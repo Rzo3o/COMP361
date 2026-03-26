@@ -1,3 +1,6 @@
+# MAIN NOT IN USE ANYMORE USE screen.py
+
+
 from ui.game_window import GameWindow
 from ui.save_menu import SaveSelectMenu
 import os
