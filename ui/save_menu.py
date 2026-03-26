@@ -16,8 +16,8 @@ class SaveSelectMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
         font_path = os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf')
-        self.font = pygame.font.Font(font_path, 48)
-        self.small_font = pygame.font.Font(font_path, 32)
+        self.title_font = pygame.font.Font(font_path, 120)
+        self.button_font = pygame.font.Font(font_path, 50)
        
         
         self.am = AssetManager()
@@ -32,16 +32,47 @@ class SaveSelectMenu(Screen):
         self.confirm_delete_slot = None  # None or slot_id
         
         # Colors
-        self.bg_color = (30, 30, 30)
-        self.btn_color = (60, 60, 60)
-        self.hover_color = (80, 80, 100)
-        self.del_color = (150, 50, 50)
-        self.del_hover = (200, 50, 50)
-        self.text_color = (220, 220, 220)
+        self.bg_color = (79, 79, 79)
+        self.text_color = (154, 205, 50)
+        self.btn_color = (70, 70, 90)
+        self.hover_color = (120, 100, 160)
+        self.slot_color = (199, 234, 70)
+        self.del_color = (147, 112, 219)
+        self.del_hover = (120, 100, 160)
         
         self.slots = [1, 2, 3]
         self.buttons = []
         self._create_buttons()
+
+        
+        self.decoration_images = [
+        ('Water_Duck.png', 405, 75, 5, 2.3999999999999995),
+        ('Grass.png', 360, 175, 20, 1.5999999999999996),
+        ('Grass_Pine.png', 1089, 201, -15, 2.1),
+        ('Magic_Crystals.png', 480, 200, -15, 2.8),
+        ('Snow_Trees.png', 1073, 76, 10, 2.4999999999999996),
+        ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
+        ]
+        #draw tiles
+
+    def draw_image(self, image_name: str, x: int, y: int, angle: int, scale: float):
+        """
+        Draw image on the screen.
+        """
+        image_path = os.path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)
+
+        image = pygame.image.load(image_path).convert_alpha()
+
+        original_w, original_h = image.get_size()
+        scaled_image = pygame.transform.scale(
+            image, (int(original_w * scale), int(original_h * scale))
+        )
+        rotated_image = pygame.transform.rotate(scaled_image, angle)
+        rect = rotated_image.get_rect(center=(x, y))
+
+        self.manager.screen.blit(rotated_image, rect)
+
+
 
     def _load_skins(self):
         self.skins = []
@@ -66,33 +97,55 @@ class SaveSelectMenu(Screen):
 
     def _create_buttons(self):
         self.buttons = []
-        start_y = 200
-        for slot in self.slots:
-            # Slot Button
-            rect = pygame.Rect(200, start_y, 300, 60)
-            # Delete Button (small square to the right)
-            del_rect = pygame.Rect(520, start_y, 60, 60)
-            
+
+        button_width = 400   # bigger width
+        button_height = 80   # bigger height
+        spacing = 100        # space between rows
+
+        total_height = len(self.slots) * spacing
+        start_y = (self.manager.height // 2) - (total_height // 2)
+
+        for i, slot in enumerate(self.slots):
+            y = start_y + i * spacing
+
+            # Center main button
+            rect = pygame.Rect(
+                self.manager.width // 2 - button_width // 2,
+                y,
+                button_width,
+                button_height
+            )
+
+            # Delete button (to the right of main button)
+            del_rect = pygame.Rect(
+                rect.right + 20,
+                y,
+                80,
+                button_height
+            )
+
             self.buttons.append({
                 "type": "slot",
                 "rect": rect,
                 "text": f"Save Slot {slot}",
                 "value": slot
             })
+
             self.buttons.append({
                 "type": "delete",
                 "rect": del_rect,
                 "text": "X",
                 "value": slot
             })
-            start_y += 80
 
     def draw(self):
         self.manager.screen.fill(self.bg_color)
+        for image_name , x , y , angle , scale in self.decoration_images:
+            self.draw_image(image_name, x , y, angle, scale)
         
         # Title
-        title_surf = self.font.render("Select Save Slot", True, self.text_color)
-        title_rect = title_surf.get_rect(center=(self.manager.width // 2, 70))
+        title_surf = self.title_font.render("SAVED GAMES", True, self.text_color)
+        title_rect = title_surf.get_rect(center=(self.manager.width // 2, 120))
         self.manager.screen.blit(title_surf, title_rect)
         
         mouse_pos = pygame.mouse.get_pos()
@@ -100,7 +153,7 @@ class SaveSelectMenu(Screen):
         # Skin Selector
         skin_y = 150
         skin_text = f"Skin: {self.skins[self.current_skin_idx]['name']}"
-        skin_surf = self.small_font.render(skin_text, True, self.text_color)
+        skin_surf = self.button_font.render(skin_text, True, self.text_color)
         skin_rect = skin_surf.get_rect(center=(self.manager.width // 2, skin_y))
         self.manager.screen.blit(skin_surf, skin_rect)
         
@@ -111,8 +164,8 @@ class SaveSelectMenu(Screen):
         pygame.draw.rect(self.manager.screen, c_left, self.left_btn, border_radius=5)
         pygame.draw.rect(self.manager.screen, c_right, self.right_btn, border_radius=5)
         
-        l_txt = self.font.render("<", True, self.text_color)
-        r_txt = self.font.render(">", True, self.text_color)
+        l_txt = self.button_font.render("<", True, self.text_color)
+        r_txt = self.button_font.render(">", True, self.text_color)
         self.manager.screen.blit(l_txt, l_txt.get_rect(center=self.left_btn.center))
         self.manager.screen.blit(r_txt, r_txt.get_rect(center=self.right_btn.center))
         
@@ -129,11 +182,11 @@ class SaveSelectMenu(Screen):
             is_hover = rect.collidepoint(mouse_pos)
             
             if btn["type"] == "slot":
-                color = self.hover_color if is_hover else self.btn_color
+                color = self.hover_color if is_hover else self.slot_color
                 pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
                 pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
                 
-                text_surf = self.small_font.render(btn["text"], True, self.text_color)
+                text_surf = self.button_font.render(btn["text"], True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
             
@@ -142,7 +195,7 @@ class SaveSelectMenu(Screen):
                 pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
                 pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
                 
-                text_surf = self.small_font.render("X", True, self.text_color)
+                text_surf = self.button_font.render("X", True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
 
@@ -166,7 +219,7 @@ class SaveSelectMenu(Screen):
         
         # Text
         msg = f"Delete Save Slot {self.confirm_delete_slot}?"
-        text_surf = self.font.render(msg, True, (255, 255, 255))
+        text_surf = self.title_font.render(msg, True, (255, 255, 255))
         text_rect = text_surf.get_rect(center=(self.manager.width // 2, 250))
         self.manager.screen.blit(text_surf, text_rect)
         
@@ -179,13 +232,13 @@ class SaveSelectMenu(Screen):
         # Yes
         c_yes = (200, 50, 50) if yes_rect.collidepoint(mouse_pos) else (150, 50, 50)
         pygame.draw.rect(self.manager.screen, c_yes, yes_rect, border_radius=5)
-        yes_txt = self.small_font.render("YES", True, (255, 255, 255))
+        yes_txt = self.button_font.render("YES", True, (255, 255, 255))
         self.manager.screen.blit(yes_txt, yes_txt.get_rect(center=yes_rect.center))
         
         # No
         c_no = (100, 100, 100) if no_rect.collidepoint(mouse_pos) else (80, 80, 80)
         pygame.draw.rect(self.manager.screen, c_no, no_rect, border_radius=5)
-        no_txt = self.small_font.render("NO", True, (255, 255, 255))
+        no_txt = self.button_font.render("NO", True, (255, 255, 255))
         self.manager.screen.blit(no_txt, no_txt.get_rect(center=no_rect.center))
         
         self.confirm_buttons = {"yes": yes_rect, "no": no_rect}
