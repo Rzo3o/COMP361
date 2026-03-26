@@ -1790,6 +1790,8 @@ class LibraryTab(ttk.Frame):
                 self._update_preview_static()
         finally:
             self.is_loading = False
+            if self.var_cat.get() in ["monster", "player"]:
+                self._on_anim_data_change()
 
     def _add_anim(self):
         name = simpledialog.askstring(
@@ -1830,6 +1832,8 @@ class LibraryTab(ttk.Frame):
 
     def _on_anim_data_change(self):
         if not hasattr(self, 'lb_anims') or not self.lb_anims.winfo_exists():
+            return
+        if getattr(self, "is_loading", False):
             return
         sel = self.lb_anims.curselection()
         if not sel:
