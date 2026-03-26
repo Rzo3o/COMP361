@@ -247,10 +247,10 @@ class SaveSelectMenu(Screen):
                         if btn["rect"].collidepoint(event.pos):
                             if btn["type"] == "slot":
                                 slot = btn["value"]
-                                selected_skin = self.skins[self.current_skin_idx]["texture"]
-
                                 target_db = f"game_data_{slot}.db"
-                                if not os.path.exists(target_db):
+                                is_new_game = not os.path.exists(target_db)
+                                
+                                if is_new_game:
                                     if os.path.exists("default.db"):
                                         print(f"Creating new save slot {slot} from default.db...")
                                         shutil.copy("default.db", target_db)
@@ -258,8 +258,12 @@ class SaveSelectMenu(Screen):
                                         print("No default.db found! Starting with empty database.")
 
                                 self.manager.selected_slot = slot
-                                self.manager.selected_skin = selected_skin
-                                self.manager.switch_screen("game_window")
+                                self.manager.selected_skin = self.skins[0]["texture"] if self.skins else None
+                                
+                                if is_new_game:
+                                    self.manager.switch_screen("characters")
+                                else:
+                                    self.manager.switch_screen("game_window")
 
                             elif btn["type"] == "delete":
                                 self.confirm_delete_slot = btn["value"]

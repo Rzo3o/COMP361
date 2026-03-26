@@ -48,8 +48,8 @@ class Characters(Screen):
             if action and action.startswith("character"):
                 selected_character = int(action.split("_")[1])
                 # character selection 
-                print(selected_character)
-                self.manager.switch_screen("game_rules")
+                print(f"Selected character: {selected_character}")
+                self.manager.switch_screen("game_window")
 
     def create_buttons(self):
         buttons = []

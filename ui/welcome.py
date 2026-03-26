@@ -33,7 +33,7 @@ class Welcome(Screen):
     def handle_event(self, event):    
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("characters")    
+                    self.manager.switch_screen("main_menu")
     
     def draw(self):
         """
