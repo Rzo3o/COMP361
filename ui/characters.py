@@ -40,6 +40,10 @@ class Characters(Screen):
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.manager.switch_screen("save_menu")
+
         mouse_position = pygame.mouse.get_pos()
         for button in self.buttons:
             button.check_hover(mouse_position)

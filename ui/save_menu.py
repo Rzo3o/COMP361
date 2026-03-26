@@ -232,6 +232,13 @@ class SaveSelectMenu(Screen):
              print(f"File {filename} does not exist.")
 
     def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                if self.confirm_delete_slot:
+                    self.confirm_delete_slot = None
+                else:
+                    self.manager.switch_screen("main_menu")
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 if self.confirm_delete_slot:
