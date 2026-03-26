@@ -183,7 +183,24 @@ class DatabaseManager:
             "SELECT * FROM player_state WHERE session_id=?", (session_id,)
         )
         row = self.cursor.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+            
+        p_data = dict(row)
+        
+        player_def = {}
+        def_path = os.path.join("assets", "definitions", "player", "archer.json")
+        
+        if os.path.exists(def_path):
+            try:
+                with open(def_path, "r") as f:
+                    player_def = json.load(f)
+            except Exception as e:
+                print(f"Error loading player definition: {e}")
+        else:
+            print(f"Warning: Could not find {def_path}")
+
+        return {**player_def, **p_data}
 
     """
     Inventory

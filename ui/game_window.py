@@ -76,6 +76,11 @@ class GameWindow(Screen):
             self.anim_timer = 0
             self.frame_index += 1
 
+            # player animation
+            player = self.engine.world.player
+            if player:
+                player.update_animation(self.assets)
+
             monsters_to_remove = []
 
             for monster in self.engine.world.monsters:

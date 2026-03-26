@@ -24,7 +24,16 @@ class GameRenderer:
         cy = Config.CENTER_Y
         render_range = 15
         
-        ppx, ppy = HexMath.hex_to_pixel(player.q, player.r)
+        # if the player is moving, let the camera focus on the player for interpolation
+        if getattr(player, "is_moving", False):
+            from_px, from_py = HexMath.hex_to_pixel(player.move_from_q, player.move_from_r)
+            to_px, to_py = HexMath.hex_to_pixel(player.move_to_q, player.move_to_r)
+            t = player.move_progress
+            
+            ppx = from_px + (to_px - from_px) * t
+            ppy = from_py + (to_py - from_py) * t
+        else:
+            ppx, ppy = HexMath.hex_to_pixel(player.q, player.r)
 
         terrain_layer = []
         object_layer = []
