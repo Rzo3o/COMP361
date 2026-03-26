@@ -166,6 +166,7 @@ class DatabaseManager:
 class AssetManager:
     def __init__(self):
         self.image_cache = {}
+        self.anim_frame_cache = {}
         self.texture_layout_map = {}
         self.refresh_layouts()
 
@@ -223,10 +224,16 @@ class AssetManager:
 
     def get_anim_frame(self, filename, frame_index, fw, fh, count, scale=1.0):
         """
-        Extracts a specific frame from a sprite sheet.
+        Extracts a specific frame from a sprite sheet with caching.
         """
         if not filename:
             return None
+        
+        # Cache check
+        key = (filename, frame_index, fw, fh, count, scale)
+        if key in self.anim_frame_cache:
+            return self.anim_frame_cache[key]
+            
         path = os.path.join(Config.ASSET_DIR, filename)
         if not os.path.exists(path):
             return None
@@ -244,7 +251,9 @@ class AssetManager:
             target_h = int(fh * scale)
             crop = crop.resize((target_w, target_h), Image.Resampling.NEAREST)
 
-            return ImageTk.PhotoImage(crop)
+            tk_img = ImageTk.PhotoImage(crop)
+            self.anim_frame_cache[key] = tk_img
+            return tk_img
         except Exception as e:
             print(f"Anim Error: {e}")
             return None
@@ -383,7 +392,14 @@ class MapTab(ttk.Frame):
 
         self._setup_ui()
         self._bind_events()
+        self.anim_tick = 0
         self.after(100, self._center_view)
+        self._animate()
+
+    def _animate(self):
+        self.anim_tick += 1
+        self.render()
+        self.after(250, self._animate) # 250ms for a steady idle pace
 
     def _center_view(self):
         self.update_idletasks()
@@ -728,16 +744,49 @@ class MapTab(ttk.Frame):
                     self.canvas.create_polygon(poly, fill="#FF0000", stipple="gray25", outline="")
 
         # Monster Render (On top)
-        if mode == "Monsters":
+        if mode != "Collision":
+            view_lvl = getattr(self, "var_level_view", None) and self.var_level_view.get()
             for m in monsters:
                 mq, mr = m["current_q"], m["current_r"]
+                
+                # Filter by level if active
+                if view_lvl and view_lvl > 0:
+                    t_data = db_tiles.get((mq, mr), {})
+                    if t_data.get("level", 1) != view_lvl:
+                        continue
+
                 px, py = HexEngine.hex_to_pixel(mq, mr)
                 mx, my = cx + px, cy + py
-                # Simple circle for now, or texture if available
-                tex = m.get("texture_file")
-                # if tex: ... (Using AssetManager would be ideal but simple circle is okay for execution)
-                self.canvas.create_oval(mx-10, my-10, mx+10, my+10, fill="purple", outline="white", width=2)
-                self.canvas.create_text(mx, my-15, text=m["name"], fill="white", font=("Arial", 8))
+                
+                if mode == "Monsters":
+                    # Simple purple circle for clarity in monster view
+                    self.canvas.create_oval(mx-10, my-10, mx+10, my+10, fill="purple", outline="white", width=2)
+                    self.canvas.create_text(mx, my-15, text=m["name"], fill="white", font=("Arial", 8))
+                elif mode in ["Standard", "Levels", "Spawns"]:
+                    # Real idle texture
+                    m_data = self.app.asset_mgr.load_json("monster", m["name"])
+                    if m_data:
+                        anim_idle = m_data.get("animations", {}).get("idle", {})
+                        tex = anim_idle.get("texture")
+                        fw = anim_idle.get("fw", 32)
+                        fh = anim_idle.get("fh", 32)
+                        count = anim_idle.get("count", 1)
+                        scale = m_data.get("scale", 1.0)
+                        x_shift = m_data.get("x_shift", 0)
+                        y_shift = m_data.get("y_shift", 0)
+                        
+                        if not tex:
+                            continue
+
+                        img = self.app.asset_mgr.get_anim_frame(tex, self.anim_tick, fw, fh, count, scale)
+                        if img:
+                            self.canvas.create_image(
+                                mx + x_shift, 
+                                my - Config.CALIB_OFFSET_Y - y_shift, 
+                                image=img, 
+                                tags="monster_art"
+                            )
+                            # Tag for interaction if needed
 
     def _on_click(self, event):
         cx = self.canvas.canvasx(event.x)

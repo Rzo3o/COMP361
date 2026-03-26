@@ -33,7 +33,7 @@
     },
     "scale": 1.826818181818182,
     "x_shift": 0,
-    "y_shift": 0,
+    "y_shift": -36,
     "category": "monster",
     "name": "flying_monster.json",
     "default_health": 30,
