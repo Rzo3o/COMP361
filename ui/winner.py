@@ -60,7 +60,7 @@ class Winner(Screen):
             button.check_hover(mouse_position)
             action = button.handle_event(event)
             if action == "play_again":
-                self.manager.switch_screen("game_rules")
+                self.manager.switch_screen("welcome")
 
 
     def draw(self):

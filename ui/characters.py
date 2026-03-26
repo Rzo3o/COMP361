@@ -26,16 +26,17 @@ class Characters(Screen):
             ('Magic_Crystals.png', 400, 60, -10, 3.0),
         ]
 
-        self.character_images = [ os.path.join("Adviser", "Adviser_Attack_1.png"),
+        self.character_images = [ os.path.join("Heavy_Cavalry", "Heavy_Cavalry_Attack_1.png"),
                                     os.path.join("Archer", "Archer_Attack_1.png"),
                                     os.path.join("Cavalry", "Cavalry_Attack_1.png"),
                                     os.path.join("Heavy_Archer", "Heavy_Archer_Attack_1.png"),
-                                    os.path.join("Heavy_Cavalry", "Heavy_Cavalry_Attack_1.png"),
+                                    
+                                    os.path.join("Adviser", "Adviser_Attack_1.png"),
                                     os.path.join("Infantry", "Infantry_Attack_1.png"),
                                     os.path.join("Lancer", "Lancer_Attack_1.png"),
                                     os.path.join("Heavy_Infantry", "Heavy_Infantry_Attack_1.png")]
         
-        self.button_names = ["character_1", "character_2", "character_3", "character 4", "Character_5", "character_6", "character_8", "character_9"]
+        self.button_names = ["character_1", "character_2", "character_3", "character_4", "Character_5", "character_6", "character_7", "character_8"]
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
@@ -119,8 +120,8 @@ class Characters(Screen):
 
         for img_name, btn in zip(self.character_images, self.buttons):
             char_x = btn.rect.x + btn.rect.width // 2
-            char_y = btn.rect.y - vertical_offset
-            self.draw_character(img_name, char_x, char_y)
+            ground_y = btn.rect.top
+            self.draw_character(img_name, char_x, ground_y)
 
         # buttons
         for button in self.buttons:
@@ -152,10 +153,13 @@ class Characters(Screen):
         path = os.path.join(BASE_DIR, "..", "assets", "assetBank", "Classic China Characters", image_name)
         image = pygame.image.load(path).convert_alpha()
 
-        # Optional: scale characters to a consistent size
+        # original scaling (looked good)
         original_w, original_h = image.get_size()
-        image = pygame.transform.scale(image, (int(original_w * 8), int(original_h * 8)))
+        image = pygame.transform.scale(image, (int(original_w * 6.5), int(original_h * 6.5)))
 
-        rect = image.get_rect(center=(x, y))
+        # align by feet instead of top
+        rect = image.get_rect(midbottom=(x, y))
+
         self.manager.screen.blit(image, rect)
+
                 
