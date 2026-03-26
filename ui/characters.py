@@ -36,7 +36,7 @@ class Characters(Screen):
                                     os.path.join("Lancer", "Lancer_Attack_1.png"),
                                     os.path.join("Heavy_Infantry", "Heavy_Infantry_Attack_1.png")]
         
-        self.button_names = ["character_1", "character_2", "character_3", "character_4", "Character_5", "character_6", "character_7", "character_8"]
+        self.button_names = ["character_1", "character_2", "character_3", "character_4", "character_5", "character_6", "character_7", "character_8"]
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
@@ -44,8 +44,12 @@ class Characters(Screen):
         for button in self.buttons:
             button.check_hover(mouse_position)
             action = button.handle_event(event)
-            if action == "character_1":
-                self.manager.switch_screen("game_rules") 
+            # valid option to parse
+            if action and action.startswith("character"):
+                selected_character = int(action.split("_")[1])
+                # character selection 
+                print(selected_character)
+                self.manager.switch_screen("game_rules")
 
     def create_buttons(self):
         buttons = []
