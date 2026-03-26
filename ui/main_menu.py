@@ -4,20 +4,14 @@ import os
 from ui.button import Button
 from ui.base_screen import Screen
 
-
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
-
 
 class MainMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
      
-
-    
-        # Colors
-        self.bg_color = (79, 79, 79)
-        self.text_color = (154, 205, 50)
+        # Color
         self.button_color = (70, 70, 90)
 
         # (image name, x, y, angle, scale)
@@ -51,8 +45,6 @@ class MainMenu(Screen):
         self.button_height = 100
         self.button_gap = 30
 
-        
-
         self.play_button = Button(
             center_x - self.button_width // 2,
             start_y,
@@ -63,7 +55,7 @@ class MainMenu(Screen):
             action_name="play",
             bg_color=(199, 234, 70),
             hover_color=(120, 100, 160),
-            text_color=(255, 255, 255),
+            text_color=self.manager.text_color_white,
         )
 
         self.rules_button = Button(
@@ -76,7 +68,7 @@ class MainMenu(Screen):
             action_name="rules",
             bg_color=(0, 191, 255),
             hover_color=(120, 100, 160),
-            text_color=(255, 255, 255),
+            text_color=self.manager.text_color_white,
         )
 
         self.exit_button = Button(
@@ -89,7 +81,7 @@ class MainMenu(Screen):
             action_name="saved_games",
             bg_color=(147, 112, 219),
             hover_color=(120, 100, 160),
-            text_color=(255, 255, 255),
+            text_color=self.manager.text_color_white,
         )
 
         self.buttons = [self.play_button, self.rules_button, self.exit_button]
@@ -112,22 +104,20 @@ class MainMenu(Screen):
         self.manager.screen.blit(rotated_image, rect)
 
     def draw(self):
-        self.manager.screen.fill(self.bg_color)
+        self.manager.screen.fill(self.manager.bg_color)
 
         # Draw decorative images
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
 
         # Main menu title
-        title = self.title_font.render("MAIN MENU", True, self.text_color)
+        title = self.title_font.render("MAIN MENU", True, self.manager.text_color_green)
         title_rect = title.get_rect(center=(self.manager.width // 2, 120))
         self.manager.screen.blit(title, title_rect)
 
         # Draw buttons
         for button in self.buttons:
             button.draw(self.manager.screen)
-
-       
 
     def handle_event(self, event):
             mouse_pos = pygame.mouse.get_pos()
