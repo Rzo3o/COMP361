@@ -24,10 +24,10 @@ class SaveSelectMenu(Screen):
         self._load_skins()
         self.current_skin_idx = 0
         
-        # UI Rects for skin selector
-        self.left_btn = pygame.Rect(self.manager.width // 2 - 150, 150 - 20, 40, 40)
-        self.right_btn = pygame.Rect(self.manager.width // 2 + 110, 150 - 20, 40, 40)
-
+        self.skin_y = 150
+        
+        self.skin_y = 150
+        
         # Confirmation State
         self.confirm_delete_slot = None  # None or slot_id
         
@@ -150,33 +150,6 @@ class SaveSelectMenu(Screen):
         
         mouse_pos = pygame.mouse.get_pos()
         
-        # Skin Selector
-        skin_y = 150
-        skin_text = f"Skin: {self.skins[self.current_skin_idx]['name']}"
-        skin_surf = self.button_font.render(skin_text, True, self.text_color)
-        skin_rect = skin_surf.get_rect(center=(self.manager.width // 2, skin_y))
-        self.manager.screen.blit(skin_surf, skin_rect)
-        
-        # Draw Left/Right Arrows for Skin Selector
-        c_left = self.hover_color if self.left_btn.collidepoint(mouse_pos) else self.btn_color
-        c_right = self.hover_color if self.right_btn.collidepoint(mouse_pos) else self.btn_color
-        
-        pygame.draw.rect(self.manager.screen, c_left, self.left_btn, border_radius=5)
-        pygame.draw.rect(self.manager.screen, c_right, self.right_btn, border_radius=5)
-        
-        l_txt = self.button_font.render("<", True, self.text_color)
-        r_txt = self.button_font.render(">", True, self.text_color)
-        self.manager.screen.blit(l_txt, l_txt.get_rect(center=self.left_btn.center))
-        self.manager.screen.blit(r_txt, r_txt.get_rect(center=self.right_btn.center))
-        
-        # Draw Skin Sprite Preview
-        tex = self.skins[self.current_skin_idx]["texture"]
-        if tex:
-            skin_img = self.am.get_image(tex, scale=2.0)
-            if skin_img:
-                img_rect = skin_img.get_rect(center=(self.manager.width // 2, skin_y - 40))
-                self.manager.screen.blit(skin_img, img_rect)
-        
         for btn in self.buttons:
             rect = btn["rect"]
             is_hover = rect.collidepoint(mouse_pos)
@@ -213,19 +186,23 @@ class SaveSelectMenu(Screen):
         self.manager.screen.blit(overlay, (0, 0))
         
         # Popup Box
-        box_rect = pygame.Rect(200, 200, 400, 200)
+        box_w, box_h = 500, 250
+        box_x = (self.manager.width - box_w) // 2
+        box_y = (self.manager.height - box_h) // 2
+        box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
         pygame.draw.rect(self.manager.screen, (50, 50, 50), box_rect, border_radius=15)
         pygame.draw.rect(self.manager.screen, (200, 50, 50), box_rect, 2, border_radius=15)
         
         # Text
         msg = f"Delete Save Slot {self.confirm_delete_slot}?"
         text_surf = self.title_font.render(msg, True, (255, 255, 255))
-        text_rect = text_surf.get_rect(center=(self.manager.width // 2, 250))
+        text_rect = text_surf.get_rect(center=(self.manager.width // 2, box_y + 60))
         self.manager.screen.blit(text_surf, text_rect)
         
         # Yes / No Buttons
-        yes_rect = pygame.Rect(250, 320, 100, 50)
-        no_rect = pygame.Rect(450, 320, 100, 50)
+        btn_w, btn_h = 120, 50
+        yes_rect = pygame.Rect(self.manager.width // 2 - btn_w - 20, box_y + 150, btn_w, btn_h)
+        no_rect = pygame.Rect(self.manager.width // 2 + 20, box_y + 150, btn_w, btn_h)
         
         mouse_pos = pygame.mouse.get_pos()
         
@@ -265,12 +242,6 @@ class SaveSelectMenu(Screen):
                     elif self.confirm_buttons["no"].collidepoint(event.pos):
                         self.confirm_delete_slot = None
                 else:
-                    # Handle Skin Selection Arrows
-                    if self.left_btn.collidepoint(event.pos):
-                        self.current_skin_idx = (self.current_skin_idx - 1) % len(self.skins)
-                    elif self.right_btn.collidepoint(event.pos):
-                        self.current_skin_idx = (self.current_skin_idx + 1) % len(self.skins)
-                        
                     # Handle Slot Buttons
                     for btn in self.buttons:
                         if btn["rect"].collidepoint(event.pos):

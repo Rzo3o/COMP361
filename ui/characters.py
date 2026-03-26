@@ -70,7 +70,7 @@ class Characters(Screen):
         # Starting point (center the whole grid)
         grid_width = (cols - 1) * gap_x
         start_x = self.manager.width // 2 - grid_width // 2
-        start_y = 500   # move grid down
+        start_y = int(self.manager.height * 0.55)   # move grid down relative to height
 
         for index, button_name in enumerate(self.button_names):
             row = index // cols
