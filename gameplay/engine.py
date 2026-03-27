@@ -67,6 +67,16 @@ class GameEngine:
                 damage = player.attack_monster(monster)
 
                 if not monster.is_alive():
+                    if not getattr(monster, 'death_loot_dropped', False):
+                        drops = monster.on_death()
+                        for item in drops:
+                            if getattr(item, 'id', None) is None and hasattr(item, '_def_name'):
+                                item.id = self.db.get_or_create_item(item._def_name)
+                            if getattr(item, 'id', None) is not None:
+                                self.db.add_item(self.session_id, item.id)
+                        player.load_inventory(self.db, self.session_id)
+                        monster.death_loot_dropped = True
+
                     alive_count = sum(
                         1 for m in self.world.monsters
                         if m.is_alive() and m.level == self.world.current_level)

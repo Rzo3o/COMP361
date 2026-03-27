@@ -136,9 +136,10 @@ class Player(Entity):
         return True
 
     def add_items(self, *items):
-        print(items)
+        print([item.name for item in items])
         self.inventory.extend(items)
-        self.apply_equipment()
+        #self.apply_equipment()
+        #print([item.name for item in self.equipment.values()])
 
     def start_move(self, dq, dr):
         """Start a tile-to-tile move animation"""
@@ -188,7 +189,7 @@ class Player(Entity):
         damage = self.total_damage
 
         if hasattr(monster, "take_damage"):
-            return monster.take_damage(damage, self)
+            return monster.take_damage(damage)
         else:
             monster.hp -= damage
             if monster.hp <= 0:

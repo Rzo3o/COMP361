@@ -37,5 +37,15 @@
     "category": "monster",
     "name": "flying_monster.json",
     "default_health": 30,
-    "default_damage": 10
+    "default_damage": 10,
+    "drops": [
+        "dog.json",
+        "dog2.json",
+        "dog3.json",
+        "test_chest.json",
+        "test_head.json",
+        "test_legs.json",
+        "test_weapon.json",
+        "test key.json"
+    ]
 }

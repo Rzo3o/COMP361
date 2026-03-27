@@ -220,6 +220,49 @@ class DatabaseManager:
     Inventory
     """
 
+    def get_or_create_item(self, item_name):
+        """Finds an item by name or definition name in the DB, or creates it by loading its JSON definition."""
+        if item_name.endswith(".json"):
+            item_name = item_name[:-5]
+
+        self.cursor.execute("SELECT id FROM items WHERE name=?", (item_name,))
+        row = self.cursor.fetchone()
+        if row:
+            return row["id"]
+        
+        # Load from json
+        item_path = os.path.join("assets", "definitions", "items", f"{item_name}.json")
+        if not os.path.exists(item_path):
+            print(f"Error: Item definition {item_name}.json not found.")
+            return None
+            
+        with open(item_path, "r") as f:
+            data = json.load(f)
+            
+        self.cursor.execute(
+            """INSERT INTO items (name, description, item_type, slot, weight, 
+               base_damage, defense, max_durability, durability, healing_amount, 
+               hunger_restore, texture_file, power_bonus)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                data.get("name", item_name),
+                data.get("description", ""),
+                data.get("item_type", "misc"),
+                data.get("slot"),
+                data.get("weight", 0),
+                data.get("base_damage", 0),
+                data.get("defense", 0),
+                data.get("max_durability", 0),
+                data.get("durability", data.get("max_durability", 0)),
+                data.get("healing_amount", 0),
+                data.get("hunger_restore", 0),
+                data.get("texture_file"),
+                data.get("power_bonus", 0)
+            )
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
     def load_inventory(self, session_id):
         """Returns all items in the player's inventory for this session."""
         query = """

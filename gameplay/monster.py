@@ -78,11 +78,14 @@ class Monster(Entity):
         self.inventory = []
         for drop_name in data.get("drops", []):
             try:
-                item_path = os.path.join("assets", "definitions", "items", f"{drop_name}.json")
+                base_drop = drop_name[:-5] if drop_name.endswith(".json") else drop_name
+                item_path = os.path.join("assets", "definitions", "items", f"{base_drop}.json")
                 if os.path.exists(item_path):
                     with open(item_path, "r") as f:
                         item_data = json.load(f)
-                        self.inventory.append(Item(item_data))
+                        new_item = Item(item_data)
+                        new_item._def_name = base_drop
+                        self.inventory.append(new_item)
                 else:
                     print(f"Warning: Drop item {drop_name}.json not found at {item_path}")
             except Exception as e:
@@ -194,7 +197,7 @@ class Monster(Entity):
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
 
-    def take_damage(self, amount, player):
+    def take_damage(self, amount):
         reduced = max(1, amount - self.total_defense)
         if reduced <= 0 or not self.is_alive():
             return 0
@@ -211,10 +214,6 @@ class Monster(Entity):
             self.attack_damage_applied = False
             self.queued_attack_target = None
             self.queued_attack_damage = 0
-
-            if not self.death_loot_dropped:
-                player.add_items(*self.on_death())
-                self.death_loot_dropped = True
 
             self.set_anim_state("die", reset_frame=True)
             return reduced

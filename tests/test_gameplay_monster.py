@@ -180,10 +180,14 @@ def test_monster_drops_equipment_on_death():
     monster.take_damage(999)
     assert monster.dead
 
+    # engine.py now handles drops by calling on_death
+    drops = monster.on_death()
+
     # on_death should have cleared equipment and returned drops
     # Verify equipment slots are now empty
     assert monster.equipment["weapon"] is None
     assert monster.equipment["head"] is None
+    assert len(drops) >= 2
 
 
 def test_monster_unequip_reverts_stats():

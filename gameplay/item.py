@@ -17,6 +17,7 @@ class Item:
         self.max_durability = data.get("max_durability", 100)
         self.power_bonus = data.get("power_bonus", 0)
         self.texture = data.get("texture_file")
+        self.equipped = bool(data.get("is_equipped", False))
 
     @property
     def is_equippable(self):
@@ -42,3 +43,6 @@ class Item:
     def is_broken(self):
         """Returns True if this item is broken."""
         return self.durability <= 0
+
+    def __str__(self):
+        return self.name
