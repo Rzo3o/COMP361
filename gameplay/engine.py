@@ -15,6 +15,7 @@ class GameEngine:
         if self.world.player:
             self.world.player.load_inventory(self.db, self.session_id)
         self.start_time = time.time()
+        self.monsters_need_turn = False  # Animation lock: A mark waiting for the monster to act
 
     def handle_input(self, action):
         player = self.world.player
@@ -218,7 +219,7 @@ class GameEngine:
         if result != "TURN_TAKEN":
             return "NO_ACTION"
 
-        self.process_monster_turns()
+        self.monsters_need_turn = True 
 
         game_state = self.update()
         if game_state == "GAME_OVER":
