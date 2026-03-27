@@ -227,7 +227,7 @@ class GameEngine:
         
         if self.check_level_completed():
             unlocked = self.world.unlock_next_level()
-            print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
+            #print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             if unlocked:
                 self.start_time = time.time()
 
