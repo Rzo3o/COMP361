@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS monsters (
     current_q INTEGER NOT NULL,
     current_r INTEGER NOT NULL,
     tile_id INTEGER REFERENCES map_tiles(id) ON DELETE SET NULL,
+    level INTEGER DEFAULT 1,
     health INTEGER DEFAULT 50,
     damage INTEGER DEFAULT 10,
     is_defeated BOOLEAN DEFAULT 0,

@@ -66,6 +66,13 @@ class GameEngine:
             if monster is not None:
                 damage = player.attack_monster(monster)
 
+                if not monster.is_alive():
+                    alive_count = sum(
+                        1 for m in self.world.monsters
+                        if m.is_alive() and m.level == self.world.current_level)
+
+                    print(f"{monster.name} died! {alive_count} monsters left in this level.")
+
                 if hasattr(self.db, "save_monster"):
                     self.db.save_monster(monster)
                 self.db.save_player(self.session_id, player)
@@ -179,6 +186,9 @@ class GameEngine:
         for monster in self.world.monsters:
             if not monster.is_alive():
                 continue
+            
+            if monster.level != self.world.current_level:
+                continue
 
             tile = self.world.get_tile(monster.q, monster.r)
             if not tile or not tile.unlocked:
@@ -223,6 +233,12 @@ class GameEngine:
         return "TURN_DONE"
     
     def check_level_completed(self):
-        return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
+        current_level_monsters = [
+            m for m in self.world.monsters
+            if m.level == self.world.current_level and m.is_alive()
+            ]
+        return len(current_level_monsters) == 0
+    
+        #return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
         
         

@@ -30,10 +30,8 @@ class Welcome(Screen):
             "BEYOND"
         ]
     
-    def handle_event(self, event):    
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    self.manager.switch_screen("main_menu")
+    def handle_event(self, event):  
+        pass
     
     def draw(self):
         """
@@ -48,6 +46,14 @@ class Welcome(Screen):
         # images
         for image_name, x, y, angle, scale in self.decoration_images:
             self.draw_image(image_name, x, y, angle, scale)
+
+
+        # timing logic
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.manager.start_time
+       
+        if elapsed >= 5000:  # 5000 ms = 5 seconds
+            self.manager.switch_screen("main_menu")
 
     def draw_title(self):
         """

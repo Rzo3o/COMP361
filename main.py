@@ -32,6 +32,9 @@ class ScreenManager:
         # text color (white)
         self.text_color_white = (255, 255, 255)
 
+        # used for welcome screen to switch after 5 seconds
+        self.start_time = pygame.time.get_ticks()
+        
 
         from core.config import Config
         import os

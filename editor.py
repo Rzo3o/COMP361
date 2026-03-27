@@ -148,10 +148,10 @@ class DatabaseManager:
         row = self.cursor.fetchone()
         return dict(row) if row else None
 
-    def add_monster(self, name, q, r, health, damage):
+    def add_monster(self, name, q, r, health, damage, level=1):
         self.cursor.execute(
-            "INSERT INTO monsters (name, current_q, current_r, health, damage) VALUES (?, ?, ?, ?, ?)",
-            (name, q, r, health, damage)
+            "INSERT INTO monsters (name, current_q, current_r, health, damage, level) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, q, r, health, damage, level)
         )
         self.conn.commit()
 
@@ -863,7 +863,11 @@ class MapTab(ttk.Frame):
                 m_data = self.app.asset_mgr.load_json("monster", name)
                 def_hp = m_data.get("default_health", 50)
                 def_dmg = m_data.get("default_damage", 10)
-                self.app.db.add_monster(name, q, r, def_hp, def_dmg)
+                #get level of the tile to assign to monster
+                tile = self.app.db.get_tile(q, r)
+                monster_level = tile.get("level", 1) if tile else 1
+                self.app.db.add_monster(name, q, r, def_hp, def_dmg, monster_level)
+
                 self.var_monster_health.set(def_hp)
                 self.var_monster_damage.set(def_dmg)
                 if hasattr(self, "btn_update_monster"):
