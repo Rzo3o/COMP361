@@ -99,9 +99,23 @@ class DatabaseManager:
                VALUES (?, 0, 0, 100, 100, ?)""",
             (session_id, default_texture),
         )
-
+        self.initialize_level_unlocks(session_id)
         self.conn.commit()
         return session_id
+    
+    def initialize_level_unlocks(self, session_id):
+        self.cursor.execute(
+            """
+            INSERT OR IGNORE INTO session_world_state (session_id, tile_id, is_unlocked, is_discovered, is_conquered)
+            SELECT ?, id,
+                CASE WHEN level = 1 THEN 1 ELSE 0 END,
+                0,
+                0
+            FROM map_tiles
+            """,
+            (session_id,),
+        )
+        self.conn.commit()
 
     # =========================
     # World State
@@ -445,13 +459,13 @@ class DatabaseManager:
 
         self.cursor.execute(
             """
-            INSERT INTO map_tiles (q, r, tile_type, level, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn)
-            VALUES (:q, :r, :tile_type, :level, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn)
+            INSERT INTO map_tiles (q, r, tile_type, level, texture_file, prop_texture_file, prop_scale, prop_x_shift, prop_y_shift, is_spawn, is_permanently_passable)
+            VALUES (:q, :r, :tile_type, :level, :texture_file, :prop_texture_file, :prop_scale, :prop_x_shift, :prop_y_shift, :is_spawn, :is_permanently_passable)
             ON CONFLICT(q,r) DO UPDATE SET
                 tile_type=excluded.tile_type, level=excluded.level, texture_file=excluded.texture_file,
                 prop_texture_file=excluded.prop_texture_file, 
                 prop_scale=excluded.prop_scale, prop_x_shift=excluded.prop_x_shift, prop_y_shift=excluded.prop_y_shift,
-                is_spawn=excluded.is_spawn
+                is_spawn=excluded.is_spawn, is_permanently_passable=excluded.is_permanently_passable
             """,
             data,
         )

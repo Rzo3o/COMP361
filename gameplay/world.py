@@ -100,7 +100,6 @@ class World:
         max_level = self.get_max_level()
 
         if next_level > max_level:
-            print("All levels already unlocked.")
             return False
         
         next_level_tiles = [tile for tile in self.tiles.values() if tile.level == next_level]
