@@ -60,6 +60,11 @@ class Player(Entity):
         self.pending_attack_damage = 0
         self.attack_damage_applied = False
         self.attack_hit_frame = 4 
+
+        # Damage flash timer
+        self.damage_flash_timer = 0
+
+        # debug
         print("[Player init] data keys:", data.keys())
         print("[Player init] texture_file:", data.get("texture_file"))
         print("[Player init] animations:", data.get("animations"))
@@ -180,6 +185,8 @@ class Player(Entity):
         """Apply damage reduced by total defense. Minimum 1 damage."""
         reduced = max(1, amount - self.total_defense)
         self.hp -= reduced
+
+        self.damage_flash_timer = 3
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
@@ -301,3 +308,7 @@ class Player(Entity):
                 self.set_anim_state("idle", reset_frame=True)
             else:
                 self.anim_tick = 0
+
+        # decrement the timer
+        if getattr(self, "damage_flash_timer", 0) > 0:
+            self.damage_flash_timer -= 1
