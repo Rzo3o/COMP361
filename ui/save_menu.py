@@ -151,26 +151,35 @@ class SaveSelectMenu(Screen):
         mouse_pos = pygame.mouse.get_pos()
         
         for btn in self.buttons:
+            # Check if the save file exists
+            slot = btn["value"]
+            target_db = f"game_data_{slot}.db"
+            file_exists = os.path.exists(target_db)
+            
             rect = btn["rect"]
             is_hover = rect.collidepoint(mouse_pos)
             
             if btn["type"] == "slot":
+                text = f"Load Save {slot}" if file_exists else f"Create Save {slot}"
+                
                 color = self.hover_color if is_hover else self.slot_color
                 pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
                 pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
                 
-                text_surf = self.button_font.render(btn["text"], True, self.text_color)
+                text_surf = self.button_font.render(text, True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
             
             elif btn["type"] == "delete":
-                color = self.del_hover if is_hover else self.del_color
-                pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
-                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
-                
-                text_surf = self.button_font.render("X", True, self.text_color)
-                text_rect = text_surf.get_rect(center=rect.center)
-                self.manager.screen.blit(text_surf, text_rect)
+                # This makes sure that we create the delete button only if the save exists
+                if file_exists:
+                    color = self.del_hover if is_hover else self.del_color
+                    pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
+                    pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
+                    
+                    text_surf = self.button_font.render("X", True, self.text_color)
+                    text_rect = text_surf.get_rect(center=rect.center)
+                    self.manager.screen.blit(text_surf, text_rect)
 
         # Confirmation Dialouge
         if self.confirm_delete_slot:
@@ -185,24 +194,29 @@ class SaveSelectMenu(Screen):
         overlay.fill((0, 0, 0))
         self.manager.screen.blit(overlay, (0, 0))
         
-        # Popup Box
-        box_w, box_h = 500, 250
+        msg = f"Delete Save Slot {self.confirm_delete_slot}?"
+        text_surf = self.title_font.render(msg, True, (255, 255, 255))
+        tw, th = text_surf.get_size()
+
+        # Popup Box but reactive in size to the text
+        padding = 60
+        box_w = tw + padding * 2
+        box_h = th + 150 # text + space for buttons
+        
         box_x = (self.manager.width - box_w) // 2
         box_y = (self.manager.height - box_h) // 2
         box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
         pygame.draw.rect(self.manager.screen, (50, 50, 50), box_rect, border_radius=15)
         pygame.draw.rect(self.manager.screen, (200, 50, 50), box_rect, 2, border_radius=15)
         
-        # Text
-        msg = f"Delete Save Slot {self.confirm_delete_slot}?"
-        text_surf = self.title_font.render(msg, True, (255, 255, 255))
-        text_rect = text_surf.get_rect(center=(self.manager.width // 2, box_y + 60))
+        text_rect = text_surf.get_rect(center=(self.manager.width // 2, box_y + padding + th // 2))
         self.manager.screen.blit(text_surf, text_rect)
         
         # Yes / No Buttons
         btn_w, btn_h = 120, 50
-        yes_rect = pygame.Rect(self.manager.width // 2 - btn_w - 20, box_y + 150, btn_w, btn_h)
-        no_rect = pygame.Rect(self.manager.width // 2 + 20, box_y + 150, btn_w, btn_h)
+        buttons_y = box_rect.bottom - 70
+        yes_rect = pygame.Rect(self.manager.width // 2 - btn_w - 20, buttons_y, btn_w, btn_h)
+        no_rect = pygame.Rect(self.manager.width // 2 + 20, buttons_y, btn_w, btn_h)
         
         mouse_pos = pygame.mouse.get_pos()
         
@@ -251,9 +265,13 @@ class SaveSelectMenu(Screen):
                 else:
                     # Handle Slot Buttons
                     for btn in self.buttons:
+                        # Check if the save file exists
+                        slot = btn["value"]
+                        target_db = f"game_data_{slot}.db"
+                        file_exists = os.path.exists(target_db)
+
                         if btn["rect"].collidepoint(event.pos):
                             if btn["type"] == "slot":
-                                slot = btn["value"]
                                 target_db = f"game_data_{slot}.db"
                                 is_new_game = not os.path.exists(target_db)
                                 
@@ -272,6 +290,6 @@ class SaveSelectMenu(Screen):
                                 else:
                                     self.manager.switch_screen("game_window")
 
-                            elif btn["type"] == "delete":
+                            elif btn["type"] == "delete" and file_exists: # This makes sure that we create the delete button only if the save exists
                                 self.confirm_delete_slot = btn["value"]
             
