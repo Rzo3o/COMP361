@@ -130,14 +130,17 @@ class World:
 
     def is_passable(self, q, r):
         tile = self.get_tile(q, r)
-        if not tile:
-            return False  # Void
-        if not tile.unlocked:
+        if not tile or not tile.unlocked or not tile.passable:
             return False
-        if not tile.passable:
-            return False  # Mountains/Deep Water
+
+        # check if there is a player in the tile
+        if self.player and not self.player.dead:
+            if self.player.q == q and self.player.r == r:
+                return False
+            
+        # check if there is a monster in the tile
         for m in self.monsters:
-            if m.q == q and m.r == r:
+            if m.is_alive() and m.q == q and m.r == r:
                 return False
         return True
     
