@@ -29,6 +29,14 @@ class DatabaseManager:
                     print(f"Error initializing database: {e}")
             else:
                 print("Error: database.sql not found. Cannot initialize database.")
+        
+        #if level does not exist in monster, must add it
+        try:
+            self.cursor.execute("ALTER TABLE monsters ADD COLUMN level INTEGER DEFAULT 1")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
 
     def close(self):
         self.conn.close()

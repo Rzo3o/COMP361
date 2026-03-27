@@ -54,6 +54,17 @@ class Player(Entity):
         self.pending_r = self.r
 
         self.is_attacking = False
+
+        # Hit frame attack variables
+        self.pending_attack_target = None
+        self.pending_attack_damage = 0
+        self.attack_damage_applied = False
+        self.attack_hit_frame = 4 
+
+        # Damage flash timer
+        self.damage_flash_timer = 0
+
+        # debug
         print("[Player init] data keys:", data.keys())
         print("[Player init] texture_file:", data.get("texture_file"))
         print("[Player init] animations:", data.get("animations"))
@@ -173,6 +184,8 @@ class Player(Entity):
         """Apply damage reduced by total defense. Minimum 1 damage."""
         reduced = max(1, amount - self.total_defense)
         self.hp -= reduced
+
+        self.damage_flash_timer = 3
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
@@ -188,13 +201,12 @@ class Player(Entity):
 
         damage = self.total_damage
 
-        if hasattr(monster, "take_damage"):
-            return monster.take_damage(damage)
-        else:
-            monster.hp -= damage
-            if monster.hp <= 0:
-                monster.hp = 0
-            return damage
+        # Save the target to apply damage later in update_animation
+        self.pending_attack_target = monster
+        self.pending_attack_damage = damage
+        self.attack_damage_applied = False
+
+        return damage
         
     def get_texture_for_state(self, state):
         animations = self.data.get("animations", {})
@@ -264,12 +276,38 @@ class Player(Entity):
 
             return
 
+        # Apply damage at specific hit frame
+        if self.anim_state == "attack":
+            if (not self.attack_damage_applied 
+                and self.pending_attack_target is not None 
+                and self.anim_tick >= self.attack_hit_frame):
+                
+                # Apply the saved damage to the monster
+                if hasattr(self.pending_attack_target, "take_damage"):
+                    self.pending_attack_target.take_damage(self.pending_attack_damage)
+                else:
+                    self.pending_attack_target.hp -= self.pending_attack_damage
+                    if self.pending_attack_target.hp <= 0:
+                        self.pending_attack_target.hp = 0
+                        
+                # Mark as applied so it doesn't hit multiple times
+                self.attack_damage_applied = True
+
         # ATTACK animation
         self.anim_tick += 1
 
         if self.anim_tick >= frame_count:
             if self.anim_state == "attack":
+                
                 self.is_attacking = False
+                # Reset attack variables when animation ends
+                self.pending_attack_target = None
+                self.pending_attack_damage = 0
+                self.attack_damage_applied = False
                 self.set_anim_state("idle", reset_frame=True)
             else:
                 self.anim_tick = 0
+
+        # decrement the timer
+        if getattr(self, "damage_flash_timer", 0) > 0:
+            self.damage_flash_timer -= 1
