@@ -11,12 +11,14 @@ class World:
         self.session_id = session_id
         self.tiles = {}  # {(q,r): Tile}
         self.monsters = []
+        self.ground_items = []
         self.player = None
         self.current_level = 1
 
         self.load_world()
         self.load_player()
         self.load_monsters()
+        self.load_ground_items()
         
 
     def load_world(self):
@@ -50,6 +52,16 @@ class World:
                     item = Item(item_data)
                     monster.equip(item)
             self.monsters.append(monster)
+
+    def load_ground_items(self):
+        """Load all items placed on the ground."""
+        self.ground_items = []
+        rows = self.db.load_ground_items(self.session_id)
+        for data in rows:
+            item = Item(data)
+            item.q = data.get("q")
+            item.r = data.get("r")
+            self.ground_items.append(item)
 
     def get_tile(self, q, r):
         return self.tiles.get((q, r))
@@ -100,7 +112,6 @@ class World:
         max_level = self.get_max_level()
 
         if next_level > max_level:
-            print("All levels already unlocked.")
             return False
         
         next_level_tiles = [tile for tile in self.tiles.values() if tile.level == next_level]
@@ -119,14 +130,17 @@ class World:
 
     def is_passable(self, q, r):
         tile = self.get_tile(q, r)
-        if not tile:
-            return False  # Void
-        if not tile.unlocked:
+        if not tile or not tile.unlocked or not tile.passable:
             return False
-        if not tile.passable:
-            return False  # Mountains/Deep Water
+
+        # check if there is a player in the tile
+        if self.player and not self.player.dead:
+            if self.player.q == q and self.player.r == r:
+                return False
+            
+        # check if there is a monster in the tile
         for m in self.monsters:
-            if m.q == q and m.r == r:
+            if m.is_alive() and m.q == q and m.r == r:
                 return False
         return True
     

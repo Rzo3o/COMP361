@@ -102,6 +102,23 @@ class GameRenderer:
                 object_layer.append(
                     {"depth": mdy, "type": "entity", "entity": monster, "x": mdx, "y": mdy}
                 )
+
+        # Add Ground Items
+        for item in world.ground_items:
+            # We add q, r to the item object for rendering by converting the tile id to q, r
+            tile = world.get_tile(item.q, item.r)
+            iqx, iqy = HexMath.hex_to_pixel(item.q, item.r)
+            idx = cx + (iqx - ppx)
+            idy = cy + (iqy - ppy)
+            
+            # Culling (don't draw if off screen)
+            if (
+                -100 < idx < Config.WINDOW_WIDTH + 100
+                and -100 < idy < Config.WINDOW_HEIGHT + 100
+            ):
+                object_layer.append(
+                    {"depth": idy, "type": "item", "item": item, "x": idx, "y": idy}
+                )
         
         # Draw Terrain (Sorted by Y for slight depth effect if needed, but mostly Z-order matters)
         terrain_layer.sort(key=lambda t: t[2])
@@ -116,6 +133,8 @@ class GameRenderer:
                 self._draw_prop(screen, obj["tile"], obj["x"], obj["y"])
             elif obj["type"] == "entity":
                 self._draw_entity(screen, obj["entity"], obj["x"], obj["y"], frame_index)
+            elif obj["type"] == "item":
+                self._draw_item(screen, obj["item"], obj["x"], obj["y"], frame_index)
 
     def _draw_hex_base(self, screen, tile, x, y):
         # HexMath returns list of floats, Pygame needs list of tuples
@@ -173,3 +192,18 @@ class GameRenderer:
                 screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)
+
+    def _draw_item(self, screen, item, x, y, frame_index):
+        if not item.texture:
+            return
+            
+        # Check if it's animated (keys) or static
+        img = self.assets.get_anim_frame(item.texture, frame_index)
+        scale, x_shift, y_shift = self.assets.get_layout(item.texture)
+        
+        if img:
+            rect = img.get_rect(
+                centerx=x + x_shift,
+                centery=y - Config.CALIB_OFFSET_Y - y_shift
+            )
+            screen.blit(img, rect)

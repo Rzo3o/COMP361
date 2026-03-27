@@ -153,9 +153,9 @@ class Player(Entity):
         self.move_to_q = new_q
         self.move_to_r = new_r
 
-        # do NOT update logical position immediately
-        self.pending_q = new_q
-        self.pending_r = new_r
+        # update logical position immediately
+        self.q = new_q
+        self.r = new_r
 
         self.move_progress = 0.0
         self.is_moving = True
@@ -253,10 +253,6 @@ class Player(Entity):
                 if self.move_progress >= 1.0:
                     self.move_progress = 1.0
                     self.is_moving = False
-
-                    # commit logical position only after movement finishes
-                    self.q = self.pending_q
-                    self.r = self.pending_r
 
             self.anim_tick += 1
             if self.anim_tick >= frame_count:

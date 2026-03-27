@@ -44,7 +44,7 @@ class GameWindow(Screen):
             # Key Presses (Single Action)
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.manager.running = False
+                self.manager.switch_screen("main_menu")
 
             action = None
             if event.key == pygame.K_w:

@@ -50,5 +50,15 @@
             "power_bonus",
             "weight"
         ]
+    },
+    "key": {
+        "slot": "general",
+        "props": [
+            "chest_link",
+            "key_variant",
+            "scale",
+            "x_offset",
+            "y_offset"
+        ]
     }
 }

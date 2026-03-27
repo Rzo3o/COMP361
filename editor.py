@@ -29,6 +29,10 @@ class Config:
         "player": "assets/definitions/player",
         "item": "assets/definitions/items",
     }
+    # Constants for Keys
+    KEY_SCALE = 1.75
+    KEY_X_OFFSET = 0
+    KEY_Y_OFFSET = -25
 
 
 for d in Config.DIRS.values():
@@ -144,10 +148,10 @@ class DatabaseManager:
         row = self.cursor.fetchone()
         return dict(row) if row else None
 
-    def add_monster(self, name, q, r, health, damage):
+    def add_monster(self, name, q, r, health, damage, level=1):
         self.cursor.execute(
-            "INSERT INTO monsters (name, current_q, current_r, health, damage) VALUES (?, ?, ?, ?, ?)",
-            (name, q, r, health, damage)
+            "INSERT INTO monsters (name, current_q, current_r, health, damage, level) VALUES (?, ?, ?, ?, ?, ?)",
+            (name, q, r, health, damage, level)
         )
         self.conn.commit()
 
@@ -166,6 +170,7 @@ class DatabaseManager:
 class AssetManager:
     def __init__(self):
         self.image_cache = {}
+        self.anim_frame_cache = {}
         self.texture_layout_map = {}
         self.refresh_layouts()
 
@@ -223,10 +228,16 @@ class AssetManager:
 
     def get_anim_frame(self, filename, frame_index, fw, fh, count, scale=1.0):
         """
-        Extracts a specific frame from a sprite sheet.
+        Extracts a specific frame from a sprite sheet with caching.
         """
         if not filename:
             return None
+        
+        # Cache check
+        key = (filename, frame_index, fw, fh, count, scale)
+        if key in self.anim_frame_cache:
+            return self.anim_frame_cache[key]
+            
         path = os.path.join(Config.ASSET_DIR, filename)
         if not os.path.exists(path):
             return None
@@ -244,7 +255,9 @@ class AssetManager:
             target_h = int(fh * scale)
             crop = crop.resize((target_w, target_h), Image.Resampling.NEAREST)
 
-            return ImageTk.PhotoImage(crop)
+            tk_img = ImageTk.PhotoImage(crop)
+            self.anim_frame_cache[key] = tk_img
+            return tk_img
         except Exception as e:
             print(f"Anim Error: {e}")
             return None
@@ -383,7 +396,14 @@ class MapTab(ttk.Frame):
 
         self._setup_ui()
         self._bind_events()
+        self.anim_tick = 0
         self.after(100, self._center_view)
+        self._animate()
+
+    def _animate(self):
+        self.anim_tick += 1
+        self.render()
+        self.after(250, self._animate) # 250ms for a steady idle pace
 
     def _center_view(self):
         self.update_idletasks()
@@ -728,16 +748,49 @@ class MapTab(ttk.Frame):
                     self.canvas.create_polygon(poly, fill="#FF0000", stipple="gray25", outline="")
 
         # Monster Render (On top)
-        if mode == "Monsters":
+        if mode != "Collision":
+            view_lvl = getattr(self, "var_level_view", None) and self.var_level_view.get()
             for m in monsters:
                 mq, mr = m["current_q"], m["current_r"]
+                
+                # Filter by level if active
+                if view_lvl and view_lvl > 0:
+                    t_data = db_tiles.get((mq, mr), {})
+                    if t_data.get("level", 1) != view_lvl:
+                        continue
+
                 px, py = HexEngine.hex_to_pixel(mq, mr)
                 mx, my = cx + px, cy + py
-                # Simple circle for now, or texture if available
-                tex = m.get("texture_file")
-                # if tex: ... (Using AssetManager would be ideal but simple circle is okay for execution)
-                self.canvas.create_oval(mx-10, my-10, mx+10, my+10, fill="purple", outline="white", width=2)
-                self.canvas.create_text(mx, my-15, text=m["name"], fill="white", font=("Arial", 8))
+                
+                if mode == "Monsters":
+                    # Simple purple circle for clarity in monster view
+                    self.canvas.create_oval(mx-10, my-10, mx+10, my+10, fill="purple", outline="white", width=2)
+                    self.canvas.create_text(mx, my-15, text=m["name"], fill="white", font=("Arial", 8))
+                elif mode in ["Standard", "Levels", "Spawns"]:
+                    # Real idle texture
+                    m_data = self.app.asset_mgr.load_json("monster", m["name"])
+                    if m_data:
+                        anim_idle = m_data.get("animations", {}).get("idle", {})
+                        tex = anim_idle.get("texture")
+                        fw = anim_idle.get("fw", 32)
+                        fh = anim_idle.get("fh", 32)
+                        count = anim_idle.get("count", 1)
+                        scale = m_data.get("scale", 1.0)
+                        x_shift = m_data.get("x_shift", 0)
+                        y_shift = m_data.get("y_shift", 0)
+                        
+                        if not tex:
+                            continue
+
+                        img = self.app.asset_mgr.get_anim_frame(tex, self.anim_tick, fw, fh, count, scale)
+                        if img:
+                            self.canvas.create_image(
+                                mx + x_shift, 
+                                my - Config.CALIB_OFFSET_Y - y_shift, 
+                                image=img, 
+                                tags="monster_art"
+                            )
+                            # Tag for interaction if needed
 
     def _on_click(self, event):
         cx = self.canvas.canvasx(event.x)
@@ -810,7 +863,11 @@ class MapTab(ttk.Frame):
                 m_data = self.app.asset_mgr.load_json("monster", name)
                 def_hp = m_data.get("default_health", 50)
                 def_dmg = m_data.get("default_damage", 10)
-                self.app.db.add_monster(name, q, r, def_hp, def_dmg)
+                #get level of the tile to assign to monster
+                tile = self.app.db.get_tile(q, r)
+                monster_level = tile.get("level", 1) if tile else 1
+                self.app.db.add_monster(name, q, r, def_hp, def_dmg, monster_level)
+
                 self.var_monster_health.set(def_hp)
                 self.var_monster_damage.set(def_dmg)
                 if hasattr(self, "btn_update_monster"):
@@ -1200,9 +1257,11 @@ class LibraryTab(ttk.Frame):
 
         if cat == "item":
             cats = self.app.asset_mgr.load_item_categories()
-            self.cb_item_type["values"] = list(cats.keys())
-            if not self.var_item_type.get() and cats:
-                self.var_item_type.set(list(cats.keys())[0])
+            # Filter out 'key' category from the general item editor
+            item_cats = [c for c in cats.keys() if c != "key"]
+            self.cb_item_type["values"] = item_cats
+            if (not self.var_item_type.get() or self.var_item_type.get() == "key") and item_cats:
+                self.var_item_type.set(item_cats[0])
             self.f_item_type.pack(fill="x", pady=5)
             self._build_item_ui()
             self.lbl_anim.pack()
@@ -1719,7 +1778,21 @@ class LibraryTab(ttk.Frame):
 
     def _refresh_list(self, select_name=None):
         if hasattr(self, 'cb_files') and self.cb_files.winfo_exists():
-            assets = self.app.asset_mgr.list_assets(self.var_cat.get())
+            cat = self.var_cat.get()
+            assets = self.app.asset_mgr.list_assets(cat)
+            
+            # Filter out items of type 'key' if we are in the item category
+            if cat == "item":
+                filtered_assets = []
+                for fname in assets:
+                    try:
+                        data = self.app.asset_mgr.load_json("item", fname)
+                        if data.get("item_type") != "key":
+                            filtered_assets.append(fname)
+                    except:
+                        filtered_assets.append(fname)
+                assets = filtered_assets
+
             self.cb_files["values"] = assets
             if select_name and select_name in assets:
                 self.cb_files.set(select_name)
@@ -1790,6 +1863,8 @@ class LibraryTab(ttk.Frame):
                 self._update_preview_static()
         finally:
             self.is_loading = False
+            if self.var_cat.get() in ["monster", "player"]:
+                self._on_anim_data_change()
 
     def _add_anim(self):
         name = simpledialog.askstring(
@@ -1830,6 +1905,8 @@ class LibraryTab(ttk.Frame):
 
     def _on_anim_data_change(self):
         if not hasattr(self, 'lb_anims') or not self.lb_anims.winfo_exists():
+            return
+        if getattr(self, "is_loading", False):
             return
         sel = self.lb_anims.curselection()
         if not sel:
@@ -2100,6 +2177,207 @@ class LibraryTab(ttk.Frame):
         self.app.map_tab.refresh_libraries()
 
 
+
+class KeyTab(ttk.Frame):
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.anim_tick = 0
+        self.is_loading = False
+        
+        # Variables
+        self.var_name = tk.StringVar()
+        self.var_chest_link = tk.StringVar()
+        self.var_variant = tk.IntVar(value=0) # 0: Blue, 1: White
+        self.var_action_mode = tk.StringVar(value="new")
+        
+        # Default tile data for preview
+        self.default_tile = self.app.asset_mgr.load_json("tile", "default.json")
+
+        self._setup_ui()
+        self._refresh_list()
+        self._animate()
+
+    def _setup_ui(self):
+        paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        paned.pack(fill="both", expand=True)
+        
+        # Left Panel: Controls
+        ctrl = ttk.Frame(paned, padding=10)
+        paned.add(ctrl, weight=1)
+        
+        ttk.Label(ctrl, text="Key Designer", font=("Bold", 12)).pack(pady=10)
+        
+        # Action Mode
+        f_action = ttk.Frame(ctrl)
+        f_action.pack(fill="x", pady=(0, 10))
+        ttk.Radiobutton(f_action, text="Make New", variable=self.var_action_mode, value="new", style="Toolbutton", command=self._on_action_mode_change).pack(side=tk.LEFT, expand=True, fill="x")
+        ttk.Radiobutton(f_action, text="Modify Existing", variable=self.var_action_mode, value="modify", style="Toolbutton", command=self._on_action_mode_change).pack(side=tk.LEFT, expand=True, fill="x")
+        
+        # Name / Selection
+        self.lbl_name = ttk.Label(ctrl, text="Key Name:", font=("Bold", 10))
+        self.lbl_name.pack(anchor="w")
+        self.ent_name = ttk.Entry(ctrl, textvariable=self.var_name)
+        self.ent_name.pack(fill="x", pady=(0, 10))
+        
+        self.cb_keys = ttk.Combobox(ctrl, state="readonly")
+        self.cb_keys.bind("<<ComboboxSelected>>", self._on_key_select)
+        
+        # Properties
+        prop_frame = ttk.LabelFrame(ctrl, text="Key Properties", padding=10)
+        prop_frame.pack(fill="x", pady=10)
+        
+        ttk.Label(prop_frame, text="Link to Chest Name:").pack(anchor="w")
+        self.cb_chest_link = ttk.Combobox(prop_frame, textvariable=self.var_chest_link, state="readonly")
+        self.cb_chest_link["values"] = ["None", "CHEST_01", "CHEST_02", "CHEST_03"]
+        self.cb_chest_link.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(prop_frame, text="Key Variant:").pack(anchor="w")
+        f_var = ttk.Frame(prop_frame)
+        f_var.pack(fill="x", pady=(0, 10))
+        ttk.Radiobutton(f_var, text="Blue", variable=self.var_variant, value=0, command=self._update_preview).pack(side=tk.LEFT)
+        ttk.Radiobutton(f_var, text="White", variable=self.var_variant, value=1, command=self._update_preview).pack(side=tk.LEFT)
+        
+        ttk.Button(ctrl, text="SAVE KEY", command=self._save_key).pack(fill="x", pady=5)
+        ttk.Button(ctrl, text="DELETE KEY", command=self._delete_key).pack(fill="x", pady=5)
+        
+        # Right Panel: Preview
+        preview_pane = ttk.Frame(paned, padding=10)
+        paned.add(preview_pane, weight=2)
+        
+        ttk.Label(preview_pane, text="Animation Preview", font=("Bold", 12)).pack(pady=10)
+        self.canvas = Canvas(preview_pane, bg="#303030", highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+
+    def _on_action_mode_change(self):
+        mode = self.var_action_mode.get()
+        if mode == "new":
+            self.cb_keys.pack_forget()
+            self.ent_name.pack(fill="x", pady=(0, 10), after=self.lbl_name)
+            self._clear_fields()
+        else:
+            self.ent_name.pack_forget()
+            self.cb_keys.pack(fill="x", pady=(0, 10), after=self.lbl_name)
+            self._refresh_list()
+
+    def _clear_fields(self):
+        self.var_name.set("")
+        self.var_chest_link.set("None")
+        self.var_variant.set(0)
+
+    def _refresh_list(self):
+        keys = []
+        items_dir = Config.DIRS["item"]
+        if os.path.exists(items_dir):
+            for f in os.listdir(items_dir):
+                if f.endswith(".json") and f != "item_categories.json":
+                    try:
+                        with open(os.path.join(items_dir, f), "r") as jf:
+                            data = json.load(jf)
+                            if data.get("item_type") == "key":
+                                keys.append(f)
+                    except:
+                        pass
+        self.cb_keys["values"] = sorted(keys)
+
+    def _on_key_select(self, event):
+        fname = self.cb_keys.get()
+        if not fname: return
+        path = os.path.join(Config.DIRS["item"], fname)
+        with open(path, "r") as f:
+            data = json.load(f)
+            self.is_loading = True
+            self.var_name.set(data.get("name", fname.replace(".json", "")))
+            self.var_chest_link.set(data.get("chest_link", "None"))
+            self.var_variant.set(data.get("key_variant", 0))
+            self.is_loading = False
+            self._update_preview()
+
+    def _update_preview(self):
+        if self.is_loading: return
+        self.render()
+
+    def _animate(self):
+        self.anim_tick += 1
+        self.render()
+        self.after(200, self._animate)
+
+    def render(self):
+        if not hasattr(self, "canvas"): return
+        self.canvas.delete("all")
+        
+        variant = self.var_variant.get()
+        tex = "assetBank/Keys/key-blue.png" if variant == 0 else "assetBank/Keys/key-white.png"
+        scale = Config.KEY_SCALE
+        ox = Config.KEY_X_OFFSET
+        oy = Config.KEY_Y_OFFSET
+        
+        cw = self.canvas.winfo_width()
+        ch = self.canvas.winfo_height()
+        if cw < 2: cw, ch = 400, 400
+        
+        # Draw background tile
+        if self.default_tile:
+            tile_tex = self.default_tile.get("texture_file")
+            if tile_tex:
+                tile_s, tile_x, tile_y = self.app.asset_mgr.get_asset_layout(tile_tex)
+                tile_img = self.app.asset_mgr.get_tk_image(tile_tex, scale=tile_s)
+                if tile_img:
+                    self.canvas.create_image(cw//2 + tile_x, ch//2 - Config.CALIB_OFFSET_Y - tile_y, image=tile_img)
+
+        img = self.app.asset_mgr.get_anim_frame(tex, self.anim_tick, 32, 32, 12, scale)
+        if img:
+            self.canvas.create_image(cw//2 + ox, ch//2 - Config.CALIB_OFFSET_Y - oy, image=img)
+        
+        self.canvas.create_text(10, 10, anchor="nw", text=f"Variant: {'Blue' if variant==0 else 'White'}", fill="white")
+        self.canvas.create_text(10, 30, anchor="nw", text=f"Chest Link: {self.var_chest_link.get()}", fill="white")
+
+    def _save_key(self):
+        name = self.var_name.get().strip()
+        if not name:
+            self.app.show_toast("Please enter a key name.")
+            return
+            
+        variant = self.var_variant.get()
+        tex = "assetBank/Keys/key-blue.png" if variant == 0 else "assetBank/Keys/key-white.png"
+        
+        data = {
+            "name": name,
+            "item_type": "key",
+            "chest_link": self.var_chest_link.get(),
+            "key_variant": variant,
+            "texture_file": tex,
+            "scale": Config.KEY_SCALE,
+            "x_offset": Config.KEY_X_OFFSET,
+            "y_offset": Config.KEY_Y_OFFSET,
+            "animations": {
+                "idle": {
+                    "texture": tex,
+                    "fw": 32,
+                    "fh": 32,
+                    "count": 12
+                }
+            }
+        }
+        
+        self.app.asset_mgr.save_json("item", name, data)
+        self.app.show_toast(f"Saved key: {name}")
+        self._refresh_list()
+        
+    def _delete_key(self):
+        mode = self.var_action_mode.get()
+        name = self.var_name.get() if mode == "new" else self.cb_keys.get().replace(".json", "")
+        if not name: return
+        
+        if messagebox.askyesno("Confirm Delete", f"Delete key '{name}'?"):
+            path = os.path.join(Config.DIRS["item"], name + ".json")
+            if os.path.exists(path):
+                os.remove(path)
+                self.app.show_toast(f"Deleted key: {name}")
+                self._clear_fields()
+                self._refresh_list()
+
+
 class MainApp:
     def __init__(self, root, db_file="game_data.db"):
         self.root = root
@@ -2112,8 +2390,10 @@ class MainApp:
         self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
         self.map_tab = MapTab(self.notebook, self)
         self.lib_tab = LibraryTab(self.notebook, self)
+        self.key_tab = KeyTab(self.notebook, self)
         self.notebook.add(self.map_tab, text="Map Designer")
         self.notebook.add(self.lib_tab, text="Asset Library")
+        self.notebook.add(self.key_tab, text="Key Designer")
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         
         self.map_tab.refresh_libraries()
@@ -2130,6 +2410,8 @@ class MainApp:
             # Refresh libraries (dropdowns) and render (art/props)
             self.map_tab.refresh_libraries()
             self.map_tab.render()
+        elif tab_name == "Key Designer":
+            self.key_tab._refresh_list()
 
     def show_toast(self, message):
         toast = tk.Toplevel(self.root)

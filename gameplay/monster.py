@@ -26,7 +26,7 @@ class Monster(Entity):
     """
     Minimal backend monster for a hex-tile game.
 
-    Assumptions based on your code:
+    Assumptions:
     - Coordinates are axial (q, r)
     - World.is_passable(q, r) exists and blocks tiles + monsters
     - Player has q/r and take_damage(amount)
@@ -48,6 +48,7 @@ class Monster(Entity):
         self.id = data.get("id")
         self.name = data.get("name", "Unknown")
         self.data = data
+        self.level = data.get("level", 1)
 
         # Combat stats (base values, before equipment)
         self.max_hp = data.get("max_health", data.get("health", 50))

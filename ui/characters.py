@@ -40,6 +40,10 @@ class Characters(Screen):
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.manager.switch_screen("save_menu")
+
         mouse_position = pygame.mouse.get_pos()
         for button in self.buttons:
             button.check_hover(mouse_position)
@@ -48,8 +52,8 @@ class Characters(Screen):
             if action and action.startswith("character"):
                 selected_character = int(action.split("_")[1])
                 # character selection 
-                print(selected_character)
-                self.manager.switch_screen("game_rules")
+                print(f"Selected character: {selected_character}")
+                self.manager.switch_screen("game_window")
 
     def create_buttons(self):
         buttons = []
@@ -70,7 +74,7 @@ class Characters(Screen):
         # Starting point (center the whole grid)
         grid_width = (cols - 1) * gap_x
         start_x = self.manager.width // 2 - grid_width // 2
-        start_y = 500   # move grid down
+        start_y = int(self.manager.height * 0.55)   # move grid down relative to height
 
         for index, button_name in enumerate(self.button_names):
             row = index // cols

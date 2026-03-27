@@ -55,12 +55,16 @@ class Winner(Screen):
 
 
     def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.manager.switch_screen("main_menu")
+
         mouse_position = pygame.mouse.get_pos()
         for button in self.buttons:
             button.check_hover(mouse_position)
             action = button.handle_event(event)
             if action == "play_again":
-                self.manager.switch_screen("welcome")
+                self.manager.switch_screen("main_menu")
 
 
     def draw(self):
