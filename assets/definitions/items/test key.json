@@ -1,0 +1,18 @@
+{
+    "name": "test key",
+    "item_type": "key",
+    "chest_link": "",
+    "key_variant": 0,
+    "texture_file": "Keys/key-blue.png",
+    "scale": 1.5,
+    "x_offset": 0,
+    "y_offset": 0,
+    "animations": {
+        "idle": {
+            "texture": "Keys/key-blue.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 12
+        }
+    }
+}

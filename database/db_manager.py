@@ -217,6 +217,17 @@ class DatabaseManager:
         self.cursor.execute(query, (session_id,))
         return [dict(row) for row in self.cursor.fetchall()]
 
+    def load_ground_items(self, session_id):
+        """Returns all items placed on the ground in the world for this session."""
+        query = """
+        SELECT i.*, m.q, m.r
+        FROM items i
+        JOIN map_tiles m ON i.tile = m.id
+        """
+        
+        self.cursor.execute(query)
+        return [dict(row) for row in self.cursor.fetchall()]
+
     def add_item(self, session_id, item_id, quantity=1):
         """Adds an item to inventory. Stacks if already owned."""
         self.cursor.execute(

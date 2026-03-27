@@ -11,12 +11,14 @@ class World:
         self.session_id = session_id
         self.tiles = {}  # {(q,r): Tile}
         self.monsters = []
+        self.ground_items = []
         self.player = None
         self.current_level = 1
 
         self.load_world()
         self.load_player()
         self.load_monsters()
+        self.load_ground_items()
         
 
     def load_world(self):
@@ -50,6 +52,16 @@ class World:
                     item = Item(item_data)
                     monster.equip(item)
             self.monsters.append(monster)
+
+    def load_ground_items(self):
+        """Load all items placed on the ground."""
+        self.ground_items = []
+        rows = self.db.load_ground_items(self.session_id)
+        for data in rows:
+            item = Item(data)
+            item.q = data.get("q")
+            item.r = data.get("r")
+            self.ground_items.append(item)
 
     def get_tile(self, q, r):
         return self.tiles.get((q, r))
