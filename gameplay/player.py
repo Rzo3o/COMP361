@@ -104,12 +104,9 @@ class Player(Entity):
 
     def apply_equipment(self):
         """Sync equipped items from inventory into player equipment slots."""
-        # Clear all slots first
-        for slot in self.equipment:
-            self.equipment[slot] = None
         # Apply equipped items
         for item in self.inventory:
-            if item.equipped and item.is_equippable:
+            if item.equipped and item.is_equippable and self.equipment.get(item.slot) is None:
                 self.equipment[item.slot] = item
 
     def use_item(self, index, db, session_id):
@@ -139,6 +136,7 @@ class Player(Entity):
         return True
 
     def add_items(self, *items):
+        print(items)
         self.inventory.extend(items)
         self.apply_equipment()
 
@@ -190,7 +188,7 @@ class Player(Entity):
         damage = self.total_damage
 
         if hasattr(monster, "take_damage"):
-            return monster.take_damage(damage)
+            return monster.take_damage(damage, self)
         else:
             monster.hp -= damage
             if monster.hp <= 0:

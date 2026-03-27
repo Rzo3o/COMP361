@@ -171,7 +171,7 @@ class GameWindow(Screen):
             self.manager.screen.blit(slot_surf, (slot_x, slot_y))
             slot_y += 18
 
-        items = self.engine.inventory
+        items = self.engine.world.player.inventory
         if not items:
             empty = self.font.render("Your inventory is empty.", True, (150, 150, 150))
             self.manager.screen.blit(empty, (panel_x + 15, equip_y + 30))

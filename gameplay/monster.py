@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple, Any
 import random
+import os
+import json
 
 from gameplay.models import Entity
+from gameplay.item import Item
 
 
 @dataclass
@@ -69,6 +72,20 @@ class Monster(Entity):
             attack_cooldown_turns=data.get("attack_cooldown_turns", 2),
             wander_chance=data.get("wander_chance", 0.60),
         )
+
+        # Inventory for drops and unequipped items
+        self.inventory = []
+        for drop_name in data.get("drops", []):
+            try:
+                item_path = os.path.join("assets", "definitions", "items", f"{drop_name}.json")
+                if os.path.exists(item_path):
+                    with open(item_path, "r") as f:
+                        item_data = json.load(f)
+                        self.inventory.append(Item(item_data))
+                else:
+                    print(f"Warning: Drop item {drop_name}.json not found at {item_path}")
+            except Exception as e:
+                print(f"Error loading drop item {drop_name}: {e}")
 
         # State
         self.dead = False
@@ -164,6 +181,7 @@ class Monster(Entity):
     def get_loot_drops(self):
         """Returns list of equipped items (to drop on death)."""
         drops = []
+        drops.extend(self.inventory)
         for slot in list(self.equipment):
             item = self.equipment[slot]
             if item:
@@ -175,7 +193,7 @@ class Monster(Entity):
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
 
-    def take_damage(self, amount):
+    def take_damage(self, amount, player):
         reduced = max(1, amount - self.total_defense)
         if reduced <= 0 or not self.is_alive():
             return 0
@@ -194,7 +212,7 @@ class Monster(Entity):
             self.queued_attack_damage = 0
 
             if not self.death_loot_dropped:
-                self.on_death()
+                player.add_items(*self.on_death())
                 self.death_loot_dropped = True
 
             self.set_anim_state("die", reset_frame=True)
@@ -209,7 +227,9 @@ class Monster(Entity):
 
     def on_death(self) -> list:
         """Drop all equipped items on death. Returns list of dropped Items."""
-        return self.get_loot_drops()
+        drops = self.get_loot_drops()
+        self.inventory = []
+        return drops
 
     def can_attack(self) -> bool:
         return self._attack_cd_remaining <= 0
