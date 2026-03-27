@@ -69,7 +69,10 @@ class Welcome(Screen):
             text = font.render(text, True, self.manager.text_color_green)
             rendered_texts.append(text)
 
-        spacing = -70
+        # the font has top and bottom padding
+        # negative spacing allows the padding to overlap
+        spacing = -70 
+
         total_text_height = 0
 
         for ren_text in rendered_texts:
@@ -80,6 +83,7 @@ class Welcome(Screen):
         y_offset = (self.manager.height - total_text_height) // 2
 
         # blit each line
+        # loop is used to adjust the y offset
         for text in rendered_texts:
             rect = text.get_rect(midtop=(self.manager.width // 2, y_offset)) # middle
             self.manager.screen.blit(source=text, dest=rect) 
