@@ -37,6 +37,14 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             pass  # column already exists
 
+        # Add equipment columns to monsters if missing (for older save files)
+        for col in ("weapon_item_id", "head_item_id", "chest_item_id", "legs_item_id"):
+            try:
+                self.cursor.execute(f"ALTER TABLE monsters ADD COLUMN {col} INTEGER REFERENCES items(id) ON DELETE SET NULL")
+                self.conn.commit()
+            except sqlite3.OperationalError:
+                pass  # column already exists
+
 
     def close(self):
         self.conn.close()
