@@ -80,6 +80,7 @@ class Welcome(Screen):
             
         total_text_height += spacing * (len(rendered_texts) - 1) 
 
+        # start y_offset
         y_offset = (self.manager.height - total_text_height) // 2
 
         # blit each line
