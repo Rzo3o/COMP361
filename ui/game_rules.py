@@ -47,7 +47,7 @@ class GameRules(Screen):
             "E(TOP RIGHT)",
             "A(BOTTOM LEFT)",
             "D(BOTTOM RIGHT)",
-            "3. Attack enemies with A when on an adjacent tile.",
+            "3. Attack adjacent enemies using movement keys.",
         ]
 
         self.decoration_images = [
