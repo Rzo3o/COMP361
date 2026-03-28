@@ -67,22 +67,6 @@ class GameEngine:
             if monster is not None:
                 damage = player.attack_monster(monster)
 
-                if not monster.is_alive():
-                    if not getattr(monster, 'death_loot_dropped', False):
-                        drops = monster.on_death()
-                        for item in drops:
-                            if getattr(item, 'id', None) is None and hasattr(item, '_def_name'):
-                                item.id = self.db.get_or_create_item(item._def_name)
-                            if getattr(item, 'id', None) is not None:
-                                self.db.add_item(self.session_id, item.id)
-                        player.load_inventory(self.db, self.session_id)
-                        monster.death_loot_dropped = True
-
-                    alive_count = sum(
-                        1 for m in self.world.monsters
-                        if m.is_alive() and m.level == self.world.current_level)
-
-                    print(f"{monster.name} died! {alive_count} monsters left in this level.")
 
                 if hasattr(self.db, "save_monster"):
                     self.db.save_monster(monster)
@@ -149,6 +133,25 @@ class GameEngine:
             return False
 
         return True
+
+    def drop_monster_loot(self, monster):
+        if not monster.is_alive():
+            if not getattr(monster, 'death_loot_dropped', False):
+                drops = monster.on_death()
+                print("Dropped: ", [item.name for item in drops])
+                for item in drops:
+                    if getattr(item, 'id', None) is None and hasattr(item, '_def_name'):
+                        item.id = self.db.get_or_create_item(item._def_name)
+                    if getattr(item, 'id', None) is not None:
+                        self.db.add_item(self.session_id, item.id)
+                self.world.player.load_inventory(self.db, self.session_id)
+                monster.death_loot_dropped = True
+
+            alive_count = sum(
+                1 for m in self.world.monsters
+                if m.is_alive() and m.level == self.world.current_level)
+
+            print(f"{monster.name} died! {alive_count} monsters left in this level.")
 
     def update(self):
         player = self.world.player

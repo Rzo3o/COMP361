@@ -106,6 +106,10 @@ class GameWindow(Screen):
 
             for monster in self.engine.world.monsters:
                 monster.update_animation(self.assets)
+
+                if not monster.is_alive():
+                    self.engine.drop_monster_loot(monster)
+
                 if getattr(monster, "remove_after_death", False):
                     monsters_to_remove.append(monster)
 

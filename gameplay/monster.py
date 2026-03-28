@@ -228,7 +228,6 @@ class Monster(Entity):
     def on_death(self) -> list:
         """Drop all equipped items on death. Returns list of dropped Items."""
         drops = self.get_loot_drops()
-        self.inventory = []
         return drops
 
     def can_attack(self) -> bool:

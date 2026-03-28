@@ -146,12 +146,6 @@ class Player(Entity):
         self.load_inventory(db, session_id)
         return True
 
-    def add_items(self, *items):
-        print([item.name for item in items])
-        self.inventory.extend(items)
-        #self.apply_equipment()
-        #print([item.name for item in self.equipment.values()])
-
     def start_move(self, dq, dr):
         """Start a tile-to-tile move animation"""
         if self.is_moving or self.is_attacking:
