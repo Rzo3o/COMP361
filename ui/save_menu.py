@@ -16,7 +16,7 @@ class SaveSelectMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
         font_path = os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf')
-        self.title_font = pygame.font.Font(font_path, 120)
+        self.title_font = pygame.font.Font(font_path, 140)
         self.button_font = pygame.font.Font(font_path, 50)
        
         
@@ -36,7 +36,7 @@ class SaveSelectMenu(Screen):
         self.text_color = (154, 205, 50)
         self.btn_color = (70, 70, 90)
         self.hover_color = (120, 100, 160)
-        self.slot_color = (199, 234, 70)
+        self.slot_color = (74, 160, 44)
         self.del_color = (147, 112, 219)
         self.del_hover = (120, 100, 160)
         
@@ -46,11 +46,11 @@ class SaveSelectMenu(Screen):
 
         
         self.decoration_images = [
-        ('Water_Duck.png', 405, 75, 5, 2.3999999999999995),
+        ('Water_Duck.png', 360, 75, 5, 2.3999999999999995),
         ('Grass.png', 360, 175, 20, 1.5999999999999996),
         ('Grass_Pine.png', 1089, 201, -15, 2.1),
         ('Magic_Crystals.png', 480, 200, -15, 2.8),
-        ('Snow_Trees.png', 1073, 76, 10, 2.4999999999999996),
+        ('Snow_Trees.png', 1110, 76, 10, 2.4999999999999996),
         ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
         ]
         #draw tiles
@@ -99,8 +99,8 @@ class SaveSelectMenu(Screen):
         self.buttons = []
 
         button_width = 400   # bigger width
-        button_height = 80   # bigger height
-        spacing = 100        # space between rows
+        button_height = 90   # bigger height
+        spacing = 100   # space between rows
 
         total_height = len(self.slots) * spacing
         start_y = (self.manager.height // 2) - (total_height // 2)
@@ -163,23 +163,21 @@ class SaveSelectMenu(Screen):
                 text = f"Load Save {slot}" if file_exists else f"Create Save {slot}"
                 
                 color = self.hover_color if is_hover else self.slot_color
-                pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
-                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
+                pygame.draw.rect(self.manager.screen, color, rect)
+                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2)
                 
                 text_surf = self.button_font.render(text, True, self.text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
             
             elif btn["type"] == "delete":
-                # This makes sure that we create the delete button only if the save exists
-                if file_exists:
-                    color = self.del_hover if is_hover else self.del_color
-                    pygame.draw.rect(self.manager.screen, color, rect, border_radius=10)
-                    pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2, border_radius=10)
-                    
-                    text_surf = self.button_font.render("X", True, self.text_color)
-                    text_rect = text_surf.get_rect(center=rect.center)
-                    self.manager.screen.blit(text_surf, text_rect)
+                color = self.del_hover if is_hover else self.del_color
+                pygame.draw.rect(self.manager.screen, color, rect)
+                pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2)
+                
+                text_surf = self.button_font.render("X", True, self.text_color)
+                text_rect = text_surf.get_rect(center=rect.center)
+                self.manager.screen.blit(text_surf, text_rect)
 
         # Confirmation Dialouge
         if self.confirm_delete_slot:
