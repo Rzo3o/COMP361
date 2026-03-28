@@ -4,6 +4,7 @@ from gameplay.models import Tile
 from gameplay.player import Player
 from gameplay.monster import Monster
 from gameplay.item import Item
+from gameplay.resource_lock import ResourceLockManager
 
 class World:
     def __init__(self, db, session_id):
@@ -14,12 +15,12 @@ class World:
         self.ground_items = []
         self.player = None
         self.current_level = 1
+        self.resource_locks = ResourceLockManager()
 
         self.load_world()
         self.load_player()
         self.load_monsters()
         self.load_ground_items()
-        
 
     def load_world(self):
         # Use DB abstraction
@@ -62,6 +63,8 @@ class World:
             item.q = data.get("q")
             item.r = data.get("r")
             self.ground_items.append(item)
+            if item.id is not None:
+                self.resource_locks.add_resource(item.id)
 
     def get_tile(self, q, r):
         return self.tiles.get((q, r))
