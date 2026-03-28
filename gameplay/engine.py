@@ -15,6 +15,7 @@ class GameEngine:
         if self.world.player:
             self.world.player.load_inventory(self.db, self.session_id)
         self.start_time = time.time()
+        self.monsters_need_turn = False  # Animation lock: A mark waiting for the monster to act
 
     def handle_input(self, action):
         player = self.world.player
@@ -66,12 +67,6 @@ class GameEngine:
             if monster is not None:
                 damage = player.attack_monster(monster)
 
-                if not monster.is_alive():
-                    alive_count = sum(
-                        1 for m in self.world.monsters
-                        if m.is_alive() and m.level == self.world.current_level)
-
-                    print(f"{monster.name} died! {alive_count} monsters left in this level.")
 
                 if hasattr(self.db, "save_monster"):
                     self.db.save_monster(monster)
@@ -138,6 +133,25 @@ class GameEngine:
             return False
 
         return True
+
+    def drop_monster_loot(self, monster):
+        if not monster.is_alive():
+            if not getattr(monster, 'death_loot_dropped', False):
+                drops = monster.on_death()
+                print("Dropped: ", [item.name for item in drops])
+                for item in drops:
+                    if getattr(item, 'id', None) is None and hasattr(item, '_def_name'):
+                        item.id = self.db.get_or_create_item(item._def_name)
+                    if getattr(item, 'id', None) is not None:
+                        self.db.add_item(self.session_id, item.id)
+                self.world.player.load_inventory(self.db, self.session_id)
+                monster.death_loot_dropped = True
+
+            alive_count = sum(
+                1 for m in self.world.monsters
+                if m.is_alive() and m.level == self.world.current_level)
+
+            print(f"{monster.name} died! {alive_count} monsters left in this level.")
 
     def update(self):
         player = self.world.player
@@ -218,7 +232,7 @@ class GameEngine:
         if result != "TURN_TAKEN":
             return "NO_ACTION"
 
-        self.process_monster_turns()
+        self.monsters_need_turn = True 
 
         game_state = self.update()
         if game_state == "GAME_OVER":
@@ -226,7 +240,7 @@ class GameEngine:
         
         if self.check_level_completed():
             unlocked = self.world.unlock_next_level()
-            print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
+            #print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             if unlocked:
                 self.start_time = time.time()
 

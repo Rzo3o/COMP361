@@ -46,6 +46,27 @@ class GameWindow(Screen):
             if event.key == pygame.K_ESCAPE:
                 self.manager.switch_screen("main_menu")
 
+            # INPUT lock: prevent actions during animations
+            player = self.engine.world.player
+            if player:
+                # Check if player is moving or attacking
+                player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
+                
+                # Check if engine is waiting to calculate monster turns
+                waiting_for_logic = getattr(self.engine, "monsters_need_turn", False)
+                
+                # Check if any monster is currently animating
+                monsters_animating = False
+                for m in self.engine.world.monsters:
+                    if m.is_alive():
+                        if getattr(m, "is_moving", False) or m.anim_state in ("move", "attack", "hit"):
+                            monsters_animating = True
+                            break 
+
+                # If anything is animating or waiting, ignore the key press
+                if player_animating or waiting_for_logic or monsters_animating:
+                    return
+
             action = None
             if event.key == pygame.K_w:
                 action = "MOVE_NORTH"
@@ -85,12 +106,27 @@ class GameWindow(Screen):
 
             for monster in self.engine.world.monsters:
                 monster.update_animation(self.assets)
+
+                if not monster.is_alive():
+                    self.engine.drop_monster_loot(monster)
+
                 if getattr(monster, "remove_after_death", False):
                     monsters_to_remove.append(monster)
 
             for monster in monsters_to_remove:
                 if monster in self.engine.world.monsters:
                     self.engine.world.monsters.remove(monster)
+
+        # Animation lock 
+        player = self.engine.world.player
+        if player:
+            waiting_for_monsters = getattr(self.engine, "monsters_need_turn", False)
+
+            is_player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
+
+            if waiting_for_monsters and not is_player_animating:
+                self.engine.process_monster_turns()      
+                self.engine.monsters_need_turn = False
 
     def draw(self):
         self.update()
@@ -171,7 +207,7 @@ class GameWindow(Screen):
             self.manager.screen.blit(slot_surf, (slot_x, slot_y))
             slot_y += 18
 
-        items = self.engine.inventory
+        items = self.engine.world.player.inventory
         if not items:
             empty = self.font.render("Your inventory is empty.", True, (150, 150, 150))
             self.manager.screen.blit(empty, (panel_x + 15, equip_y + 30))

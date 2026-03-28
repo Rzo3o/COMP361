@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple, Any
 import random
+import os
+import json
 
 from gameplay.models import Entity
+from gameplay.item import Item
 
 
 @dataclass
@@ -70,6 +73,23 @@ class Monster(Entity):
             attack_cooldown_turns=data.get("attack_cooldown_turns", 2),
             wander_chance=data.get("wander_chance", 0.60),
         )
+
+        # Inventory for drops and unequipped items
+        self.inventory = []
+        for drop_name in data.get("drops", []):
+            try:
+                base_drop = drop_name[:-5] if drop_name.endswith(".json") else drop_name
+                item_path = os.path.join("assets", "definitions", "items", f"{base_drop}.json")
+                if os.path.exists(item_path):
+                    with open(item_path, "r") as f:
+                        item_data = json.load(f)
+                        new_item = Item(item_data)
+                        new_item._def_name = base_drop
+                        self.inventory.append(new_item)
+                else:
+                    print(f"Warning: Drop item {drop_name}.json not found at {item_path}")
+            except Exception as e:
+                print(f"Error loading drop item {drop_name}: {e}")
 
         # State
         self.dead = False
@@ -165,6 +185,7 @@ class Monster(Entity):
     def get_loot_drops(self):
         """Returns list of equipped items (to drop on death)."""
         drops = []
+        drops.extend(self.inventory)
         for slot in list(self.equipment):
             item = self.equipment[slot]
             if item:
@@ -194,10 +215,6 @@ class Monster(Entity):
             self.queued_attack_target = None
             self.queued_attack_damage = 0
 
-            if not self.death_loot_dropped:
-                self.on_death()
-                self.death_loot_dropped = True
-
             self.set_anim_state("die", reset_frame=True)
             return reduced
 
@@ -210,7 +227,8 @@ class Monster(Entity):
 
     def on_death(self) -> list:
         """Drop all equipped items on death. Returns list of dropped Items."""
-        return self.get_loot_drops()
+        drops = self.get_loot_drops()
+        return drops
 
     def can_attack(self) -> bool:
         return self._attack_cd_remaining <= 0
