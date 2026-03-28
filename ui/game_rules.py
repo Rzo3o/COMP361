@@ -48,6 +48,7 @@ class GameRules(Screen):
             "A(BOTTOM LEFT)",
             "D(BOTTOM RIGHT)",
             "3. Attack adjacent enemies using movement keys.",
+            "4. Use esc to exit the game and get back to the main menu."
         ]
 
         self.decoration_images = [
