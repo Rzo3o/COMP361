@@ -208,6 +208,14 @@ class DatabaseManager:
         )
         self.conn.commit()
 
+    def update_player_skin(self, session_id, skin_name):
+        """Updates the player's texture_file (skin) in the database."""
+        self.cursor.execute(
+            "UPDATE player_state SET texture_file=? WHERE session_id=?",
+            (skin_name, session_id),
+        )
+        self.conn.commit()
+
     def get_player_state(self, session_id):
         self.cursor.execute(
             "SELECT * FROM player_state WHERE session_id=?", (session_id,)
@@ -218,17 +226,32 @@ class DatabaseManager:
             
         p_data = dict(row)
         
-        player_def = {}
-        def_path = os.path.join("assets", "definitions", "player", "archer.json")
+        # Determine definition file based on texture_file (skin_name)
+        skin_name = p_data.get("texture_file") or "archer" # We default to archer if no skin is selected (for demo purposes)
+        # Standardize skin_name to filename format if needed
+        if not skin_name.lower().endswith(".json"):
+            skin_name = f"{skin_name.lower()}.json"
+            
+        def_path = os.path.join("assets", "definitions", "player", skin_name)
         
+        player_def = {}
         if os.path.exists(def_path):
             try:
                 with open(def_path, "r") as f:
                     player_def = json.load(f)
             except Exception as e:
-                print(f"Error loading player definition: {e}")
+                print(f"Error loading player definition {skin_name}: {e}")
         else:
-            print(f"Warning: Could not find {def_path}")
+            # Fallback to archer if specified skin not found (for demo purposes)
+            fallback_path = os.path.join("assets", "definitions", "player", "archer.json")
+            if os.path.exists(fallback_path):
+                try:
+                    with open(fallback_path, "r") as f:
+                        player_def = json.load(f)
+                except Exception as e:
+                    print(f"Error loading fallback player definition: {e}")
+            else:
+                print(f"Warning: Could not find definition {def_path} or fallback.")
 
         return {**player_def, **p_data}
 

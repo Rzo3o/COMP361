@@ -283,15 +283,17 @@ class SaveSelectMenu(Screen):
                                         print("No default.db found! Starting with empty database.")
 
                                 self.manager.selected_slot = slot
-                                self.manager.selected_skin = self.skins[0]["texture"] if self.skins else None
                                 
                                 if is_new_game:
+                                    # Make archer default for now (until we have more characters)
+                                    self.manager.selected_skin = "archer"
                                     self.manager.switch_screen("characters")
                                 else:
+                                    self.manager.selected_skin = None # Don't overwrite existing skin as you can't change it in-game
+                                    # as they will have different stats depending on the skin
                                     self.manager.switch_screen("game_window")
                                 break # Exit loop after handling click
 
                             elif btn["type"] == "delete" and file_exists: 
                                 self.confirm_delete_slot = btn["value"]
                                 break # Exit loop after handling click
-            

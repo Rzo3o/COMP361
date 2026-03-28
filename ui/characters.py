@@ -6,6 +6,7 @@ from pygame.draw import rect
 
 import ui.button
 from ui.base_screen import Screen
+from database.db_manager import DatabaseManager
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
@@ -38,6 +39,19 @@ class Characters(Screen):
         ]
         
         self.button_names = ["character_1", "character_2", "character_3", "character_4", "character_5", "character_6", "character_7", "character_8"]
+        
+        # Internal mapping from button action to skin name
+        self.skin_map = {
+            "character_1": "heavy_cavalry",
+            "character_2": "archer",
+            "character_3": "cavalry",
+            "character_4": "heavy_archer",
+            "character_5": "adviser",
+            "character_6": "infantry",
+            "character_7": "lancer",
+            "character_8": "heavy_infantry"
+        }
+        
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
@@ -50,10 +64,24 @@ class Characters(Screen):
             button.check_hover(mouse_position)
             action = button.handle_event(event)
             # valid option to parse
-            if action and action.startswith("character"):
-                selected_character = int(action.split("_")[1])
-                # character selection 
-                print(f"Selected character: {selected_character}")
+            if action and action in self.skin_map:
+                # skin_name = self.skin_map[action] # TODO: Restore this when other characters are ready
+                skin_name = "archer" 
+                print(f"Selected character (overridden to archer): {skin_name}")
+                
+                # Save to database if slot is selected
+                slot = self.manager.selected_slot
+                if slot:
+                    db_file = f"game_data_{slot}.db"
+                    try:
+                        db = DatabaseManager(db_file)
+                        db.update_player_skin(1, skin_name)
+                        db.close()
+                        print(f"Saved skin {skin_name} to {db_file}")
+                    except Exception as e:
+                        print(f"Error saving skin to database: {e}")
+                
+                self.manager.selected_skin = skin_name
                 self.manager.switch_screen("game_window")
 
     def create_buttons(self):

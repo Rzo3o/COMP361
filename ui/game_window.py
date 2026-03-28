@@ -24,10 +24,6 @@ class GameWindow(Screen):
         if not self.db.get_session(1):
             self.db.create_session(1)
             
-        if selected_skin:
-            self.db.cursor.execute("UPDATE player_state SET texture_file=? WHERE session_id=1", (selected_skin,))
-            self.db.conn.commit()
-
         self.engine = GameEngine(self.db, 1)
         self.assets = AssetManager()
         self.renderer = GameRenderer(self.assets)
