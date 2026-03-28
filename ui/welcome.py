@@ -52,7 +52,7 @@ class Welcome(Screen):
         current_time = pygame.time.get_ticks()
         elapsed = current_time - self.manager.start_time
        
-        if elapsed >= 5000:  # 5000 ms = 5 seconds
+        if elapsed >= 4000:  # 4000 ms = 4 seconds
             self.manager.switch_screen("main_menu")
 
     def draw_title(self):
