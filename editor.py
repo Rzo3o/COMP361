@@ -159,6 +159,11 @@ class DatabaseManager:
         self.cursor.execute("UPDATE monsters SET health=?, damage=? WHERE current_q=? AND current_r=?", (health, damage, q, r))
         self.conn.commit()
 
+    # used for auto upodate on level change of tile
+    def update_monster_level(self, q, r, level):
+        self.cursor.execute("UPDATE monsters SET level=? WHERE current_q=? AND current_r=?", (level, q, r))
+        self.conn.commit()
+
     def delete_monsters_at(self, q, r):
         self.cursor.execute("DELETE FROM monsters WHERE current_q=? AND current_r=?", (q, r))
         self.conn.commit()
@@ -831,7 +836,14 @@ class MapTab(ttk.Frame):
                 self.app.show_toast("Cannot set level on an empty tile.")
                 return
             # Direct Paint
-            self._update_tile_safe(q, r, {"level": self.var_level_paint.get()})
+            lvl = self.var_level_paint.get()
+            self._update_tile_safe(q, r, {"level": lvl})
+            
+            # Sync monster level if one exists at this tile
+            existing_monster = self.app.db.get_monster_at(q, r)
+            if existing_monster:
+                self.app.db.update_monster_level(q, r, lvl)
+                
             self.render()
 
         elif mode == "Collision":
