@@ -162,11 +162,11 @@ class Characters(Screen):
         path = os.path.join(BASE_DIR, "..", "assets", "assetBank", "Classic China Characters", image_name)
         image = pygame.image.load(path).convert_alpha()
 
-        # original scaling (looked good)
+        # scaling
         original_w, original_h = image.get_size()
         image = pygame.transform.scale(image, (int(original_w * 6.5), int(original_h * 6.5)))
 
-        # align by feet instead of top
+       
         rect = image.get_rect(midbottom=(x, y))
 
         self.manager.screen.blit(image, rect)
