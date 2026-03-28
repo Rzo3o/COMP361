@@ -36,7 +36,7 @@ class SaveSelectMenu(Screen):
         self.text_color = (154, 205, 50)
         self.btn_color = (70, 70, 90)
         self.hover_color = (120, 100, 160)
-        self.slot_color = (74, 160, 44)
+        self.slot_color = (199, 234, 70)
         self.del_color = (147, 112, 219)
         self.del_hover = (120, 100, 160)
         
