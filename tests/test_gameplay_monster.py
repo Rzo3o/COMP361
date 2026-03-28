@@ -30,7 +30,7 @@ def test_monster_initialization_full_data():
 
     assert monster.q == 5
     assert monster.r == 7
-    assert monster.texture == "monster.png"
+    # texture is now loaded from animations, not texture_file
     assert monster.id == "goblin-1"
     assert monster.name == "Goblin"
     assert monster.hp == 30
@@ -57,22 +57,28 @@ def test_monster_attack_player():
     monster = Monster(adj_monster)
     player = Player(player_data)
 
-    # Player has 0 base defense, so full damage applies
-    monster.attack_player(player)
-    assert player.hp == 20 - monster.damage
-    assert not player.dead
+    # attack_player now defers damage to animation system
+    result = monster.attack_player(player)
+    assert result is True
+    assert monster.pending_attack_target is player
+    assert monster.pending_attack_damage == monster.damage
 
 
 def test_monster_attack_kill_player():
-    """If monster damage is lethal, the player should die."""
+    """If monster pending damage is applied, the player should die."""
     adj_monster = dict(monster_data)
     adj_monster["current_q"] = 2
     adj_monster["current_r"] = 2
-    adj_monster["damage"] = 25
+    adj_monster["damage"] = 125  # must overcome player base_defense (100) + hp (20)
     monster = Monster(adj_monster)
     player = Player(player_data)
 
-    monster.attack_player(player)
+    result = monster.attack_player(player)
+    assert result is True
+    assert monster.pending_attack_damage == 125
+
+    # Simulate the animation system applying the damage
+    player.take_damage(monster.pending_attack_damage)
     assert player.hp == 0
     assert player.dead
 

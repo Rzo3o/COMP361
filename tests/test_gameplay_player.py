@@ -17,7 +17,7 @@ def test_player_initialization():
     player = Player(test_data)
     assert player.q == 1
     assert player.r == 2
-    assert player.texture == "player.png"
+    # texture is now loaded from animations, not texture_file
     assert player.hp == 20
     assert player.max_hp == 150
     assert player.hunger == 50
@@ -27,11 +27,12 @@ def test_player_initialization():
 
 def test_player_take_damage():
     player = Player(test_data)
-    player.take_damage(10)
+    # base_defense is 100, so damage must exceed it to deal more than 1
+    player.take_damage(110)  # max(1, 110-100) = 10
     assert player.hp == 10
     assert not player.dead
 
-    player.take_damage(15)
+    player.take_damage(115)  # max(1, 115-100) = 15
     assert player.hp == 0
     assert player.dead
 
@@ -46,18 +47,24 @@ def test_player_move_damage_by_hunger():
     player = Player(test_data)
     player.hunger = 1
 
-    # First move: hunger drops to 0, starvation damage (5) fires immediately
+    # First move: hunger drops to 0, starvation damage fires
+    # base_defense=100 reduces take_damage(5) to min 1
     player.move(1, 0)
     assert player.hunger == 0
-    assert player.hp == 15  # 20 - 5
+    assert player.hp == 19  # 20 - max(1, 5-100) = 20 - 1
 
-    # Second move: still at 0, another 5 starvation damage
+    # Reset animation lock so next move can proceed
+    player.is_moving = False
+
+    # Second move: still at 0, another 1 starvation damage
     player.move(1, 2)
-    assert player.hp == 10
+    assert player.hp == 18
+
+    player.is_moving = False
 
     # Third move
     player.move(1, 0)
-    assert player.hp == 5
+    assert player.hp == 17
 
 
 # =============================================
@@ -67,14 +74,14 @@ def test_player_move_damage_by_hunger():
 
 def test_player_equip_weapon_increases_damage():
     player = Player({"current_q": 0, "current_r": 0, "health": 100, "max_health": 100})
-    assert player.total_damage == 5  # base damage
+    assert player.total_damage == 10  # base damage
 
     sword = Item({
         "id": 1, "name": "Sword", "item_type": "weapon",
         "slot": "weapon", "base_damage": 10,
     })
     player.equip(sword)
-    assert player.total_damage == 15  # 5 base + 10 weapon
+    assert player.total_damage == 20  # 10 base + 10 weapon
     assert player.equipment["weapon"] is sword
 
 
@@ -85,17 +92,17 @@ def test_player_unequip_weapon_reverts_damage():
         "slot": "weapon", "base_damage": 10,
     })
     player.equip(sword)
-    assert player.total_damage == 15
+    assert player.total_damage == 20  # 10 base + 10 weapon
 
     removed = player.unequip("weapon")
     assert removed is sword
-    assert player.total_damage == 5  # back to base
+    assert player.total_damage == 10  # back to base
     assert player.equipment["weapon"] is None
 
 
 def test_player_equip_armor_increases_defense():
     player = Player({"current_q": 0, "current_r": 0, "health": 100, "max_health": 100})
-    assert player.total_defense == 0
+    assert player.total_defense == 100  # base defense
 
     helmet = Item({
         "id": 2, "name": "Iron Helmet", "item_type": "armor",
@@ -107,7 +114,7 @@ def test_player_equip_armor_increases_defense():
     })
     player.equip(helmet)
     player.equip(chestplate)
-    assert player.total_defense == 11  # 3 + 8
+    assert player.total_defense == 111  # 100 base + 3 + 8
 
 
 def test_player_defense_reduces_damage():
@@ -117,10 +124,11 @@ def test_player_defense_reduces_damage():
         "slot": "chest", "defense": 8,
     })
     player.equip(chestplate)
+    # total_defense = 100 base + 8 armor = 108
 
-    reduced = player.take_damage(10)
-    assert reduced == 2  # 10 - 8 defense
-    assert player.hp == 98
+    reduced = player.take_damage(118)  # max(1, 118-108) = 10
+    assert reduced == 10
+    assert player.hp == 90
 
 
 def test_player_defense_minimum_1_damage():
@@ -147,11 +155,11 @@ def test_player_equip_replaces_old_item():
         "slot": "weapon", "base_damage": 10,
     })
     player.equip(sword1)
-    assert player.total_damage == 8  # 5 + 3
+    assert player.total_damage == 13  # 10 base + 3
 
     old = player.equip(sword2)
     assert old is sword1
-    assert player.total_damage == 15  # 5 + 10
+    assert player.total_damage == 20  # 10 base + 10
 
 
 def test_player_broken_weapon_gives_no_bonus():
@@ -161,11 +169,11 @@ def test_player_broken_weapon_gives_no_bonus():
         "slot": "weapon", "base_damage": 10, "durability": 1, "max_durability": 50,
     })
     player.equip(sword)
-    assert player.total_damage == 15
+    assert player.total_damage == 20  # 10 base + 10 weapon
 
     sword.degrade(1)  # durability -> 0
     assert sword.is_broken()
-    assert player.total_damage == 5  # broken weapon gives no bonus
+    assert player.total_damage == 10  # broken weapon gives no bonus, back to base
 
 
 def test_non_equippable_item_returns_none():
