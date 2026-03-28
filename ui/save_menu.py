@@ -18,6 +18,7 @@ class SaveSelectMenu(Screen):
         font_path = os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf')
         self.title_font = pygame.font.Font(font_path, 140)
         self.button_font = pygame.font.Font(font_path, 50)
+        self.confirm_font = pygame.font.Font(font_path, 80) 
        
         
         self.am = AssetManager()
@@ -34,6 +35,7 @@ class SaveSelectMenu(Screen):
         # Colors
         self.bg_color = (79, 79, 79)
         self.text_color = (154, 205, 50)
+        self.btn_text_color = (255, 255, 255) 
         self.btn_color = (70, 70, 90)
         self.hover_color = (120, 100, 160)
         self.slot_color = (199, 234, 70)
@@ -53,7 +55,7 @@ class SaveSelectMenu(Screen):
         ('Snow_Trees.png', 1110, 76, 10, 2.4999999999999996),
         ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
         ]
-        #draw tiles
+        
 
     def draw_image(self, image_name: str, x: int, y: int, angle: int, scale: float):
         """
@@ -140,8 +142,8 @@ class SaveSelectMenu(Screen):
 
     def draw(self):
         self.manager.screen.fill(self.bg_color)
-        for image_name , x , y , angle , scale in self.decoration_images:
-            self.draw_image(image_name, x , y, angle, scale)
+        for image_name, x, y, angle, scale in self.decoration_images:
+            self.draw_image(image_name, x, y, angle, scale)
         
         # Title
         title_surf = self.title_font.render("SAVED GAMES", True, self.text_color)
@@ -166,16 +168,16 @@ class SaveSelectMenu(Screen):
                 pygame.draw.rect(self.manager.screen, color, rect)
                 pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2)
                 
-                text_surf = self.button_font.render(text, True, self.text_color)
+                text_surf = self.button_font.render(text, True, self.btn_text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
             
-            elif btn["type"] == "delete":
+            elif btn["type"] == "delete" and file_exists:
                 color = self.del_hover if is_hover else self.del_color
                 pygame.draw.rect(self.manager.screen, color, rect)
                 pygame.draw.rect(self.manager.screen, (100, 100, 100), rect, 2)
                 
-                text_surf = self.button_font.render("X", True, self.text_color)
+                text_surf = self.button_font.render("X", True, self.btn_text_color)
                 text_rect = text_surf.get_rect(center=rect.center)
                 self.manager.screen.blit(text_surf, text_rect)
 
@@ -193,13 +195,13 @@ class SaveSelectMenu(Screen):
         self.manager.screen.blit(overlay, (0, 0))
         
         msg = f"Delete Save Slot {self.confirm_delete_slot}?"
-        text_surf = self.title_font.render(msg, True, (255, 255, 255))
+        text_surf = self.confirm_font.render(msg, True, (255, 255, 255))
         tw, th = text_surf.get_size()
 
         # Popup Box but reactive in size to the text
-        padding = 60
+        padding = 40
         box_w = tw + padding * 2
-        box_h = th + 150 # text + space for buttons
+        box_h = th + 120 # text + space for buttons
         
         box_x = (self.manager.width - box_w) // 2
         box_y = (self.manager.height - box_h) // 2
@@ -287,7 +289,9 @@ class SaveSelectMenu(Screen):
                                     self.manager.switch_screen("characters")
                                 else:
                                     self.manager.switch_screen("game_window")
+                                break # Exit loop after handling click
 
-                            elif btn["type"] == "delete" and file_exists: # This makes sure that we create the delete button only if the save exists
+                            elif btn["type"] == "delete" and file_exists: 
                                 self.confirm_delete_slot = btn["value"]
+                                break # Exit loop after handling click
             
