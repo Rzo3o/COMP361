@@ -316,7 +316,7 @@ class Monster(Entity):
         side_options = [(d, q, r) for (d, q, r) in candidates if d == current_dist]
         if side_options:
             _, sq, sr = random.choice(side_options)
-            self.q, self.r = sq, sr
+            self.start_move(sq, sr)
             return True
 
         return False
