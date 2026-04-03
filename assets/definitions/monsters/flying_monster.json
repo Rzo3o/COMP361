@@ -42,10 +42,9 @@
         "dog.json",
         "dog2.json",
         "dog3.json",
-        "test_chest.json",
-        "test_head.json",
-        "test_legs.json",
-        "test_weapon.json",
+        "test_bow.json",
+        "test_armor.json",
+        "test_sword.json",
         "test key.json"
     ]
 }

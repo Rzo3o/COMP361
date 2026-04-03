@@ -1,27 +1,45 @@
 {
     "animations": {
-        "idle": {
+        "archer_idle": {
             "texture": "Archer_Idle.png",
             "fw": 28,
             "fh": 25,
             "count": 6
         },
-        "move": {
+        "archer_attack": {
+            "texture": "Archer_Attack.png",
+            "fw": 28,
+            "fh": 25,
+            "count": 9
+        },
+        "archer_move": {
             "texture": "Archer_Move.png",
             "fw": 28,
             "fh": 25,
             "count": 6
         },
-        "attack": {
-            "texture": "Archer_Attack.png",
-            "fw": 28,
-            "fh": 25,
-            "count": 9
+        "infantry_idle": {
+            "texture": "Infantry_Idle.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
+        },
+        "infantry_attack": {
+            "texture": "Infantry_Attack.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 7
+        },
+        "infantry_move": {
+            "texture": "Infantry_Move.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
         }
     },
     "category": "player",
     "name": "archer.json",
-    "scale": 2.578181818181818,
+    "scale": 2.597954545454545,
     "x_shift": 8,
-    "y_shift": -43
+    "y_shift": -48
 }

@@ -1,13 +1,13 @@
 class Item:
     # Valid equipment slots
-    EQUIPMENT_SLOTS = ("weapon", "head", "chest", "legs")
+    EQUIPMENT_SLOTS = ("weapon", "armor")
 
     def __init__(self, data):
         self.id = data.get("id")
         self.name = data.get("name", "Unknown Item")
         self.description = data.get("description", "")
         self.type = data.get("item_type", "misc")  # weapon, armor, food, artifact
-        self.slot = data.get("slot")  # weapon, head, chest, legs
+        self.slot = data.get("slot")  # weapon, armor
         self.weight = data.get("weight", 0)
         self.damage_bonus = data.get("base_damage", 0)
         self.defense = data.get("defense", 0)

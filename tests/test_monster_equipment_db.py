@@ -80,24 +80,17 @@ def test_load_monsters_with_weapon(tmp_path, monkeypatch):
 
 
 def test_load_monsters_with_full_equipment(tmp_path, monkeypatch):
-    """Monster with all 4 slots filled."""
+    """Monster with weapon and armor slots filled."""
     db = _make_db(tmp_path, monkeypatch)
     sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=7)
-    helmet_id = _insert_item(db, name="Helmet", item_type="armor",
-                             slot="head", defense=3)
-    chest_id = _insert_item(db, name="Chestplate", item_type="armor",
-                            slot="chest", defense=6)
-    legs_id = _insert_item(db, name="Leggings", item_type="armor",
-                           slot="legs", defense=2)
-    _insert_monster(db, name="Knight", weapon_id=sword_id, head_id=helmet_id,
-                    chest_id=chest_id, legs_id=legs_id)
+    armor_id = _insert_item(db, name="Armor", item_type="armor",
+                             slot="armor", defense=5)
+    _insert_monster(db, name="Knight", weapon_id=sword_id, armor_id=armor_id)
 
     monsters = db.load_monsters()
     m = monsters[0]
     assert m["weapon_item"]["name"] == "Blade"
-    assert m["head_item"]["name"] == "Helmet"
-    assert m["chest_item"]["name"] == "Chestplate"
-    assert m["legs_item"]["name"] == "Leggings"
+    assert m["armor_item"]["name"] == "Armor"
     db.close()
 
 
@@ -124,26 +117,24 @@ def test_save_monster_equipment(tmp_path, monkeypatch):
     """Saving equipment should persist item IDs to the monster row."""
     db = _make_db(tmp_path, monkeypatch)
     sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=5)
-    helmet_id = _insert_item(db, name="Helmet", item_type="armor",
-                             slot="head", defense=3)
+    armor_id = _insert_item(db, name="Armor", item_type="armor",
+                             slot="armor", defense=3)
     mid = _insert_monster(db, name="Goblin")
 
     # Build equipment dict with Item objects
     sword = Item({"id": sword_id, "name": "Blade", "item_type": "weapon",
                   "slot": "weapon", "base_damage": 5})
-    helmet = Item({"id": helmet_id, "name": "Helmet", "item_type": "armor",
-                   "slot": "head", "defense": 3})
+    armor = Item({"id": armor_id, "name": "Armor", "item_type": "armor",
+                   "slot": "armor", "defense": 3})
 
-    equipment = {"weapon": sword, "head": helmet, "chest": None, "legs": None}
+    equipment = {"weapon": sword, "armor": armor}
     db.save_monster_equipment(mid, equipment)
 
     # Reload and verify
     monsters = db.load_monsters()
     m = monsters[0]
     assert m["weapon_item"]["name"] == "Blade"
-    assert m["head_item"]["name"] == "Helmet"
-    assert m["chest_item"] is None
-    assert m["legs_item"] is None
+    assert m["armor_item"]["name"] == "Armor"
     db.close()
 
 
@@ -209,10 +200,10 @@ def test_world_loads_monsters_with_equipment(tmp_path, monkeypatch):
 
     # Insert items and a monster with equipment
     sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=7)
-    helmet_id = _insert_item(db, name="Helmet", item_type="armor",
-                             slot="head", defense=4)
+    armor_id = _insert_item(db, name="Armor", item_type="armor",
+                             slot="armor", defense=4)
     _insert_monster(db, name="Armed Goblin", q=2, r=3, health=30, damage=8,
-                    weapon_id=sword_id, head_id=helmet_id)
+                    weapon_id=sword_id, armor_id=armor_id)
 
     from gameplay.world import World
     world = World(db, sid)
@@ -226,8 +217,8 @@ def test_world_loads_monsters_with_equipment(tmp_path, monkeypatch):
     # Equipment should be applied
     assert goblin.equipment["weapon"] is not None
     assert goblin.equipment["weapon"].name == "Blade"
-    assert goblin.equipment["head"] is not None
-    assert goblin.equipment["head"].name == "Helmet"
+    assert goblin.equipment["armor"] is not None
+    assert goblin.equipment["armor"].name == "Armor"
 
     # Stats should reflect equipment
     assert goblin.damage == 8 + 7  # base + weapon

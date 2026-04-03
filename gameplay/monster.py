@@ -59,9 +59,7 @@ class Monster(Entity):
         # Equipment slots (same system as Player)
         self.equipment = {
             "weapon": None,
-            "head": None,
-            "chest": None,
-            "legs": None,
+            "armor": None,
         }
 
         # AI configuration

@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS items (
     description TEXT,
     tile INTEGER REFERENCES map_tiles(id) ON DELETE SET NULL, -- Where to find it in the world
     item_type TEXT NOT NULL, -- 'weapon', 'armor', 'food', 'tribute', 'artifact'
-    slot TEXT DEFAULT NULL, -- Equipment slot: 'weapon', 'head', 'chest', 'legs'
+    slot TEXT DEFAULT NULL, -- Equipment slot: 'weapon', 'armor'
     weight INTEGER DEFAULT 1,
     base_damage INTEGER DEFAULT 0,
     defense INTEGER DEFAULT 0, -- Damage reduction when equipped

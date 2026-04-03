@@ -29,6 +29,7 @@ class GameEngine:
         if self.show_inventory:
             if action == "INVENTORY":
                 self.show_inventory = False
+                player.set_anim_state("idle", reset_frame=True)
                 return "NO_ACTION"
             if action == "MOVE_NORTH" and self.selected_index > 0:
                 self.selected_index -= 1

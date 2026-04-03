@@ -22,8 +22,16 @@ class GameWindow(Screen):
         self.db = DatabaseManager(db_file)
         # Ensure session exists (auto-create slot 1)
         if not self.db.get_session(1):
-            self.db.create_session(1)
+            char_type = getattr(manager, "selected_character", "warrior")
+            sid = self.db.create_session(1, char_type=char_type)
             
+            # Add and equip starting weapon
+            weapon_name = "test_bow" if char_type == "archer" else "test_sword"
+            weapon_id = self.db.get_or_create_item(weapon_name)
+            if weapon_id:
+                self.db.add_item(sid, weapon_id, quantity=1)
+                self.db.toggle_equip(sid, weapon_id)
+
         if selected_skin:
             self.db.cursor.execute("UPDATE player_state SET texture_file=? WHERE session_id=1", (selected_skin,))
             self.db.conn.commit()
@@ -199,7 +207,7 @@ class GameWindow(Screen):
         # Slot overview on the right side
         slot_x = panel_x + panel_w - 180
         slot_y = panel_y + 32
-        for slot_name in ("weapon", "head", "chest", "legs"):
+        for slot_name in ("weapon", "armor"):
             equipped = p.equipment.get(slot_name)
             label = equipped.name if equipped else "--"
             color = (200, 255, 200) if equipped else (100, 100, 100)

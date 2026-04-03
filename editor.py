@@ -1072,7 +1072,7 @@ class LibraryTab(ttk.Frame):
         self.var_item_power = tk.IntVar(value=0)
         self.var_item_slot = tk.StringVar(value="general")
         
-        self.available_slots = ["head", "chest", "pants", "boots"]
+        self.available_slots = ["weapon", "armor"]
 
         # Traces
         for v in [self.var_tex, self.var_scale, self.var_shift, self.var_x_shift]:

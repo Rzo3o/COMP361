@@ -146,15 +146,15 @@ def test_get_equipped_items(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     sword = _insert_item(db, name="Sword", item_type="weapon",
                          slot="weapon", base_damage=10)
-    helmet = _insert_item(db, name="Helmet", item_type="armor",
-                          slot="head", defense=5)
+    armor = _insert_item(db, name="Armor", item_type="armor",
+                          slot="armor", defense=5)
     bread = _insert_item(db, name="Bread", item_type="food")
     db.add_item(sid, sword)
-    db.add_item(sid, helmet)
+    db.add_item(sid, armor)
     db.add_item(sid, bread)
 
     db.toggle_equip(sid, sword)
-    db.toggle_equip(sid, helmet)
+    db.toggle_equip(sid, armor)
 
     equipped = db.get_equipped_items(sid)
     assert len(equipped) == 2
@@ -339,10 +339,10 @@ def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
     )
     db.conn.commit()
 
-    helmet_id = _insert_item(db, name="Iron Helmet", item_type="armor",
-                             slot="head", defense=5,
+    armor_id = _insert_item(db, name="Iron Armor", item_type="armor",
+                             slot="armor", defense=5,
                              durability=100, max_durability=100)
-    db.add_item(sid, helmet_id)
+    db.add_item(sid, armor_id)
 
     from gameplay.engine import GameEngine
 
@@ -355,7 +355,7 @@ def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
     engine.handle_input("INTERACT")
 
     assert player.total_defense == 5
-    assert player.equipment["head"] is not None
+    assert player.equipment["armor"] is not None
     db.close()
 
 

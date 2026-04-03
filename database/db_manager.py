@@ -102,10 +102,20 @@ class DatabaseManager:
                     except Exception as e:
                         print(f"Error reading player def {f}: {e}")
 
+        # Fetch the designated spawn tile from the map
+        self.cursor.execute("SELECT q, r FROM map_tiles WHERE is_spawn = 1 LIMIT 1")
+        spawn_tile = self.cursor.fetchone()
+        if spawn_tile:
+            start_q, start_r = spawn_tile["q"], spawn_tile["r"]
+        else:
+            start_q, start_r = 0, 0
+            # Ensure 0,0 exists to prevent Foreign Key IntegrityErrors if no spawn was set
+            self.cursor.execute("INSERT OR IGNORE INTO map_tiles (q, r, tile_type) VALUES (0, 0, 'grass')")
+
         self.cursor.execute(
             """INSERT INTO player_state (session_id, current_q, current_r, health, max_health, texture_file) 
-               VALUES (?, 0, 0, 100, 100, ?)""",
-            (session_id, default_texture),
+               VALUES (?, ?, ?, 100, 100, ?)""",
+            (session_id, start_q, start_r, default_texture),
         )
         self.initialize_level_unlocks(session_id)
         self.conn.commit()
@@ -384,8 +394,8 @@ class DatabaseManager:
         """Load all alive monsters with their equipment item data.
 
         Returns a list of dicts. Each dict has the monster columns plus
-        nested item dicts for each equipment slot (weapon_item, head_item,
-        chest_item, legs_item) — or None if the slot is empty.
+        nested item dicts for each equipment slot (weapon_item, armor_item)
+        — or None if the slot is empty.
         """
         query = """
         SELECT m.*,

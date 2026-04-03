@@ -97,26 +97,21 @@ def test_player_equip_armor_increases_defense():
     player = Player({"current_q": 0, "current_r": 0, "health": 100, "max_health": 100})
     assert player.total_defense == 0
 
-    helmet = Item({
-        "id": 2, "name": "Iron Helmet", "item_type": "armor",
-        "slot": "head", "defense": 3,
+    armor = Item({
+        "id": 2, "name": "Iron Armor", "item_type": "armor",
+        "slot": "armor", "defense": 12,
     })
-    chestplate = Item({
-        "id": 3, "name": "Iron Chestplate", "item_type": "armor",
-        "slot": "chest", "defense": 8,
-    })
-    player.equip(helmet)
-    player.equip(chestplate)
-    assert player.total_defense == 11  # 3 + 8
+    player.equip(armor)
+    assert player.total_defense == 12
 
 
 def test_player_defense_reduces_damage():
     player = Player({"current_q": 0, "current_r": 0, "health": 100, "max_health": 100})
-    chestplate = Item({
-        "id": 3, "name": "Iron Chestplate", "item_type": "armor",
-        "slot": "chest", "defense": 8,
+    armor = Item({
+        "id": 3, "name": "Iron Armor", "item_type": "armor",
+        "slot": "armor", "defense": 8,
     })
-    player.equip(chestplate)
+    player.equip(armor)
 
     reduced = player.take_damage(10)
     assert reduced == 2  # 10 - 8 defense
@@ -125,11 +120,11 @@ def test_player_defense_reduces_damage():
 
 def test_player_defense_minimum_1_damage():
     player = Player({"current_q": 0, "current_r": 0, "health": 100, "max_health": 100})
-    chestplate = Item({
-        "id": 3, "name": "Iron Chestplate", "item_type": "armor",
-        "slot": "chest", "defense": 50,
+    armor = Item({
+        "id": 3, "name": "Iron Armor", "item_type": "armor",
+        "slot": "armor", "defense": 50,
     })
-    player.equip(chestplate)
+    player.equip(armor)
 
     reduced = player.take_damage(5)
     assert reduced == 1  # minimum 1

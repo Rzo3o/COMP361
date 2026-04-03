@@ -46,7 +46,7 @@ class World:
         for data in rows:
             monster = Monster(data)
             # Equip saved items for each slot
-            for slot_name in ("weapon", "head", "chest", "legs"):
+            for slot_name in ("weapon", "armor"):
                 item_data = data.get(f"{slot_name}_item")
                 if item_data:
                     item = Item(item_data)

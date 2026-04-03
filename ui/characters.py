@@ -26,17 +26,11 @@ class Characters(Screen):
             ('Magic_Crystals.png', 400, 60, -10, 3.0),
         ]
 
-        self.character_images = [ os.path.join("Heavy_Cavalry", "Heavy_Cavalry_Attack_1.png"),
-                                    os.path.join("Archer", "Archer_Attack_1.png"),
-                                    os.path.join("Cavalry", "Cavalry_Attack_1.png"),
-                                    os.path.join("Heavy_Archer", "Heavy_Archer_Attack_1.png"),
-                                    
-                                    os.path.join("Adviser", "Adviser_Attack_1.png"),
+        self.character_images = [ os.path.join("Archer", "Archer_Attack_1.png"),
                                     os.path.join("Infantry", "Infantry_Attack_1.png"),
-                                    os.path.join("Lancer", "Lancer_Attack_1.png"),
-                                    os.path.join("Heavy_Infantry", "Heavy_Infantry_Attack_1.png")]
+                                    ]
         
-        self.button_names = ["character_1", "character_2", "character_3", "character_4", "character_5", "character_6", "character_7", "character_8"]
+        self.button_names = ["character_1", "character_2"]
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
@@ -50,9 +44,16 @@ class Characters(Screen):
             action = button.handle_event(event)
             # valid option to parse
             if action and action.startswith("character"):
+                print(f"Button action: {action}")
                 selected_character = int(action.split("_")[1])
                 # character selection 
                 print(f"Selected character: {selected_character}")
+                
+                if selected_character == 1:
+                    self.manager.selected_character = "archer"
+                else:
+                    self.manager.selected_character = "warrior"
+                    
                 self.manager.switch_screen("game_window")
 
     def create_buttons(self):

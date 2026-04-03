@@ -143,11 +143,11 @@ def test_monster_equip_armor_increases_defense():
     monster = Monster(monster_data)
     assert monster.total_defense == 0
 
-    helmet = Item({
-        "id": 2, "name": "Rusty Helmet", "item_type": "armor",
-        "slot": "head", "defense": 3,
+    armor = Item({
+        "id": 2, "name": "Monster Armor", "item_type": "armor",
+        "slot": "armor", "defense": 3,
     })
-    monster.equip(helmet)
+    monster.equip(armor)
     assert monster.total_defense == 3
 
 
@@ -155,7 +155,7 @@ def test_monster_defense_reduces_incoming_damage():
     monster = Monster(monster_data)
     armor = Item({
         "id": 2, "name": "Shell Armor", "item_type": "armor",
-        "slot": "chest", "defense": 4,
+        "slot": "armor", "defense": 4,
     })
     monster.equip(armor)
 
@@ -169,12 +169,12 @@ def test_monster_drops_equipment_on_death():
         "id": 1, "name": "Goblin Blade", "item_type": "weapon",
         "slot": "weapon", "base_damage": 5,
     })
-    helmet = Item({
-        "id": 2, "name": "Rusty Helmet", "item_type": "armor",
-        "slot": "head", "defense": 3,
+    armor = Item({
+        "id": 2, "name": "Rusty Armor", "item_type": "armor",
+        "slot": "armor", "defense": 3,
     })
     monster.equip(sword)
-    monster.equip(helmet)
+    monster.equip(armor)
 
     # Kill the monster
     monster.take_damage(999)
@@ -186,7 +186,7 @@ def test_monster_drops_equipment_on_death():
     # on_death should have cleared equipment and returned drops
     # Verify equipment slots are now empty
     assert monster.equipment["weapon"] is None
-    assert monster.equipment["head"] is None
+    assert monster.equipment["armor"] is None
     assert len(drops) >= 2
 
 

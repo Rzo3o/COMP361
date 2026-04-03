@@ -37,7 +37,7 @@ class Player(Entity):
         self.anim_state = "idle"
         self.anim_tick = 0
 
-        self.texture = animations.get("idle", {}).get("texture")
+        self.texture = animations.get("archer_idle", {}).get("texture")
         if not self.texture:
             print("[Player init WARNING] no idle texture found in animations!")
             self.texture = None
@@ -115,10 +115,15 @@ class Player(Entity):
 
     def apply_equipment(self):
         """Sync equipped items from inventory into player equipment slots."""
+        # Clear existing equipment slots before reapplying
+        for slot in self.equipment.keys():
+            self.equipment[slot] = None
+            
         # Apply equipped items
         for item in self.inventory:
-            if item.equipped and item.is_equippable and self.equipment.get(item.slot) is None:
+            if item.equipped and item.is_equippable:
                 self.equipment[item.slot] = item
+        self.set_anim_state(self.anim_state, reset_frame=True)
 
     def use_item(self, index, db, session_id):
         if not self.inventory or index >= len(self.inventory):
@@ -215,6 +220,16 @@ class Player(Entity):
         return self.texture
     
     def set_anim_state(self, state, reset_frame=True):
+        weapon = self.equipment.get("weapon")
+        weapon_name = weapon.name.lower() if weapon else ""
+        print(f"[Player] set_anim_state: {state} (weapon: {weapon_name})")
+        
+        if not state.startswith("archer_") and not state.startswith("infantry_"):
+            if "bow" in weapon_name:
+                state = "archer_" + state
+            elif "sword" in weapon_name:
+                state = "infantry_" + state
+                
         """Change animation state"""
         if self.anim_state == state and not reset_frame:
             return
@@ -253,8 +268,10 @@ class Player(Entity):
 
         frame_count = meta.get("count", 1)
 
+        self.set_anim_state(self.anim_state, reset_frame=False)
+
         # MOVE animation
-        if self.anim_state == "move":
+        if "move" in self.anim_state:
             if self.is_moving:
                 self.move_progress += self.move_speed
                 if self.move_progress >= 1.0:
@@ -271,7 +288,7 @@ class Player(Entity):
             return
 
         # Apply damage at specific hit frame
-        if self.anim_state == "attack":
+        if "attack" in self.anim_state:
             if (not self.attack_damage_applied 
                 and self.pending_attack_target is not None 
                 and self.anim_tick >= self.attack_hit_frame):
@@ -291,7 +308,7 @@ class Player(Entity):
         self.anim_tick += 1
 
         if self.anim_tick >= frame_count:
-            if self.anim_state == "attack":
+            if "attack" in self.anim_state:
                 
                 self.is_attacking = False
                 # Reset attack variables when animation ends
