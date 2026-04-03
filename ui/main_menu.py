@@ -76,9 +76,9 @@ class MainMenu(Screen):
             start_y + 2 * (self.button_height + self.button_gap),
             self.button_width,
             self.button_height,
-            "WINNER DEMO",
+            "GAME OVER DEMO",
             self.button_font,
-            action_name="winner_demo",
+            action_name="game_over",
             bg_color=(204, 0, 204),
             hover_color=(120, 100, 160),
             text_color=self.manager.text_color_white,
@@ -134,8 +134,8 @@ class MainMenu(Screen):
                     elif action == "rules":
                         self.manager.switch_screen("game_rules")
 
-                    elif action == "winner_demo":
-                        self.manager.switch_screen("winner")
+                    elif action == "game_over":
+                        self.manager.switch_screen("game_over")
 
                   
 

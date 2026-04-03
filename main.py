@@ -4,6 +4,7 @@ import pygame
 from ui.base_screen import Screen
 
 
+
 #screens (only place all the screens are imported)
 # add to available screen dictionaty attribute
 import ui.welcome as screen1
@@ -13,7 +14,7 @@ import ui.main_menu as screen4
 import ui.characters as screen5
 import ui.save_menu as screen6
 import ui.game_window as screen7
-
+import ui.game_over as screen8
 
 # singleton and state design pattern
 # singleton: (called first) run __new__(allocate memory) once, __init__(fill the memory) once to have non idempotent elements recreated
@@ -99,7 +100,8 @@ class ScreenManager:
             "main_menu": screen4.MainMenu,
             "characters": screen5.Characters,
             "save_menu": screen6.SaveSelectMenu,
-            "game_window": screen7.GameWindow 
+            "game_window": screen7.GameWindow, 
+            "game_over": screen8.GameOver
         }
 
         #start screen
@@ -108,8 +110,6 @@ class ScreenManager:
         # part of singletone patern
         # want to avoid reinitialization 
         self._initialized = True
-
-
 
     def switch_screen(self, new_screen: str):
             self.current_screen = self.available_screens[new_screen](self)
