@@ -15,9 +15,28 @@ import ui.save_menu as screen6
 import ui.game_window as screen7
 
 
-# singleton (to do) and state design pattern
+# singleton and state design pattern
+# singleton: (called first) run __new__(allocate memory) once, __init__(fill the memory) once to have non idempotent elements recreated
 class ScreenManager:
+
+    _screenManager_instance = None
+    _initialized = False
+
+    # cls = ScreenManager
+    # override __new__
+    def __new__(cls):
+        # object is never created
+        if cls._screenManager_instance is None:
+            # call the parent class to create the object
+            cls._screenManager_instance = super().__new__(cls)
+        # object is created, return the same instance
+        return cls._screenManager_instance
+
     def __init__(self):
+        if self._initialized:
+            #already initialized so don't recreate it
+            return
+
         pygame.init()
 
         pygame.display.set_caption("Beyond") 
@@ -85,6 +104,12 @@ class ScreenManager:
 
         #start screen
         self.current_screen = self.available_screens["welcome"](self)
+
+        # part of singletone patern
+        # want to avoid reinitialization 
+        self._initialized = True
+
+
 
     def switch_screen(self, new_screen: str):
             self.current_screen = self.available_screens[new_screen](self)
