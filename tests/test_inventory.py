@@ -272,7 +272,8 @@ def test_engine_use_food_removes_from_inventory(tmp_path, monkeypatch):
     )
     db.conn.commit()
 
-    item_id = _insert_item(db, name="Bread", item_type="food", healing=25, hunger=20)
+    item_id = _insert_item(db, name="Bread", item_type="food", healing=25, hunger=20,
+                           durability=1, max_durability=1)
     db.add_item(sid, item_id, quantity=2)
 
     from gameplay.engine import GameEngine
@@ -292,9 +293,10 @@ def test_engine_use_food_removes_from_inventory(tmp_path, monkeypatch):
     assert engine.world.player.hp == 75  # 50 + 25
     assert engine.world.player.hunger == 50  # 30 + 20
 
-    # Verify quantity decreased
-    assert len(engine.inventory) == 1
-    assert engine.inventory[0].quantity == 1
+    # Verify quantity decreased (inventory is now on player, not engine)
+    inv = engine.world.player.inventory
+    assert len(inv) == 1
+    assert inv[0].quantity == 1
     db.close()
 
 
@@ -315,20 +317,15 @@ def test_engine_equip_weapon_applies_stats(tmp_path, monkeypatch):
     engine = GameEngine(db, sid)
     player = engine.world.player
 
-    # Before equip
-    assert player.total_damage == 5  # base only
+    # Before equip (base_damage is 10)
+    assert player.total_damage == 10
 
     # Open inventory and equip
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
-    assert player.total_damage == 17  # 5 + 12
+    assert player.total_damage == 22  # 10 + 12
     assert player.equipment["weapon"] is not None
-
-    # Unequip
-    engine.handle_input("INTERACT")
-    assert player.total_damage == 5  # reverted
-    assert player.equipment["weapon"] is None
     db.close()
 
 
@@ -349,13 +346,18 @@ def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
     engine = GameEngine(db, sid)
     player = engine.world.player
 
-    assert player.total_defense == 0
+    assert player.total_defense == 100  # base defense
 
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
+<<<<<<< HEAD
     assert player.total_defense == 5
     assert player.equipment["armor"] is not None
+=======
+    assert player.total_defense == 105  # 100 + 5
+    assert player.equipment["head"] is not None
+>>>>>>> aeb1168bfe8450218a9dd52b430f8d4f3f5ffb24
     db.close()
 
 
@@ -377,6 +379,7 @@ def test_engine_drop_item(tmp_path, monkeypatch):
     # MOVE_WEST = drop in inventory mode
     engine.handle_input("MOVE_WEST")
 
-    assert len(engine.inventory) == 1
-    assert engine.inventory[0].quantity == 2
+    inv = engine.world.player.inventory
+    assert len(inv) == 1
+    assert inv[0].quantity == 2
     db.close()

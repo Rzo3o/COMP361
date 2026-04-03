@@ -68,10 +68,14 @@ class GameEngine:
             if monster is not None:
                 damage = player.attack_monster(monster)
 
+                if not self._safe_save_monster(monster):
+                    return "SAVE_ERROR"
 
-                if hasattr(self.db, "save_monster"):
-                    self.db.save_monster(monster)
-                self.db.save_player(self.session_id, player)
+                if not self._safe_save_player(player):
+                    return "SAVE_ERROR"
+
+                if not monster.is_alive():
+                    self.drop_monster_loot(monster)
 
                 print(f"Player attacked {monster.name} for {damage} damage")
                 return "TURN_TAKEN"
@@ -110,6 +114,14 @@ class GameEngine:
     def _safe_save_player(self, player):
         try:
             self.db.save_player(self.session_id, player)
+            return True
+        except Exception:
+            return False
+        
+    def _safe_save_monster(self, monster):
+        try:
+            if hasattr(self.db, "save_monster"):
+                self.db.save_monster(monster)
             return True
         except Exception:
             return False

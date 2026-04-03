@@ -40,10 +40,15 @@ class GameRules(Screen):
         self.rules_text = [
             "Goal: Conquer all castles, defeat the final castle, and win!",
             "1. Choose a character to begin your adventure.",
-            "2. Move across hex tiles with arrow keys (6 directions).",
-            "3. Attack enemies with A when on an adjacent tile.",
-            "4. Open your inventory with I to manage items and equipment.",
-            "5. Walk over power-ups to collect them, then press P to activate.",
+            "2. Move across hex tiles with: .",
+            "W(UP)",
+            "S(DOWN)",
+            "Q(TOP LEFT)",
+            "E(TOP RIGHT)",
+            "A(BOTTOM LEFT)",
+            "D(BOTTOM RIGHT)",
+            "3. Attack adjacent enemies using movement keys.",
+            "4. Use esc to exit the game and get back to the main menu."
         ]
 
         self.decoration_images = [

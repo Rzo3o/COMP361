@@ -183,12 +183,18 @@ class Monster(Entity):
     def get_loot_drops(self):
         """Returns list of equipped items (to drop on death)."""
         drops = []
-        drops.extend(self.inventory)
-        for slot in list(self.equipment):
-            item = self.equipment[slot]
-            if item:
-                drops.append(item)
-                self.equipment[slot] = None
+        chance = .8
+        dropItem = True
+        equipment = list(self.equipment.values())
+        inventory = list(self.inventory)
+        while len(inventory) > 0 or len(equipment) > 0:
+            if dropItem and random.random() <= chance and len(inventory) > 0:
+                drops.append(inventory.pop(0))
+                chance *= 0.5
+            elif not dropItem and random.random() <= chance and len(equipment) > 0:
+                drops.append(equipment.pop(0))
+                chance *= 0.5
+            dropItem = not dropItem
         return drops
 
     # Core Behaviors
@@ -314,7 +320,7 @@ class Monster(Entity):
         side_options = [(d, q, r) for (d, q, r) in candidates if d == current_dist]
         if side_options:
             _, sq, sr = random.choice(side_options)
-            self.q, self.r = sq, sr
+            self.start_move(sq, sr)
             return True
 
         return False

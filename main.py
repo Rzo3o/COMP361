@@ -14,7 +14,6 @@ import ui.characters as screen5
 import ui.save_menu as screen6
 import ui.game_window as screen7
 
-TOP_MARGIN = 60
 
 # singleton (to do) and state design pattern
 class ScreenManager:

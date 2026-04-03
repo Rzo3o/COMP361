@@ -6,6 +6,7 @@ from pygame.draw import rect
 
 import ui.button
 from ui.base_screen import Screen
+from database.db_manager import DatabaseManager
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
@@ -26,11 +27,31 @@ class Characters(Screen):
             ('Magic_Crystals.png', 400, 60, -10, 3.0),
         ]
 
-        self.character_images = [ os.path.join("Archer", "Archer_Attack_1.png"),
+        self.character_images = [   os.path.join("Heavy_Cavalry", "Heavy_Cavalry_Attack_1.png"),
+                                    os.path.join("Archer", "Archer_Attack_1.png"),
+                                    os.path.join("Cavalry", "Cavalry_Attack_1.png"),
+                                    os.path.join("Heavy_Archer", "Heavy_Archer_Attack_1.png"),
+                                    
+                                    os.path.join("Adviser", "Adviser_Attack_1.png"),
                                     os.path.join("Infantry", "Infantry_Attack_1.png"),
-                                    ]
+                                    os.path.join("Lancer", "Lancer_Attack_1.png"),
+                                    os.path.join("Heavy_Infantry", "Heavy_Infantry_Attack_1.png")   
+        ]
         
-        self.button_names = ["character_1", "character_2"]
+        self.button_names = ["character_1", "character_2", "character_3", "character_4", "character_5", "character_6", "character_7", "character_8"]
+        
+        # Internal mapping from button action to skin name
+        self.skin_map = {
+            "character_1": "heavy_cavalry",
+            "character_2": "archer",
+            "character_3": "cavalry",
+            "character_4": "heavy_archer",
+            "character_5": "adviser",
+            "character_6": "infantry",
+            "character_7": "lancer",
+            "character_8": "heavy_infantry"
+        }
+        
         self.buttons = self.create_buttons()
 
     def handle_event(self, event):
@@ -43,17 +64,31 @@ class Characters(Screen):
             button.check_hover(mouse_position)
             action = button.handle_event(event)
             # valid option to parse
-            if action and action.startswith("character"):
-                print(f"Button action: {action}")
-                selected_character = int(action.split("_")[1])
-                # character selection 
-                print(f"Selected character: {selected_character}")
+            if action and action in self.skin_map:
+                skin_name = self.skin_map[action]
+                print(f"Selected skin: {skin_name}")
                 
-                if selected_character == 1:
+                # Assign base character class based on skin
+                if "archer" in skin_name:
                     self.manager.selected_character = "archer"
+                elif "adviser" in skin_name:
+                    self.manager.selected_character = "mage"
                 else:
                     self.manager.selected_character = "warrior"
-                    
+                
+                # Save to database if slot is selected
+                slot = self.manager.selected_slot
+                if slot:
+                    db_file = f"game_data_{slot}.db"
+                    try:
+                        db = DatabaseManager(db_file)
+                        db.update_player_skin(1, skin_name)
+                        db.close()
+                        print(f"Saved skin {skin_name} to {db_file}")
+                    except Exception as e:
+                        print(f"Error saving skin to database: {e}")
+                
+                self.manager.selected_skin = skin_name
                 self.manager.switch_screen("game_window")
 
     def create_buttons(self):
@@ -162,11 +197,11 @@ class Characters(Screen):
         path = os.path.join(BASE_DIR, "..", "assets", "assetBank", "Classic China Characters", image_name)
         image = pygame.image.load(path).convert_alpha()
 
-        # original scaling (looked good)
+        # scaling
         original_w, original_h = image.get_size()
         image = pygame.transform.scale(image, (int(original_w * 6.5), int(original_h * 6.5)))
 
-        # align by feet instead of top
+       
         rect = image.get_rect(midbottom=(x, y))
 
         self.manager.screen.blit(image, rect)
