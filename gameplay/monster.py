@@ -189,10 +189,16 @@ class Monster(Entity):
         inventory = list(self.inventory)
         while len(inventory) > 0 or len(equipment) > 0:
             if dropItem and random.random() <= chance and len(inventory) > 0:
-                drops.append(inventory.pop(0))
+                item = inventory.pop(0)
+                if not item:
+                    continue
+                drops.append(item)
                 chance *= 0.5
             elif not dropItem and random.random() <= chance and len(equipment) > 0:
-                drops.append(equipment.pop(0))
+                item = equipment.pop(0)
+                if not item:
+                    continue
+                drops.append(item)
                 chance *= 0.5
             dropItem = not dropItem
         return drops
