@@ -96,7 +96,8 @@ class GameWindow(Screen):
             if action:
                 result = self.engine.run_turn(action)
                 if result == "GAME_OVER":
-                    self.manager.running = False
+                    #self.manager.running = False
+                    self.manager.switch_screen("game_over")
                     
     def update(self):
         # Animation tick
