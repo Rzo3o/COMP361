@@ -149,6 +149,152 @@ class GameWindow(Screen):
         if self.engine.show_inventory:
             self._draw_inventory()
 
+    def _draw_panel_box(self, rect, fill, border, border_width=2):
+        pygame.draw.rect(self.manager.screen, fill, rect, border_radius=10)
+        pygame.draw.rect(
+            self.manager.screen,
+            border,
+            rect,
+            border_width,
+            border_radius=10,
+        )
+
+    def _draw_inventory_header(self, panel_rect, player):
+        title_font = pygame.font.SysFont("Arial", 28, bold=True)
+        small_font = pygame.font.SysFont("Arial", 16)
+
+        title = title_font.render("Inventory", True, (236, 228, 204))
+        controls = small_font.render(
+            "W/S Move   F Use/Equip   A Drop   I Close",
+            True,
+            (162, 169, 178),
+        )
+        summary = self.font.render(
+            f"ATK {player.total_damage}   DEF {player.total_defense}",
+            True,
+            (162, 204, 198),
+        )
+
+        self.manager.screen.blit(title, (panel_rect.x + 24, panel_rect.y + 18))
+        self.manager.screen.blit(controls, (panel_rect.x + 24, panel_rect.y + 52))
+        self.manager.screen.blit(summary, (panel_rect.x + 24, panel_rect.y + 80))
+
+    def _draw_inventory_list(self, rect, items):
+        self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
+
+        list_title = self.font.render("Items", True, (210, 214, 220))
+        self.manager.screen.blit(list_title, (rect.x + 16, rect.y + 12))
+
+        if not items:
+            empty = self.font.render("Your inventory is empty.", True, (145, 150, 158))
+            hint = self.font.render("Pick up items to see them here.", True, (105, 112, 121))
+            self.manager.screen.blit(empty, (rect.x + 16, rect.y + 52))
+            self.manager.screen.blit(hint, (rect.x + 16, rect.y + 78))
+            return
+
+        row_height = 52
+        top = rect.y + 42
+        bottom = rect.bottom - 12
+
+        for i, item in enumerate(items):
+            row_y = top + i * (row_height + 8)
+            if row_y + row_height > bottom:
+                break
+
+            row_rect = pygame.Rect(rect.x + 12, row_y, rect.width - 24, row_height)
+            selected = i == self.engine.selected_index
+            row_fill = (92, 69, 41) if selected else (42, 46, 53)
+            row_border = (230, 196, 120) if selected else (74, 80, 89)
+            name_color = (255, 241, 197) if selected else (225, 228, 232)
+            meta_color = (244, 214, 147) if selected else (152, 159, 168)
+
+            self._draw_panel_box(row_rect, row_fill, row_border)
+
+            quantity = f"x{item.quantity}"
+            name = self.font.render(f"{item.name} {quantity}", True, name_color)
+            meta_bits = [item.type.title()]
+            if item.is_equippable and item.slot:
+                meta_bits.append(item.slot.title())
+            if item.equipped:
+                meta_bits.append("Equipped")
+            meta = self.font.render("  |  ".join(meta_bits), True, meta_color)
+
+            self.manager.screen.blit(name, (row_rect.x + 14, row_rect.y + 10))
+            self.manager.screen.blit(meta, (row_rect.x + 14, row_rect.y + 28))
+
+    def _draw_equipment_summary(self, rect, player):
+        self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
+
+        title = self.font.render("Equipped", True, (210, 214, 220))
+        self.manager.screen.blit(title, (rect.x + 16, rect.y + 12))
+
+        slot_labels = {
+            "weapon": "Weapon",
+            "head": "Head",
+            "chest": "Chest",
+            "legs": "Legs",
+        }
+
+        line_y = rect.y + 46
+        for slot_name in ("weapon", "head", "chest", "legs"):
+            equipped = player.equipment.get(slot_name)
+            label = equipped.name if equipped else "--"
+            color = (186, 220, 198) if equipped else (120, 127, 135)
+            slot_surf = self.font.render(
+                f"{slot_labels[slot_name]}: {label}",
+                True,
+                color,
+            )
+            self.manager.screen.blit(slot_surf, (rect.x + 16, line_y))
+            line_y += 28
+
+    def _selected_item_detail_lines(self, item):
+        if not item:
+            return [("Select an item to inspect its details.", (145, 150, 158))]
+
+        lines = []
+        if item.description:
+            lines.append((item.description, (182, 188, 196)))
+        if item.damage_bonus:
+            lines.append((f"Damage +{item.damage_bonus}", (169, 214, 205)))
+        if item.defense:
+            lines.append((f"Defense +{item.defense}", (169, 214, 205)))
+        if item.max_durability:
+            lines.append(
+                (
+                    f"Durability {item.durability}/{item.max_durability}",
+                    (169, 214, 205),
+                )
+            )
+        if item.type == "food":
+            lines.append((f"Heal {item.healing_amount}", (169, 214, 205)))
+            lines.append((f"Hunger +{item.hunger_restore}", (169, 214, 205)))
+        if item.weight:
+            lines.append((f"Weight {item.weight}", (169, 214, 205)))
+        if not lines:
+            lines.append(("No additional details.", (145, 150, 158)))
+        return lines
+
+    def _draw_selected_item_details(self, rect, item):
+        self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
+
+        title = self.font.render("Details", True, (210, 214, 220))
+        self.manager.screen.blit(title, (rect.x + 16, rect.y + 12))
+
+        if item:
+            name = self.font.render(item.name, True, (236, 228, 204))
+            item_type = self.font.render(item.type.title(), True, (244, 214, 147))
+            self.manager.screen.blit(name, (rect.x + 16, rect.y + 44))
+            self.manager.screen.blit(item_type, (rect.x + 16, rect.y + 68))
+            line_y = rect.y + 102
+        else:
+            line_y = rect.y + 46
+
+        for line, color in self._selected_item_detail_lines(item):
+            surf = self.font.render(line, True, color)
+            self.manager.screen.blit(surf, (rect.x + 16, line_y))
+            line_y += 24
+
 
     def _draw_ui(self):
         p = self.engine.world.player
@@ -180,83 +326,38 @@ class GameWindow(Screen):
         overlay.fill((0, 0, 0, 160))
         self.manager.screen.blit(overlay, (0, 0))
 
-        # Inventory panel
+        p = self.engine.world.player
         panel_x, panel_y = 200, 80
         panel_w, panel_h = Config.WINDOW_WIDTH - 400, Config.WINDOW_HEIGHT - 160
-        pygame.draw.rect(
-            self.manager.screen, (40, 40, 40), (panel_x, panel_y, panel_w, panel_h)
-        )
-        pygame.draw.rect(
-            self.manager.screen, (180, 180, 180), (panel_x, panel_y, panel_w, panel_h), 2
-        )
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+        self._draw_panel_box(panel_rect, (22, 24, 29), (176, 182, 188), 3)
 
-        # Title
-        title = self.font.render(
-            "INVENTORY  (W/S scroll, F use/equip, A drop, I close)",
-            True,
-            (255, 255, 255),
+        self._draw_inventory_header(panel_rect, p)
+
+        body_top = panel_y + 116
+        body_height = panel_h - 140
+        left_width = int(panel_w * 0.62)
+        sidebar_width = panel_w - left_width - 36
+
+        list_rect = pygame.Rect(panel_x + 18, body_top, left_width, body_height)
+        equipment_rect = pygame.Rect(
+            list_rect.right + 18,
+            body_top,
+            sidebar_width,
+            156,
         )
-        self.manager.screen.blit(title, (panel_x + 15, panel_y + 10))
-
-        # Equipment summary
-        p = self.engine.world.player
-        equip_y = panel_y + 32
-        equip_summary = f"ATK: {p.total_damage}  DEF: {p.total_defense}"
-        eq_surf = self.font.render(equip_summary, True, (180, 220, 180))
-        self.manager.screen.blit(eq_surf, (panel_x + 15, equip_y))
-
-        # Slot overview on the right side
-        slot_x = panel_x + panel_w - 180
-        slot_y = panel_y + 32
-        for slot_name in ("weapon", "armor"):
-            equipped = p.equipment.get(slot_name)
-            label = equipped.name if equipped else "--"
-            color = (200, 255, 200) if equipped else (100, 100, 100)
-            slot_surf = self.font.render(f"{slot_name}: {label}", True, color)
-            self.manager.screen.blit(slot_surf, (slot_x, slot_y))
-            slot_y += 18
+        details_rect = pygame.Rect(
+            list_rect.right + 18,
+            equipment_rect.bottom + 14,
+            sidebar_width,
+            body_height - equipment_rect.height - 14,
+        )
 
         items = self.engine.world.player.inventory
-        if not items:
-            empty = self.font.render("Your inventory is empty.", True, (150, 150, 150))
-            self.manager.screen.blit(empty, (panel_x + 15, equip_y + 30))
-            return
+        selected_item = None
+        if items and self.engine.selected_index < len(items):
+            selected_item = items[self.engine.selected_index]
 
-        y = equip_y + 26
-        for i, item in enumerate(items):
-            selected = i == self.engine.selected_index
-            color = (255, 255, 100) if selected else (200, 200, 200)
-            prefix = "> " if selected else "  "
-
-            equip_tag = " [E]" if item.equipped else ""
-            slot_tag = f" [{item.slot}]" if item.is_equippable else ""
-            label = f"{prefix}{item.name} x{item.quantity}  ({item.type}){slot_tag}{equip_tag}"
-            text_surf = self.font.render(label, True, color)
-            self.manager.screen.blit(text_surf, (panel_x + 15, y))
-
-            # Show item details for selected item
-            if selected:
-                y += 22
-                details = []
-                if item.description:
-                    details.append(f"  {item.description}")
-                if item.type == "weapon" or (item.type == "armor" and item.damage_bonus):
-                    details.append(
-                        f"  DMG: +{item.damage_bonus}  Durability: {item.durability}/{item.max_durability}"
-                    )
-                if item.defense:
-                    details.append(
-                        f"  DEF: +{item.defense}  Durability: {item.durability}/{item.max_durability}"
-                    )
-                if item.type == "food":
-                    details.append(
-                        f"  Heals: {item.healing_amount} HP  Hunger: +{item.hunger_restore}"
-                    )
-                if item.weight:
-                    details.append(f"  Weight: {item.weight}")
-                for d in details:
-                    det_surf = self.font.render(d, True, (150, 180, 150))
-                    self.manager.screen.blit(det_surf, (panel_x + 15, y))
-                    y += 20
-
-            y += 26
+        self._draw_inventory_list(list_rect, items)
+        self._draw_equipment_summary(equipment_rect, p)
+        self._draw_selected_item_details(details_rect, selected_item)

@@ -4,7 +4,11 @@ from gameplay.models import Tile
 from gameplay.player import Player
 from gameplay.monster import Monster
 from gameplay.item import Item
-from gameplay.resource_lock import ResourceLockManager
+from gameplay.resource_lock import (
+    ResourceLockManager,
+    ground_resource_id,
+    inventory_resource_id,
+)
 
 class World:
     def __init__(self, db, session_id):
@@ -64,7 +68,18 @@ class World:
             item.r = data.get("r")
             self.ground_items.append(item)
             if item.id is not None:
-                self.resource_locks.add_resource(item.id)
+                self.resource_locks.add_resource(ground_resource_id(item.id))
+
+    def sync_inventory_resource_locks(self):
+        """Register current inventory entries as lockable resources."""
+        if not self.player:
+            return
+
+        for item in self.player.inventory:
+            if item.inventory_entry_id is not None:
+                self.resource_locks.add_resource(
+                    inventory_resource_id(item.inventory_entry_id)
+                )
 
     def get_tile(self, q, r):
         return self.tiles.get((q, r))

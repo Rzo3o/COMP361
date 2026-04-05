@@ -14,6 +14,7 @@ class GameEngine:
         self.selected_index = 0  # cursor position in inventory
         if self.world.player:
             self.world.player.load_inventory(self.db, self.session_id)
+            self.world.sync_inventory_resource_locks()
         self.start_time = time.time()
         self.monsters_need_turn = False  # Animation lock: A mark waiting for the monster to act
 
@@ -89,6 +90,7 @@ class GameEngine:
             self.selected_index = 0
             if player:
                 player.load_inventory(self.db, self.session_id)
+                self.world.sync_inventory_resource_locks()
             return "NO_ACTION"
 
         return "NO_ACTION"
@@ -96,11 +98,29 @@ class GameEngine:
     def use_selected_item(self):
         """Use or equip/unequip the currently selected inventory item."""
         player = self.world.player
-        if not player:
-            return
-        player.use_item(self.selected_index, self.db, self.session_id)
+        if not player or self.selected_index >= len(player.inventory):
+            return False
+
+        item = player.inventory[self.selected_index]
+        resource_id = item.resource_id
+        if resource_id is not None:
+            self.world.resource_locks.add_resource(resource_id)
+            if not self.world.resource_locks.acquire(resource_id):
+                return False
+
+        used = player.use_item(self.selected_index, self.db, self.session_id)
+        if resource_id is not None:
+            if used and item.type == "food":
+                self.world.resource_locks.consume(resource_id)
+            else:
+                self.world.resource_locks.release(resource_id)
+
+        if used:
+            self.world.sync_inventory_resource_locks()
+
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
+        return used
 
     def drop_selected_item(self):
         """Drop one of the selected item from inventory."""
@@ -267,5 +287,4 @@ class GameEngine:
         return len(current_level_monsters) == 0
     
         #return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
-        
         
