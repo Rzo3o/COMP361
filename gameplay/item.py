@@ -1,3 +1,6 @@
+from gameplay.resource_lock import ground_resource_id, inventory_resource_id
+
+
 class Item:
     # Valid equipment slots
     EQUIPMENT_SLOTS = ("weapon", "armor")
@@ -18,11 +21,20 @@ class Item:
         self.power_bonus = data.get("power_bonus", 0)
         self.texture = data.get("texture_file")
         self.equipped = bool(data.get("is_equipped", False))
+        self.inventory_entry_id = data.get("inventory_entry_id")
 
     @property
     def is_equippable(self):
         """Returns True if this item can be equipped."""
         return self.slot in self.EQUIPMENT_SLOTS
+
+    @property
+    def resource_id(self):
+        if self.inventory_entry_id is not None:
+            return inventory_resource_id(self.inventory_entry_id)
+        if self.id is not None:
+            return ground_resource_id(self.id)
+        return None
 
     def use(self, player):
         """Consume food/potion: heal HP and restore hunger."""

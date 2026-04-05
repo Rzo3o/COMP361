@@ -315,7 +315,7 @@ class DatabaseManager:
     def load_inventory(self, session_id):
         """Returns all items in the player's inventory for this session."""
         query = """
-        SELECT i.*, inv.quantity, inv.is_equipped
+        SELECT i.*, inv.id AS inventory_entry_id, inv.quantity, inv.is_equipped
         FROM inventory inv
         JOIN items i ON inv.item_id = i.id
         WHERE inv.session_id = ?

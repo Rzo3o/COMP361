@@ -7,6 +7,14 @@ class ResourceState(Enum):
     CONSUMED = "consumed"
 
 
+def inventory_resource_id(inventory_entry_id):
+    return ("inventory", inventory_entry_id)
+
+
+def ground_resource_id(item_id):
+    return ("ground", item_id)
+
+
 class ResourceLockManager:
     def __init__(self):
         self._states = {}
@@ -17,17 +25,18 @@ class ResourceLockManager:
     def get_state(self, resource_id):
         return self._states.get(resource_id)
 
-    def try_acquire(self, resource_id):
-        state = self._states.get(resource_id)
+    def can_acquire(self, resource_id):
+        return self._states.get(resource_id) == ResourceState.AVAILABLE
 
-        if state is None:
-            return False
-
-        if state != ResourceState.AVAILABLE:
+    def acquire(self, resource_id):
+        if not self.can_acquire(resource_id):
             return False
 
         self._states[resource_id] = ResourceState.PENDING
         return True
+
+    def try_acquire(self, resource_id):
+        return self.acquire(resource_id)
 
     def consume(self, resource_id):
         if self._states.get(resource_id) != ResourceState.PENDING:
@@ -42,3 +51,4 @@ class ResourceLockManager:
 
         self._states[resource_id] = ResourceState.AVAILABLE
         return True
+    
