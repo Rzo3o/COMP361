@@ -149,6 +149,7 @@ class GameWindow(Screen):
         if self.engine.show_inventory:
             self._draw_inventory()
 
+    # Helper function which draws a rounded rectangle, keep all inentory panel box consistent
     def _draw_panel_box(self, rect, fill, border, border_width=2):
         pygame.draw.rect(self.manager.screen, fill, rect, border_radius=10)
         pygame.draw.rect(
@@ -159,32 +160,39 @@ class GameWindow(Screen):
             border_radius=10,
         )
 
+    # Top part of inventory page
     def _draw_inventory_header(self, panel_rect, player):
+        # Create two font size for this part
         title_font = pygame.font.SysFont("Arial", 28, bold=True)
         small_font = pygame.font.SysFont("Arial", 16)
 
+        # Dispaly title, control instruction and player info
         title = title_font.render("Inventory", True, (236, 228, 204))
         controls = small_font.render(
-            "W/S Move   F Use/Equip   A Drop   I Close",
+            "W/S: Select   F: Use/Equip   A: Drop   I: Close",
             True,
             (162, 169, 178),
         )
         summary = self.font.render(
-            f"ATK {player.total_damage}   DEF {player.total_defense}",
+            f"ATK: {player.total_damage}   DEF: {player.total_defense}",
             True,
             (162, 204, 198),
         )
 
+        # Place them on the screen
         self.manager.screen.blit(title, (panel_rect.x + 24, panel_rect.y + 18))
         self.manager.screen.blit(controls, (panel_rect.x + 24, panel_rect.y + 52))
         self.manager.screen.blit(summary, (panel_rect.x + 24, panel_rect.y + 80))
 
+    # Left side of inventory page, list all items in inventory and show which one is selected
     def _draw_inventory_list(self, rect, items):
         self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
 
+        # Title
         list_title = self.font.render("Items", True, (210, 214, 220))
         self.manager.screen.blit(list_title, (rect.x + 16, rect.y + 12))
 
+        # Empty state
         if not items:
             empty = self.font.render("Your inventory is empty.", True, (145, 150, 158))
             hint = self.font.render("Pick up items to see them here.", True, (105, 112, 121))
@@ -196,11 +204,14 @@ class GameWindow(Screen):
         top = rect.y + 42
         bottom = rect.bottom - 12
 
+        # Loop through items and display them
         for i, item in enumerate(items):
+            # If the row goes beyond the bottom of the panel, stop drawing more items
             row_y = top + i * (row_height + 8)
             if row_y + row_height > bottom:
                 break
 
+            # Engine stores selected_index which is used to determine which item is highlighted
             row_rect = pygame.Rect(rect.x + 12, row_y, rect.width - 24, row_height)
             selected = i == self.engine.selected_index
             row_fill = (92, 69, 41) if selected else (42, 46, 53)
@@ -210,6 +221,7 @@ class GameWindow(Screen):
 
             self._draw_panel_box(row_rect, row_fill, row_border)
 
+            # Display item name, quantity, type, slot and equipped status
             quantity = f"x{item.quantity}"
             name = self.font.render(f"{item.name} {quantity}", True, name_color)
             meta_bits = [item.type.title()]
@@ -222,12 +234,14 @@ class GameWindow(Screen):
             self.manager.screen.blit(name, (row_rect.x + 14, row_rect.y + 10))
             self.manager.screen.blit(meta, (row_rect.x + 14, row_rect.y + 28))
 
+    # Right top of inventory page
     def _draw_equipment_summary(self, rect, player):
         self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
 
         title = self.font.render("Equipped", True, (210, 214, 220))
         self.manager.screen.blit(title, (rect.x + 16, rect.y + 12))
 
+        # Define display labels for each equipment slot
         slot_labels = {
             "weapon": "Weapon",
             "head": "Head",
@@ -236,6 +250,7 @@ class GameWindow(Screen):
         }
 
         line_y = rect.y + 46
+        # Loop through each equipment slot and display the equipped item or "--" if empty
         for slot_name in ("weapon", "head", "chest", "legs"):
             equipped = player.equipment.get(slot_name)
             label = equipped.name if equipped else "--"
@@ -248,6 +263,7 @@ class GameWindow(Screen):
             self.manager.screen.blit(slot_surf, (rect.x + 16, line_y))
             line_y += 28
 
+    # Right bottom of inventory page
     def _selected_item_detail_lines(self, item):
         if not item:
             return [("Select an item to inspect its details.", (145, 150, 158))]
@@ -275,12 +291,14 @@ class GameWindow(Screen):
             lines.append(("No additional details.", (145, 150, 158)))
         return lines
 
+    # Right bottom of inventory page
     def _draw_selected_item_details(self, rect, item):
         self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
 
         title = self.font.render("Details", True, (210, 214, 220))
         self.manager.screen.blit(title, (rect.x + 16, rect.y + 12))
 
+        # If an item is selected, display its name, type and details. Otherwise show a hint to select an item
         if item:
             name = self.font.render(item.name, True, (236, 228, 204))
             item_type = self.font.render(item.type.title(), True, (244, 214, 147))
@@ -290,6 +308,7 @@ class GameWindow(Screen):
         else:
             line_y = rect.y + 46
 
+        # Loop through the lines of details for the selected item and display them
         for line, color in self._selected_item_detail_lines(item):
             surf = self.font.render(line, True, color)
             self.manager.screen.blit(surf, (rect.x + 16, line_y))
@@ -318,6 +337,7 @@ class GameWindow(Screen):
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
+    # Inventory screen with 3 sections
     def _draw_inventory(self):
         # Semi-transparent dark overlay
         overlay = pygame.Surface(
@@ -326,6 +346,7 @@ class GameWindow(Screen):
         overlay.fill((0, 0, 0, 160))
         self.manager.screen.blit(overlay, (0, 0))
 
+        # Main panel
         p = self.engine.world.player
         panel_x, panel_y = 200, 80
         panel_w, panel_h = Config.WINDOW_WIDTH - 400, Config.WINDOW_HEIGHT - 160
@@ -334,17 +355,19 @@ class GameWindow(Screen):
 
         self._draw_inventory_header(panel_rect, p)
 
+        # Splits the panel body into left list and right sidebar
         body_top = panel_y + 116
         body_height = panel_h - 140
         left_width = int(panel_w * 0.62)
-        sidebar_width = panel_w - left_width - 36
+        sidebar_width = panel_w - left_width - 54
 
+        # Define rectangles for the three sections
         list_rect = pygame.Rect(panel_x + 18, body_top, left_width, body_height)
         equipment_rect = pygame.Rect(
             list_rect.right + 18,
             body_top,
             sidebar_width,
-            156,
+            174,
         )
         details_rect = pygame.Rect(
             list_rect.right + 18,
@@ -353,11 +376,13 @@ class GameWindow(Screen):
             body_height - equipment_rect.height - 14,
         )
 
+        # Get the player's inventory items
         items = self.engine.world.player.inventory
         selected_item = None
         if items and self.engine.selected_index < len(items):
             selected_item = items[self.engine.selected_index]
 
+        # Draw the three sections of the inventory panel
         self._draw_inventory_list(list_rect, items)
         self._draw_equipment_summary(equipment_rect, p)
         self._draw_selected_item_details(details_rect, selected_item)
