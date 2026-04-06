@@ -1,7 +1,10 @@
+from numpy import tile
 import pygame
 import math
 from core.config import Config
 from core.hexmath import HexMath
+from gameplay import world
+
 
 class GameRenderer:
     def __init__(self, asset_manager):
@@ -12,6 +15,31 @@ class GameRenderer:
         self.COLOR_WATER = (40, 59, 69) # #283b45
         self.COLOR_STONE = (56, 56, 56) # #383838
         self.COLOR_OUTLINE = (34, 34, 34) # #222
+
+        
+        self.cloud_images = [
+        pygame.image.load("assets/assetBank/clouds/cloud 1.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 2.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 3.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 4.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 5.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 6.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 7.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 8.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 9.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 10.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 11.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 12.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 13.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 14.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 15.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 16.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 17.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 18.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 19.png").convert_alpha(),
+        pygame.image.load("assets/assetBank/clouds/cloud 20.png").convert_alpha()
+        ]
+        
 
     def render(self, screen, world, frame_index=0):
         screen.fill(self.COLOR_BG)
@@ -124,7 +152,21 @@ class GameRenderer:
         terrain_layer.sort(key=lambda t: t[2])
         for tile, dx, dy in terrain_layer:
             self._draw_hex_base(screen, tile, dx, dy)
-            
+
+
+            # clouds that cover locked levels
+            if world.is_tile_locked(tile.q, tile.r):
+
+                # cloud couverage
+                if (tile.q * 5 + tile.r * 7) % 200 != 0:
+
+                    # cloud selection (images in the list)
+                    idx = abs(tile.q * 31 + tile.r * 17) % len(self.cloud_images)
+                    img = self.cloud_images[idx]
+
+                    self._draw_cloud_overlay(screen, img, dx, dy, scale=2.3)
+
+
         # Draw Objects (Sorted by Depth Y)
         object_layer.sort(key=lambda obj: obj["depth"])
 
@@ -213,3 +255,12 @@ class GameRenderer:
                 centery=y - Config.CALIB_OFFSET_Y - y_shift
             )
             screen.blit(img, rect)
+
+    # cloud helper function
+    def _draw_cloud_overlay(self, screen, img, x, y, scale=1.3):
+        width = int(img.get_width() * scale * 1.15)   # slightly wider
+        height = int(img.get_height() * scale * 0.9)   # slightly shorter
+        cloud = pygame.transform.smoothscale(img, (width, height))
+        cloud.set_alpha(210)  # soft fog
+        rect = cloud.get_rect(center=(x, y - Config.CALIB_OFFSET_Y))
+        screen.blit(cloud, rect)

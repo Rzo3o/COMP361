@@ -1,3 +1,5 @@
+from numpy import tile
+
 from core.config import Config
 from core.hexmath import HexMath
 from gameplay.models import Tile
@@ -168,4 +170,10 @@ class World:
                 return monster
         return None
     
+    # helper for clouds
+    def is_tile_locked(self, q, r):
+        tile = self.get_tile(q, r)
+        if not tile:
+            return True
+        return tile.level > self.current_level
     
