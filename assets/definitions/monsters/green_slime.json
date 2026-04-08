@@ -37,5 +37,6 @@
     "category": "monster",
     "name": "green_slime.json",
     "default_health": 50,
-    "default_damage": 10
+    "default_damage": 10,
+    "attack_hit_frame": 6
 }

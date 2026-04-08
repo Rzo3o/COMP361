@@ -38,6 +38,7 @@
     "name": "flying_monster.json",
     "default_health": 30,
     "default_damage": 10,
+    "attack_hit_frame": 6,
     "drops": [
         "dog.json",
         "dog2.json",

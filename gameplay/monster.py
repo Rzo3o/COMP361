@@ -111,7 +111,7 @@ class Monster(Entity):
         self.pending_attack_target = None
         self.pending_attack_damage = 0
         self.attack_damage_applied = False
-        self.attack_hit_frame = 6
+        self.attack_hit_frame = data.get("attack_hit_frame", 6)
 
         # Hurt animation settings
         self.hurt_interrupts_attack = True
