@@ -40,9 +40,9 @@ class Player(Entity):
         # Float progress timer and speed config for animations
         self.anim_progress = 0.0
         self.anim_speeds = {
-            "idle": 1.5,
-            "move": 2.0,
-            "attack": 2.0
+            "idle": 0.25,
+            "move": 0.5,
+            "attack": 1.0
         }
 
         self.texture = animations.get("archer_idle", {}).get("texture")
@@ -57,7 +57,7 @@ class Player(Entity):
         self.move_to_q = self.q
         self.move_to_r = self.r
         self.move_progress = 1.0
-        self.move_speed = 0.4
+        self.move_speed = 0.25
         self.pending_q = self.q
         self.pending_r = self.r
 

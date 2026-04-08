@@ -63,11 +63,11 @@ class GameWindow(Screen):
     def update(self):
         # Animation tick
         self.anim_timer += self.manager.clock.get_time()
-        if self.anim_timer > 150:
+        if self.anim_timer > 50:
             self.anim_timer = 0
             self.frame_index += 1
 
-            # player animation
+        # player animation
             player = self.engine.world.player
             if player:
                 player.update_animation(self.assets)
@@ -129,14 +129,14 @@ class GameWindow(Screen):
 
                 # Initialize real-time action timer 
                 if not hasattr(monster, "rt_action_timer"):
-                    monster.rt_action_timer = random.randint(30, 45) 
+                    monster.rt_action_timer = random.randint(20, 30) 
                 
                 monster.rt_action_timer -= 1
 
                 # Trigger monster AI decision if timer reaches zero
                 if monster.rt_action_timer <= 0:
                     monster.decide_and_act(self.engine.world, player)
-                    monster.rt_action_timer = random.randint(30, 45)
+                    monster.rt_action_timer = random.randint(20, 30)
 
     def draw(self):
         self.update()
