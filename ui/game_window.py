@@ -54,50 +54,10 @@ class GameWindow(Screen):
             if event.key == pygame.K_ESCAPE:
                 self.manager.switch_screen("main_menu")
 
-            # INPUT lock: prevent actions during animations
-            player = self.engine.world.player
-            if player:
-                # Check if player is moving or attacking
-                player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
-                
-                # Check if engine is waiting to calculate monster turns
-                waiting_for_logic = getattr(self.engine, "monsters_need_turn", False)
-                
-                # Check if any monster is currently animating
-                monsters_animating = False
-                for m in self.engine.world.monsters:
-                    if m.is_alive():
-                        if getattr(m, "is_moving", False) or m.anim_state in ("move", "attack", "hit"):
-                            monsters_animating = True
-                            break 
-
-                # If anything is animating or waiting, ignore the key press
-                if player_animating or waiting_for_logic or monsters_animating:
-                    return
-
-            action = None
-            if event.key == pygame.K_w:
-                action = "MOVE_NORTH"
-            elif event.key == pygame.K_s:
-                action = "MOVE_SOUTH"
-            elif event.key == pygame.K_a:
-                action = "MOVE_SW"
-            elif event.key == pygame.K_d:
-                action = "MOVE_EAST"
-            elif event.key == pygame.K_q:
-                action = "MOVE_WEST"
-            elif event.key == pygame.K_e:
-                action = "MOVE_NE"
-            elif event.key == pygame.K_f or event.key == pygame.K_SPACE:
-                action = "INTERACT"
+            # Open/Close Inventory should strictly be a single key press
             elif event.key == pygame.K_i or event.key == pygame.K_TAB:
                 action = "INVENTORY"
-
-            if action:
-                result = self.engine.run_turn(action)
-                if result == "GAME_OVER":
-                    #self.manager.running = False
-                    self.manager.switch_screen("game_over")
+                self.engine.run_turn(action)
                     
     def update(self):
         # Animation tick
@@ -136,6 +96,46 @@ class GameWindow(Screen):
             if waiting_for_monsters and not is_player_animating:
                 self.engine.process_monster_turns()      
                 self.engine.monsters_need_turn = False
+                return
+
+            # Continuous Input Polling (Long Press to Move/Attack)
+            # Check if any monster is currently animating
+            monsters_animating = False
+            for m in self.engine.world.monsters:
+                if m.is_alive():
+                    if getattr(m, "is_moving", False) or m.anim_state in ("move", "attack", "hit"):
+                        monsters_animating = True
+                        break 
+                        
+            # Check if we can accept player input right now
+            can_accept_input = not (is_player_animating or waiting_for_monsters or monsters_animating)
+            is_inventory_open = getattr(self.engine, "show_inventory", False)
+
+            if can_accept_input and not is_inventory_open:
+                keys = pygame.key.get_pressed()
+                action = None
+                
+                # Check for continuous hex movement or attack
+                if keys[pygame.K_w]:
+                    action = "MOVE_NORTH"
+                elif keys[pygame.K_s]:
+                    action = "MOVE_SOUTH"
+                elif keys[pygame.K_a]:
+                    action = "MOVE_SW"
+                elif keys[pygame.K_d]:
+                    action = "MOVE_EAST"
+                elif keys[pygame.K_q]:
+                    action = "MOVE_WEST"
+                elif keys[pygame.K_e]:
+                    action = "MOVE_NE"
+                elif keys[pygame.K_f] or keys[pygame.K_SPACE]:
+                    action = "INTERACT"
+
+                # If a valid key is being held down, execute the turn
+                if action:
+                    result = self.engine.run_turn(action)
+                    if result == "GAME_OVER":
+                        self.manager.switch_screen("game_over")
 
     def draw(self):
         self.update()
