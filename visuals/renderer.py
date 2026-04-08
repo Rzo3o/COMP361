@@ -226,6 +226,10 @@ class GameRenderer:
             else:
                 use_frame = frame_index
 
+            base_img = self.assets.get_anim_frame(entity.texture, use_frame)
+            if not base_img:
+                return
+        
             # add red flash effect to both player and monster
             is_flashing = getattr(entity, "damage_flash_timer", 0) > 0
             if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
@@ -235,15 +239,13 @@ class GameRenderer:
             # Change the texture direction with player and monsters direction
             is_flipped = getattr(entity, "flip_x", False)
 
-            cache_key = (entity.texture, use_frame, is_flashing, is_flipped)
+            cache_key = (id(base_img), is_flashing, is_flipped)
 
             # First look in cache, if not found, generate new one and cache it
             if cache_key in self.image_cache:
                 img = self.image_cache[cache_key]
             else:
-                img = self.assets.get_anim_frame(entity.texture, use_frame)
-                if not img:
-                    return
+                img = base_img
                 
                 if is_flashing:
                     flash_img = img.copy()  # make a copy of origin img
