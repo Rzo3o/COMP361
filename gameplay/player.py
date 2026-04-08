@@ -72,6 +72,8 @@ class Player(Entity):
         # Damage flash timer
         self.damage_flash_timer = 0
 
+        self.flip_x = False
+
         # debug
         print("[Player init] data keys:", data.keys())
         print("[Player init] texture_file:", data.get("texture_file"))

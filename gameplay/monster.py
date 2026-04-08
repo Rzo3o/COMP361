@@ -142,6 +142,8 @@ class Monster(Entity):
         self.move_progress = 1.0
         self.move_speed = 0.25
 
+        self.flip_x = False
+
     # Hex utilities
     @staticmethod
     def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:

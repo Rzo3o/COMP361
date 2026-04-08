@@ -16,7 +16,9 @@ class GameRenderer:
         self.COLOR_STONE = (56, 56, 56) # #383838
         self.COLOR_OUTLINE = (34, 34, 34) # #222
 
-        
+        # render cache pool, to reduce lagging
+        self.image_cache = {}
+
         self.cloud_images = [
         pygame.image.load("assets/assetBank/clouds/cloud 1.png").convert_alpha(),
         pygame.image.load("assets/assetBank/clouds/cloud 2.png").convert_alpha(),
@@ -224,28 +226,42 @@ class GameRenderer:
             else:
                 use_frame = frame_index
 
-            img = self.assets.get_anim_frame(entity.texture, use_frame)
-            scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
+            # add red flash effect to both player and monster
+            is_flashing = getattr(entity, "damage_flash_timer", 0) > 0
+            if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
+                if entity.anim_state.endswith("die") and entity.anim_tick < 4:
+                    is_flashing = True  
+                
+            # Change the texture direction with player and monsters direction
+            is_flipped = getattr(entity, "flip_x", False)
 
-            if img:
-                # add red flash effect to both player and monster
-                is_flashing = getattr(entity, "damage_flash_timer", 0) > 0
+            cache_key = (entity.texture, use_frame, is_flashing, is_flipped)
 
-                # Red flash for monster when playing 'die' animation
-                if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
-                    if entity.anim_state.endswith("die") and entity.anim_tick < 4:
-                        is_flashing = True  
-                    
+            # First look in cache, if not found, generate new one and cache it
+            if cache_key in self.image_cache:
+                img = self.image_cache[cache_key]
+            else:
+                img = self.assets.get_anim_frame(entity.texture, use_frame)
+                if not img:
+                    return
+                
                 if is_flashing:
                     flash_img = img.copy()  # make a copy of origin img
                     flash_img.fill((255, 50, 50), special_flags=pygame.BLEND_RGB_MULT)
                     img = flash_img
 
-                rect = img.get_rect(
-                    centerx=x + x_shift,
-                    centery=y - Config.CALIB_OFFSET_Y - y_shift
-                )
-                screen.blit(img, rect)
+                if is_flipped:
+                    img = pygame.transform.flip(img, True, False)
+
+                # cache it
+                self.image_cache[cache_key] = img
+
+            scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
+            rect = img.get_rect(
+                centerx=x + x_shift,
+                centery=y - Config.CALIB_OFFSET_Y - y_shift
+            )
+            screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)
 

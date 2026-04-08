@@ -67,7 +67,7 @@ class GameWindow(Screen):
             self.anim_timer = 0
             self.frame_index += 1
 
-        # player animation
+            # player animation
             player = self.engine.world.player
             if player:
                 player.update_animation(self.assets)
@@ -114,6 +114,11 @@ class GameWindow(Screen):
                 elif keys[pygame.K_f] or keys[pygame.K_SPACE]: action = "INTERACT"
 
                 if action:
+                    if action in ("MOVE_WEST", "MOVE_SW"): # q, a
+                        player.flip_x = True
+                    elif action in ("MOVE_EAST", "MOVE_NE"): # e, d
+                        player.flip_x = False
+                    
                     result = self.engine.run_turn(action)
                     if result == "GAME_OVER":
                         self.manager.switch_screen("game_over")
@@ -135,6 +140,11 @@ class GameWindow(Screen):
 
                 # Trigger monster AI decision if timer reaches zero
                 if monster.rt_action_timer <= 0:
+                    if player.q > monster.q:
+                        monster.flip_x = True
+                    elif player.q < monster.q:
+                        monster.flip_x = False
+
                     monster.decide_and_act(self.engine.world, player)
                     monster.rt_action_timer = random.randint(20, 30)
 
