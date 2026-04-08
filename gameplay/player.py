@@ -123,7 +123,8 @@ class Player(Entity):
         for item in self.inventory:
             if item.equipped and item.is_equippable:
                 self.equipment[item.slot] = item
-        self.set_anim_state(self.anim_state, reset_frame=True)
+        should_reset = not (self.is_attacking or self.is_moving)
+        self.set_anim_state(self.anim_state, reset_frame=should_reset)
 
     def use_item(self, index, db, session_id):
         if not self.inventory or index >= len(self.inventory):

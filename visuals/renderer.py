@@ -216,7 +216,8 @@ class GameRenderer:
         if entity.texture:
             # monsters can use their own animation tick for attack
             if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
-                if entity.anim_state in ("attack", "hit", "die", "move"):
+                # Now match with archer_...
+                if entity.anim_state.endswith(("attack", "hit", "die", "move")):
                     use_frame = entity.anim_tick
                 else:
                     use_frame = frame_index
@@ -227,12 +228,19 @@ class GameRenderer:
             scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
 
             if img:
-                # add red flash effect
-                if getattr(entity, "damage_flash_timer", 0) > 0:
+                # add red flash effect to both player and monster
+                is_flashing = getattr(entity, "damage_flash_timer", 0) > 0
+
+                # Red flash for monster when playing 'die' animation
+                if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
+                    if entity.anim_state.endswith("die") and entity.anim_tick < 4:
+                        is_flashing = True  
+                    
+                if is_flashing:
                     flash_img = img.copy()  # make a copy of origin img
                     flash_img.fill((255, 50, 50), special_flags=pygame.BLEND_RGB_MULT)
                     img = flash_img
-                    
+
                 rect = img.get_rect(
                     centerx=x + x_shift,
                     centery=y - Config.CALIB_OFFSET_Y - y_shift
