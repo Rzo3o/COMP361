@@ -102,6 +102,16 @@ class Monster(Entity):
         self.anim_tick = 0
         self.texture = animations.get("idle", {}).get("texture")
 
+        # Float progress timer and speed config for animations
+        self.anim_progress = 0.0  
+        self.anim_speeds = {
+            "idle": 1.5,
+            "move": 2.0,
+            "attack": 2.0,  
+            "hit": 1.8,     
+            "die": 2.0      
+        }
+
         print("Monster init:", self.name)
         print("animations:", animations)
         print("idle texture from json:", animations.get("idle", {}).get("texture"))
@@ -130,7 +140,7 @@ class Monster(Entity):
         self.move_to_q = self.q
         self.move_to_r = self.r
         self.move_progress = 1.0
-        self.move_speed = 0.25 
+        self.move_speed = 0.4
 
     # Hex utilities
     @staticmethod
@@ -422,6 +432,13 @@ class Monster(Entity):
 
         frame_count = meta.get("count", 1)
 
+        # Calculate current animation speed based on state
+        current_anim_speed = 1.0
+        for base_state, speed in getattr(self, "anim_speeds", {}).items():
+            if self.anim_state.endswith(base_state):
+                current_anim_speed = speed
+                break
+
         # move animation: advance interpolation + animate frames
         if self.anim_state == "move":
             # advance tile-to-tile interpolation
@@ -433,11 +450,13 @@ class Monster(Entity):
                     self.is_moving = False
 
             # animate move frames
-            self.anim_tick += 1
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
 
             # loop move frames while moving
             if self.anim_tick >= frame_count:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
             # once movement finishes, return to idle
             if not getattr(self, "is_moving", False):
@@ -456,7 +475,8 @@ class Monster(Entity):
                     self.pending_attack_target.take_damage(self.pending_attack_damage)
                 self.attack_damage_applied = True
 
-        self.anim_tick += 1
+        self.anim_progress += current_anim_speed
+        self.anim_tick = int(self.anim_progress)
 
         # Handle state change after the animation finishes
         if self.anim_tick >= frame_count:
@@ -481,10 +501,12 @@ class Monster(Entity):
             elif self.anim_state == "die":
                 # Keep the last frame for death animation
                 self.anim_tick = frame_count - 1
+                self.anim_progress = float(frame_count - 1)
                 self.death_finished = True
                 self.remove_after_death = True
             else:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
     def get_animation_config(self):
         # Get the animation config for the current state
@@ -516,6 +538,7 @@ class Monster(Entity):
 
         if reset_frame:
             self.anim_tick = 0
+            self.anim_progress = 0.0
 
 
 

@@ -37,6 +37,14 @@ class Player(Entity):
         self.anim_state = "idle"
         self.anim_tick = 0
 
+        # Float progress timer and speed config for animations
+        self.anim_progress = 0.0
+        self.anim_speeds = {
+            "idle": 1.5,
+            "move": 2.0,
+            "attack": 2.0
+        }
+
         self.texture = animations.get("archer_idle", {}).get("texture")
         if not self.texture:
             print("[Player init WARNING] no idle texture found in animations!")
@@ -49,7 +57,7 @@ class Player(Entity):
         self.move_to_q = self.q
         self.move_to_r = self.r
         self.move_progress = 1.0
-        self.move_speed = 0.25
+        self.move_speed = 0.4
         self.pending_q = self.q
         self.pending_r = self.r
 
@@ -240,6 +248,7 @@ class Player(Entity):
 
         if reset_frame:
             self.anim_tick = 0
+            self.anim_progress = 0.0
 
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
@@ -271,6 +280,12 @@ class Player(Entity):
 
         self.set_anim_state(self.anim_state, reset_frame=False)
 
+        current_anim_speed = 1.0
+        for base_state, speed in getattr(self, "anim_speeds", {}).items():
+            if self.anim_state.endswith(base_state):
+                current_anim_speed = speed
+                break
+        
         # MOVE animation
         if "move" in self.anim_state:
             if self.is_moving:
@@ -279,9 +294,13 @@ class Player(Entity):
                     self.move_progress = 1.0
                     self.is_moving = False
 
-            self.anim_tick += 1
+            # Use float progress to advance animation frames instead of += 1
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
+
             if self.anim_tick >= frame_count:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
             if not self.is_moving:
                 self.set_anim_state("idle", reset_frame=True)
@@ -306,7 +325,8 @@ class Player(Entity):
                 self.attack_damage_applied = True
 
         # ATTACK animation
-        self.anim_tick += 1
+        self.anim_progress += current_anim_speed
+        self.anim_tick = int(self.anim_progress)
 
         if self.anim_tick >= frame_count:
             if "attack" in self.anim_state:
@@ -319,6 +339,7 @@ class Player(Entity):
                 self.set_anim_state("idle", reset_frame=True)
             else:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
         # decrement the timer
         if getattr(self, "damage_flash_timer", 0) > 0:
