@@ -6,6 +6,7 @@ from visuals.asset_manager import AssetManager
 from visuals.renderer import GameRenderer
 from ui.button import Button
 from ui.base_screen import Screen
+import random
 
 
 class GameWindow(Screen):
@@ -71,6 +72,7 @@ class GameWindow(Screen):
             if player:
                 player.update_animation(self.assets)
 
+            # Update all monnster's sprite frames and handle death cleanup
             monsters_to_remove = []
 
             for monster in self.engine.world.monsters:
@@ -86,56 +88,55 @@ class GameWindow(Screen):
                 if monster in self.engine.world.monsters:
                     self.engine.world.monsters.remove(monster)
 
-        # Animation lock 
+        # Implement real-time ARPG 
         player = self.engine.world.player
-        if player:
-            waiting_for_monsters = getattr(self.engine, "monsters_need_turn", False)
+        if not player:
+            return
+        
+        # Check current status
+        is_player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
+        is_inventory_open = getattr(self.engine, "show_inventory", False)
 
-            is_player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
+        # Only process game actions if the inventory is closed
+        if not is_inventory_open:
 
-            if waiting_for_monsters and not is_player_animating:
-                self.engine.process_monster_turns()      
-                self.engine.monsters_need_turn = False
-                return
-
-            # Continuous Input Polling (Long Press to Move/Attack)
-            # Check if any monster is currently animating
-            monsters_animating = False
-            for m in self.engine.world.monsters:
-                if m.is_alive():
-                    if getattr(m, "is_moving", False) or m.anim_state in ("move", "attack", "hit"):
-                        monsters_animating = True
-                        break 
-                        
-            # Check if we can accept player input right now
-            can_accept_input = not (is_player_animating or waiting_for_monsters or monsters_animating)
-            is_inventory_open = getattr(self.engine, "show_inventory", False)
-
-            if can_accept_input and not is_inventory_open:
+            # Only accept new commands if the player has finished their current action
+            if not is_player_animating:
                 keys = pygame.key.get_pressed()
                 action = None
-                
-                # Check for continuous hex movement or attack
-                if keys[pygame.K_w]:
-                    action = "MOVE_NORTH"
-                elif keys[pygame.K_s]:
-                    action = "MOVE_SOUTH"
-                elif keys[pygame.K_a]:
-                    action = "MOVE_SW"
-                elif keys[pygame.K_d]:
-                    action = "MOVE_EAST"
-                elif keys[pygame.K_q]:
-                    action = "MOVE_WEST"
-                elif keys[pygame.K_e]:
-                    action = "MOVE_NE"
-                elif keys[pygame.K_f] or keys[pygame.K_SPACE]:
-                    action = "INTERACT"
+            
+                if keys[pygame.K_w]: action = "MOVE_NORTH"
+                elif keys[pygame.K_s]: action = "MOVE_SOUTH"
+                elif keys[pygame.K_a]: action = "MOVE_SW"
+                elif keys[pygame.K_d]: action = "MOVE_EAST"
+                elif keys[pygame.K_q]: action = "MOVE_WEST"
+                elif keys[pygame.K_e]: action = "MOVE_NE"
+                elif keys[pygame.K_f] or keys[pygame.K_SPACE]: action = "INTERACT"
 
-                # If a valid key is being held down, execute the turn
                 if action:
                     result = self.engine.run_turn(action)
                     if result == "GAME_OVER":
                         self.manager.switch_screen("game_over")
+
+            # Independent Monster AI Handling
+            for monster in self.engine.world.monsters:
+                if not monster.is_alive():
+                    continue
+
+                is_monster_animating = getattr(monster, "is_moving", False) or monster.anim_state in ("move", "attack", "hit")
+                if is_monster_animating:
+                    continue
+
+                # Initialize real-time action timer 
+                if not hasattr(monster, "rt_action_timer"):
+                    monster.rt_action_timer = random.randint(30, 45) 
+                
+                monster.rt_action_timer -= 1
+
+                # Trigger monster AI decision if timer reaches zero
+                if monster.rt_action_timer <= 0:
+                    monster.decide_and_act(self.engine.world, player)
+                    monster.rt_action_timer = random.randint(30, 45)
 
     def draw(self):
         self.update()
