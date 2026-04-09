@@ -4,7 +4,7 @@ from core.config import Config
 from core.hexmath import HexMath
 from gameplay.models import Tile
 from gameplay.player import Player
-from gameplay.monster import Monster
+from gameplay.monster import MonsterFactory
 from gameplay.item import Item
 from gameplay.resource_lock import (
     ResourceLockManager,
@@ -51,7 +51,7 @@ class World:
         self.monsters = []
         rows = self.db.load_monsters()
         for data in rows:
-            monster = Monster(data)
+            monster = MonsterFactory.create_monster(data)
             # Equip saved items for each slot
             for slot_name in ("weapon", "armor"):
                 item_data = data.get(f"{slot_name}_item")

@@ -29,16 +29,29 @@
             "fw": 64,
             "fh": 64,
             "count": 16
+        },
+        "stun": {
+            "texture": "Enemy1-HitStun.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 12
+        },
+        "charge": {
+            "texture": "Enemy1-Charge-Anticipation.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 6
         }
     },
     "scale": 1.826818181818182,
     "x_shift": 0,
-    "y_shift": -36,
+    "y_shift": -35,
     "category": "monster",
     "name": "flying_monster.json",
     "default_health": 30,
     "default_damage": 10,
     "attack_hit_frame": 6,
+    "vision_range": 7,
     "drops": [
         "dog.json",
         "dog2.json",

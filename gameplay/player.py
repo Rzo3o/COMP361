@@ -42,7 +42,7 @@ class Player(Entity):
         self.anim_speeds = {
             "idle": 0.25,
             "move": 0.5,
-            "attack": 1.0
+            "attack": 0.8
         }
 
         self.texture = animations.get("archer_idle", {}).get("texture")
@@ -182,10 +182,6 @@ class Player(Entity):
         self.move_progress = 0.0
         self.is_moving = True
         self.set_anim_state("move", reset_frame=True)
-
-        self.hunger = max(0, self.hunger - 1)
-        if self.hunger == 0:
-            self.take_damage(5)
 
     def move(self, dq, dr):
         self.start_move(dq, dr)

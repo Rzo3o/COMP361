@@ -150,7 +150,7 @@ class GameWindow(Screen):
 
                 # Initialize real-time action timer 
                 if not hasattr(monster, "rt_action_timer"):
-                    monster.rt_action_timer = random.randint(20, 30) 
+                    monster.rt_action_timer = random.randint(30, 40) 
                 
                 monster.rt_action_timer -= 1
 
@@ -162,7 +162,7 @@ class GameWindow(Screen):
                         monster.flip_x = False
 
                     monster.decide_and_act(self.engine.world, player)
-                    monster.rt_action_timer = random.randint(20, 30)
+                    monster.rt_action_timer = random.randint(30, 40)
 
     def draw(self):
         self.update()

@@ -219,7 +219,7 @@ class GameRenderer:
             # monsters can use their own animation tick for attack
             if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
                 # Now match with archer_...
-                if entity.anim_state.endswith(("attack", "hit", "die", "move")):
+                if entity.anim_state.endswith(("attack", "hit", "die", "move", "stun", "charge")):
                     use_frame = entity.anim_tick
                 else:
                     use_frame = frame_index
