@@ -59,6 +59,22 @@ class GameWindow(Screen):
             elif event.key == pygame.K_i or event.key == pygame.K_TAB:
                 action = "INVENTORY"
                 self.engine.run_turn(action)
+
+            # Let the inventory still read from the input key
+            elif getattr(self.engine, "show_inventory", False):
+                action = None
+
+                if event.key == pygame.K_w:
+                    action = "MOVE_NORTH"       
+                elif event.key == pygame.K_s:
+                    action = "MOVE_SOUTH"       
+                elif event.key == pygame.K_a:
+                    action = "MOVE_SW"        
+                elif event.key == pygame.K_f or event.key == pygame.K_SPACE:
+                    action = "INTERACT"         
+
+                if action:
+                    self.engine.run_turn(action)
                     
     def update(self):
         # Animation tick
