@@ -159,6 +159,9 @@ class GameRenderer:
             # clouds that cover locked levels
             if world.is_tile_locked(tile.q, tile.r):
 
+                if tile.discovered:
+                    continue  # if already discovered, don't draw clouds
+
                 # cloud couverage
                 if (tile.q * 5 + tile.r * 7) % 200 != 0:
 
