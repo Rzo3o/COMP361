@@ -35,6 +35,12 @@
             "fw": 80,
             "fh": 64,
             "count": 18
+        },
+        "charge": {
+            "texture": "Mushroom-AttackWithStun.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 5
         }
     },
     "scale": 1.8293032786885246,
