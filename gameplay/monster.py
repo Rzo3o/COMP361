@@ -802,10 +802,12 @@ class SlimeMonster(Monster):
                 self.has_exploded = True
 
     def _explode(self):
-        if not self._cached_player:
+        world = self._cached_world
+        player = self._cached_player
+
+        if not world or not player:
             return
 
-        player = self._cached_player
         dist = self.hex_distance(self.q, self.r, player.q, player.r)
         
         # Determine explosion properties based on slime name
@@ -826,28 +828,28 @@ class SlimeMonster(Monster):
             color = (50, 255, 50)
 
         # Add explosion effect in the world
-        if hasattr(self._cached_world, "effects"):
+        if hasattr(world, "effects"):
             effect = CircleExplosion(self.q, self.r, color, radius)
-            self._cached_world.effects.append(effect) # type: ignore
+            world.effects.append(effect) 
 
+        # Explosion deals 1.5x base damage
+        explosion_damage = int(self.damage * 1.5)
+        
         # Check if player is caught in the blast radius
         if dist <= radius:
-            # Explosion deals 1.5x base damage
-            explosion_damage = int(self.damage * 1.5) 
+            player.take_damage(explosion_damage)
             
             if is_poisonous:
                 # Apply poison effect (3 turns, 2 damage per turn)
                 if hasattr(player, "apply_poison"):
                     player.apply_poison(turns=5, damage_per_turn=3)
-                
-                # Trigger specific purple hit animation for poison
-                if hasattr(player, "take_poison_damage"):
-                    player.take_poison_damage(explosion_damage)
-                else:
-                    player.take_damage(explosion_damage)
-            else:
-                # Normal physical explosion hit
-                player.take_damage(explosion_damage)
+        if hasattr(world, "monsters"):
+            for m in world.monsters:
+                if m != self and m.is_alive():
+                    dist_to_monster = self.hex_distance(self.q, self.r, m.q, m.r)
+                    
+                    if dist_to_monster <= radius:
+                        m.take_damage(explosion_damage)
 
 
 class MonsterFactory:

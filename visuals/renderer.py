@@ -196,9 +196,9 @@ class GameRenderer:
                     -200 < edx < Config.WINDOW_WIDTH + 200
                     and -200 < edy < Config.WINDOW_HEIGHT + 200
                 ):
-                    # Calculate alpha for fade-out effect (255 -> 0)
+                    # Calculate alpha for fade-out effect (160 -> 0)
                     progress = effect.current_radius / effect.max_pixel_radius
-                    alpha = int(255 * (1.0 - progress))
+                    alpha = int(160 * (1.0 - progress))
                     alpha = max(0, min(255, alpha))
                     
                     if alpha <= 0:

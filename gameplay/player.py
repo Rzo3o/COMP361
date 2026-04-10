@@ -352,10 +352,26 @@ class Player(Entity):
         if getattr(self, "poison_flash_timer", 0) > 0:
             self.poison_flash_timer -= 1
 
+        if getattr(self, "poison_turns_remaining", 0) > 0 and self.is_alive():
+            # Initialize the timer if it doesn't exist
+            if not hasattr(self, "poison_tick_timer"):
+                self.poison_tick_timer = 0
+                
+            self.poison_tick_timer += 1
+            
+            # Since update_animation is called every 50ms (from game_window),
+            if self.poison_tick_timer >= 20:
+                self.take_poison_damage(self.poison_damage_per_turn)
+                self.poison_turns_remaining -= 1
+                
+                # Reset the timer for the next second's tick
+                self.poison_tick_timer = 0
+
     def apply_poison(self, turns: int, damage_per_turn: int):
         """Apply poison status effect to the player"""
         self.poison_turns_remaining = turns
         self.poison_damage_per_turn = damage_per_turn
+        self.poison_tick_timer = 0
 
     def take_poison_damage(self, amount: int):
         """Take damage and trigger the purple poison hit animation"""
@@ -368,9 +384,3 @@ class Player(Entity):
             self.dead = True
             
         return amount
-    
-    def process_turn_effects(self):
-        """Call this function every time the player takes a turn/moves"""
-        if self.poison_turns_remaining > 0:
-            self.take_poison_damage(self.poison_damage_per_turn)
-            self.poison_turns_remaining -= 1
