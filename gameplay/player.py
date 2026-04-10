@@ -347,6 +347,8 @@ class Player(Entity):
         if getattr(self, "damage_flash_timer", 0) > 0:
             self.damage_flash_timer -= 1
 
+        if getattr(self, "poison_flash_timer", 0) > 0:
+            self.poison_flash_timer -= 1
 
         if getattr(self, "poison_turns_remaining", 0) > 0 and self.is_alive():
             # Initialize the timer if it doesn't exist
