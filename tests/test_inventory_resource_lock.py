@@ -5,6 +5,7 @@ from gameplay.resource_lock import ResourceState, inventory_resource_id
 
 
 def _make_db(tmp_path, monkeypatch):
+    # create a temporary database file and set up the test environment
     project_root = Path(__file__).parent.parent
     monkeypatch.chdir(project_root)
     db = DatabaseManager(db_file=str(tmp_path / "test_inventory_lock.db"))
@@ -45,10 +46,12 @@ def _insert_item(
 
 
 def _insert_spawn_tile(db):
+    # Set a tile as spawn point for player to ensure inventory can be loaded without errors
     db.cursor.execute("UPDATE map_tiles SET is_spawn = 1 WHERE q = 0 AND r = 0")
     db.conn.commit()
 
 
+# Test that inventory items have correct resource IDs for locking
 def test_player_inventory_items_use_inventory_entry_resource_ids(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     item_id = _insert_item(db)
@@ -64,7 +67,7 @@ def test_player_inventory_items_use_inventory_entry_resource_ids(tmp_path, monke
     assert item.resource_id == inventory_resource_id(item.inventory_entry_id)
     db.close()
 
-
+# Test that using 1 item out of 2
 def test_engine_use_food_releases_lock_for_remaining_stack(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     _insert_spawn_tile(db)
@@ -85,13 +88,14 @@ def test_engine_use_food_releases_lock_for_remaining_stack(tmp_path, monkeypatch
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
-    assert player.hp == 75
-    assert player.hunger == 50
-    assert player.inventory[0].quantity == 1
+    assert player.hp == 75 # 50 + 25 healing
+    assert player.hunger == 50 # 30 + 20 hunger restore
+    assert player.inventory[0].quantity == 1 # One item should be used, one should remain
     assert engine.world.resource_locks.get_state(resource_id) == ResourceState.AVAILABLE
     db.close()
 
 
+# Test that using the last item
 def test_engine_use_food_consumes_lock_when_stack_empties(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     _insert_spawn_tile(db)
@@ -107,6 +111,7 @@ def test_engine_use_food_consumes_lock_when_stack_empties(tmp_path, monkeypatch)
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
+    # After using the last item in the stack, the inventory should be empty and the resource lock should be consumed
     assert engine.world.player.inventory == []
     assert engine.world.resource_locks.get_state(resource_id) == ResourceState.CONSUMED
     db.close()
