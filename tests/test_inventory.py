@@ -40,6 +40,22 @@ def _insert_item(
     return db.cursor.lastrowid
 
 
+def _place_item_on_ground(db, item_id, q=0, r=0):
+    """Place an existing item on a map tile."""
+    db.cursor.execute("SELECT id FROM map_tiles WHERE q=? AND r=?", (q, r))
+    tile = db.cursor.fetchone()
+    if tile is None:
+        db.cursor.execute(
+            "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (?, ?, 'grass', 0)",
+            (q, r),
+        )
+        tile_id = db.cursor.lastrowid
+    else:
+        tile_id = tile["id"]
+    db.cursor.execute("UPDATE items SET tile=? WHERE id=?", (tile_id, item_id))
+    db.conn.commit()
+
+
 # Database
 
 
@@ -249,7 +265,7 @@ def test_engine_inventory_toggle(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     # Engine needs tiles in the DB to build the world, so insert a spawn tile
     db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
+        "INSERT OR IGNORE INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
     )
     db.conn.commit()
 
@@ -268,7 +284,7 @@ def test_engine_inventory_toggle(tmp_path, monkeypatch):
 def test_engine_use_food_removes_from_inventory(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
+        "INSERT OR IGNORE INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
     )
     db.conn.commit()
 
@@ -303,7 +319,7 @@ def test_engine_use_food_removes_from_inventory(tmp_path, monkeypatch):
 def test_engine_equip_weapon_applies_stats(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
+        "INSERT OR IGNORE INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
     )
     db.conn.commit()
 
@@ -332,7 +348,7 @@ def test_engine_equip_weapon_applies_stats(tmp_path, monkeypatch):
 def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
+        "INSERT OR IGNORE INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
     )
     db.conn.commit()
 
@@ -359,7 +375,7 @@ def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
 def test_engine_drop_item(tmp_path, monkeypatch):
     db, sid = _make_db(tmp_path, monkeypatch)
     db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
+        "INSERT OR IGNORE INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
     )
     db.conn.commit()
 
@@ -377,4 +393,58 @@ def test_engine_drop_item(tmp_path, monkeypatch):
     inv = engine.world.player.inventory
     assert len(inv) == 1
     assert inv[0].quantity == 2
+    db.close()
+
+
+def test_engine_interact_picks_up_ground_item(tmp_path, monkeypatch):
+    db, sid = _make_db(tmp_path, monkeypatch)
+    item_id = _insert_item(db, name="Bread", item_type="food", healing=10, hunger=5)
+    _place_item_on_ground(db, item_id, q=0, r=0)
+
+    from gameplay.engine import GameEngine
+
+    engine = GameEngine(db, sid)
+
+    result = engine.handle_input("INTERACT")
+
+    assert result == "TURN_TAKEN"
+    assert len(engine.world.ground_items) == 0
+    inv = db.load_inventory(sid)
+    assert len(inv) == 1
+    assert inv[0]["name"] == "Bread"
+    db.close()
+
+
+def test_engine_interact_picks_up_all_ground_items_on_tile(tmp_path, monkeypatch):
+    db, sid = _make_db(tmp_path, monkeypatch)
+    bread_id = _insert_item(db, name="Bread", item_type="food")
+    armor_id = _insert_item(db, name="Armor", item_type="armor", slot="armor", defense=5)
+    _place_item_on_ground(db, bread_id, q=0, r=0)
+    _place_item_on_ground(db, armor_id, q=0, r=0)
+
+    from gameplay.engine import GameEngine
+
+    engine = GameEngine(db, sid)
+
+    result = engine.handle_input("INTERACT")
+
+    assert result == "TURN_TAKEN"
+    assert engine.world.get_ground_items_at(0, 0) == []
+    inv = db.load_inventory(sid)
+    assert {item["name"] for item in inv} == {"Bread", "Armor"}
+    db.close()
+
+
+def test_engine_interact_with_no_ground_item_is_no_action(tmp_path, monkeypatch):
+    db, sid = _make_db(tmp_path, monkeypatch)
+
+    from gameplay.engine import GameEngine
+
+    engine = GameEngine(db, sid)
+
+    result = engine.handle_input("INTERACT")
+
+    assert result == "NO_ACTION"
+    assert engine.world.ground_items == []
+    assert db.load_inventory(sid) == []
     db.close()

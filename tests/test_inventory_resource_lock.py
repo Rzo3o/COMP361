@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from database.db_manager import DatabaseManager
-from gameplay.resource_lock import ResourceState, inventory_resource_id
+from gameplay.resource_lock import (
+    ResourceState,
+    ground_resource_id,
+    inventory_resource_id,
+)
 
 
 def _make_db(tmp_path, monkeypatch):
@@ -48,6 +52,21 @@ def _insert_item(
 def _insert_spawn_tile(db):
     # Set a tile as spawn point for player to ensure inventory can be loaded without errors
     db.cursor.execute("UPDATE map_tiles SET is_spawn = 1 WHERE q = 0 AND r = 0")
+    db.conn.commit()
+
+
+def _place_item_on_ground(db, item_id, q=0, r=0):
+    db.cursor.execute("SELECT id FROM map_tiles WHERE q=? AND r=?", (q, r))
+    tile = db.cursor.fetchone()
+    if tile is None:
+        db.cursor.execute(
+            "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (?, ?, 'grass', 0)",
+            (q, r),
+        )
+        tile_id = db.cursor.lastrowid
+    else:
+        tile_id = tile["id"]
+    db.cursor.execute("UPDATE items SET tile=? WHERE id=?", (tile_id, item_id))
     db.conn.commit()
 
 
@@ -114,4 +133,42 @@ def test_engine_use_food_consumes_lock_when_stack_empties(tmp_path, monkeypatch)
     # After using the last item in the stack, the inventory should be empty and the resource lock should be consumed
     assert engine.world.player.inventory == []
     assert engine.world.resource_locks.get_state(resource_id) == ResourceState.CONSUMED
+    db.close()
+
+
+def test_ground_items_use_ground_resource_ids(tmp_path, monkeypatch):
+    db, sid = _make_db(tmp_path, monkeypatch)
+    _insert_spawn_tile(db)
+
+    item_id = _insert_item(db, name="Bread")
+    _place_item_on_ground(db, item_id, q=0, r=0)
+
+    from gameplay.world import World
+
+    world = World(db, sid)
+
+    item = world.ground_items[0]
+    assert item.resource_id == ground_resource_id(item_id)
+    db.close()
+
+
+def test_engine_pickup_consumes_ground_lock(tmp_path, monkeypatch):
+    db, sid = _make_db(tmp_path, monkeypatch)
+    _insert_spawn_tile(db)
+
+    item_id = _insert_item(db, name="Bread")
+    _place_item_on_ground(db, item_id, q=0, r=0)
+
+    from gameplay.engine import GameEngine
+
+    engine = GameEngine(db, sid)
+    resource_id = engine.world.ground_items[0].resource_id
+
+    assert engine.world.resource_locks.get_state(resource_id) == ResourceState.AVAILABLE
+
+    result = engine.handle_input("INTERACT")
+
+    assert result == "TURN_TAKEN"
+    assert engine.world.resource_locks.get_state(resource_id) == ResourceState.CONSUMED
+    assert engine.world.ground_items == []
     db.close()

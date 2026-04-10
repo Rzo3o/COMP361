@@ -353,6 +353,11 @@ class DatabaseManager:
             )
         self.conn.commit()
 
+    def remove_ground_item(self, item_id):
+        """Remove an item from the ground by clearing its tile reference."""
+        self.cursor.execute("UPDATE items SET tile=NULL WHERE id=?", (item_id,))
+        self.conn.commit()
+
     def remove_item(self, session_id, item_id, quantity=1):
         """Removes quantity of an item. Deletes row if quantity hits 0."""
         self.cursor.execute(
