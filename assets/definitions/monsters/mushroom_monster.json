@@ -1,0 +1,54 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Mushroom-Idle.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 7
+        },
+        "move": {
+            "texture": "Mushroom-Run.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 8
+        },
+        "attack": {
+            "texture": "Mushroom-Attack.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 10
+        },
+        "hit": {
+            "texture": "Mushroom-Hit.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 5
+        },
+        "die": {
+            "texture": "Mushroom-Die.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 12
+        },
+        "stun": {
+            "texture": "Mushroom-Stun.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 18
+        },
+        "charge": {
+            "texture": "Mushroom-AttackWithStun.png",
+            "fw": 80,
+            "fh": 64,
+            "count": 5
+        }
+    },
+    "scale": 1.8293032786885246,
+    "x_shift": 0,
+    "y_shift": 0,
+    "category": "monster",
+    "name": "mushroom_monster.json",
+    "default_health": 50,
+    "default_damage": 10,
+    "attack_hit_frame": 6
+}

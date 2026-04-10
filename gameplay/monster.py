@@ -5,6 +5,7 @@ from typing import Callable, Optional, Tuple, Any
 import random
 import os
 import json
+import math
 
 from gameplay.models import Entity
 from gameplay.item import Item
@@ -102,6 +103,16 @@ class Monster(Entity):
         self.anim_tick = 0
         self.texture = animations.get("idle", {}).get("texture")
 
+        # Float progress timer and speed config for animations
+        self.anim_progress = 0.0  
+        self.anim_speeds = {
+            "idle": 0.2,
+            "move": 0.3,
+            "attack": 0.7,  
+            "hit": 0.5,     
+            "die": 0.5      
+        }
+
         print("Monster init:", self.name)
         print("animations:", animations)
         print("idle texture from json:", animations.get("idle", {}).get("texture"))
@@ -111,7 +122,7 @@ class Monster(Entity):
         self.pending_attack_target = None
         self.pending_attack_damage = 0
         self.attack_damage_applied = False
-        self.attack_hit_frame = 6
+        self.attack_hit_frame = data.get("attack_hit_frame", 6)
 
         # Hurt animation settings
         self.hurt_interrupts_attack = True
@@ -130,7 +141,9 @@ class Monster(Entity):
         self.move_to_q = self.q
         self.move_to_r = self.r
         self.move_progress = 1.0
-        self.move_speed = 0.25 
+        self.move_speed = 0.25
+
+        self.flip_x = False
 
     # Hex utilities
     @staticmethod
@@ -213,6 +226,11 @@ class Monster(Entity):
             return 0
 
         self.hp -= reduced
+
+        # Interept is_moving state once take damage
+        if getattr(self, "is_moving", False):
+            self.is_moving = False
+            self.move_progress = 1.0 
 
         # Fatal hit: enter death animation
         if self.hp <= 0:
@@ -422,6 +440,13 @@ class Monster(Entity):
 
         frame_count = meta.get("count", 1)
 
+        # Calculate current animation speed based on state
+        current_anim_speed = 1.0
+        for base_state, speed in getattr(self, "anim_speeds", {}).items():
+            if self.anim_state.endswith(base_state):
+                current_anim_speed = speed
+                break
+
         # move animation: advance interpolation + animate frames
         if self.anim_state == "move":
             # advance tile-to-tile interpolation
@@ -433,11 +458,13 @@ class Monster(Entity):
                     self.is_moving = False
 
             # animate move frames
-            self.anim_tick += 1
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
 
             # loop move frames while moving
             if self.anim_tick >= frame_count:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
             # once movement finishes, return to idle
             if not getattr(self, "is_moving", False):
@@ -456,7 +483,8 @@ class Monster(Entity):
                     self.pending_attack_target.take_damage(self.pending_attack_damage)
                 self.attack_damage_applied = True
 
-        self.anim_tick += 1
+        self.anim_progress += current_anim_speed
+        self.anim_tick = int(self.anim_progress)
 
         # Handle state change after the animation finishes
         if self.anim_tick >= frame_count:
@@ -481,10 +509,12 @@ class Monster(Entity):
             elif self.anim_state == "die":
                 # Keep the last frame for death animation
                 self.anim_tick = frame_count - 1
+                self.anim_progress = float(frame_count - 1)
                 self.death_finished = True
                 self.remove_after_death = True
             else:
                 self.anim_tick = 0
+                self.anim_progress = 0.0
 
     def get_animation_config(self):
         # Get the animation config for the current state
@@ -516,6 +546,245 @@ class Monster(Entity):
 
         if reset_frame:
             self.anim_tick = 0
+            self.anim_progress = 0.0
+
+class DashMonster(Monster):
+    """
+    Extended Monster class for entities with Dash and Stun mechanics 
+    (e.g., flying_monster, mushroom_monster).
+    """
+    def __init__(self, data: dict, ai: Optional[MonsterAIConfig] = None):
+        super().__init__(data, ai)
+        
+        # Dash and stun properties
+        self.dash_cd_remaining = 0
+        self.dash_cooldown_turns = 8
+        
+        self.is_dashing = False
+        self.dash_dir = (0, 0)
+        self.dash_steps = 0
+        
+        self.is_stunned = False
+        self.is_charging = False
+        
+        # Cached references for dynamic collision checks during animation
+        self._cached_world = None
+        self._cached_player = None
+
+        # animation speeds
+        self.anim_speeds["stun"] = 0.25
+        self.anim_speeds["charge"] = 0.3
+
+        self.dash_recovery_turns = 1
+        self.dash_recovery_remaining = 0
+
+    # Overwrite
+    def decide_and_act(self, world: Any, player: Any) -> dict:
+        if not self.is_alive():
+            return super().decide_and_act(world, player)
+
+        self._cached_world = world
+        self._cached_player = player
+
+        # Intercept if stunned
+        if self.is_stunned:
+            return {"id": self.id, "action": "stunned"}
+
+        # Recovery timer after dashing
+        if self.dash_recovery_remaining > 0:
+            self.dash_recovery_remaining -= 1
+            return {"id": self.id, "action": "recovering"}
+    
+        # Intercept if charging
+        if self.is_charging:
+            return {"id": self.id, "action": "charging"}
+        
+        # Intercept if already moving or actively dashing
+        if getattr(self, "is_moving", False) or self.is_dashing:
+            return {"id": self.id, "action": "busy"}
+
+        if self.dash_cd_remaining > 0:
+            self.dash_cd_remaining -= 1
+
+        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        
+        # Check for dash opportunity
+        if (dist <= self.ai.vision_range or self.aggro) and self.dash_cd_remaining <= 0 and 2 <= dist <= 6:
+            dash_dir = self._get_dash_axis(player)
+            
+            if dash_dir:
+                # Raycast to ensure the initial path is clear of walls
+                path_clear = True
+                for step in range(1, dist):
+                    cq = self.q + dash_dir[0] * step
+                    cr = self.r + dash_dir[1] * step
+                    if not world.is_passable(cq, cr):
+                        path_clear = False
+                        break
+                
+                if path_clear:
+                    self.dash_dir = dash_dir
+                    self.dash_steps = 0
+                    self.flip_x = (dash_dir[0] > 0) 
+                    
+                    # Enter charge state before dashing
+                    self.is_charging = True
+                    self.set_anim_state("charge", reset_frame=True)
+
+                    return {"id": self.id, "action": "charge_start", "dist": dist}
+
+        # Fallback to standard AI behavior
+        return super().decide_and_act(world, player)
+
+    # Overwrite 
+    def update_animation(self, asset_manager):
+        # Handle Stun Animation
+        if self.is_stunned and self.anim_state == "stun":
+            current_anim_speed = getattr(self, "anim_speeds", {}).get("stun", 0.25)
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            frame_count = meta.get("count", 1) if meta else 1
+
+            if self.anim_tick >= frame_count:
+                self.is_stunned = False                    
+                self.set_anim_state("idle", reset_frame=True) 
+            return 
+
+        # Handle Charge Animation
+        if self.is_charging and self.anim_state == "charge":
+            current_anim_speed = getattr(self, "anim_speeds", {}).get("charge", 0.15)
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            frame_count = meta.get("count", 1) if meta else 1
+
+            # Launch the dash exactly when the charge animation finishes
+            if self.anim_tick >= frame_count:
+                self.is_charging = False
+                self.is_dashing = True
+                
+                
+                self._continue_dash() 
+            return 
+        
+        # Handle High-Speed Dash Movement
+        if self.anim_state == "move" and self.is_dashing:
+            self.move_progress += self.move_speed * 2.0
+
+            if self.move_progress >= 1.0:
+                self.move_progress = 1.0
+                self.is_moving = False
+                self._continue_dash() # Check collision for the next tile
+
+            current_anim_speed = self.anim_speeds.get("move", 1.0)
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.anim_tick = 0
+                self.anim_progress = 0.0
+                
+            return 
+
+        super().update_animation(asset_manager)
+
+    def _get_dash_axis(self, player) -> Optional[Tuple[int, int]]:
+        """Check if player aligns with hex axes (with 1-tile fuzzy tolerance)"""
+        dq = player.q - self.q
+        dr = player.r - self.r
+        ds = (-player.q - player.r) - (-self.q - self.r)
+
+        min_dist = min(abs(dq), abs(dr), abs(ds))
+        
+        if min_dist <= 1:
+            # Snap to the closest axis
+            if abs(dq) == min_dist:
+                return (0, 1 if dr > 0 else -1)  
+            elif abs(dr) == min_dist:
+                return (1 if dq > 0 else -1, 0) 
+            else:
+                return (1 if dq > 0 else -1, -1 if dq > 0 else 1)
+        
+        return None
+
+    def _continue_dash(self):
+        """Dynamic per-hex collision check during active dash"""
+        world = self._cached_world
+        player = self._cached_player
+        
+        if not world or not player or self.dash_steps >= 6:
+            self._stop_dash()
+            return
+
+        next_q = self.q + self.dash_dir[0]
+        next_r = self.r + self.dash_dir[1]
+
+        # Hit player
+        if next_q == player.q and next_r == player.r:
+            player.take_damage(self.damage * 2) # Double the damage
+            self._stop_dash()
+            return
+
+        # Hit wall or another monster
+        if not world.is_passable(next_q, next_r):
+            target_monster = None
+            if hasattr(world, "monsters"):
+                for m in world.monsters:
+                    if m.q == next_q and m.r == next_r and m.is_alive():
+                        target_monster = m
+                        break
+            
+            # Damage the blocking monster
+            if target_monster and target_monster != self:
+                target_monster.take_damage(self.damage)
+            
+            # Stun self
+            self._stop_dash()
+            self.is_stunned = True
+            self.set_anim_state("stun", reset_frame=True)
+            return
+
+        # Path clear, move to next hex
+        self.dash_steps += 1
+        self.start_move(next_q, next_r)
+
+    # Overwrite
+    def take_damage(self, amount):
+        self.is_dashing = False
+        self.is_charging = False
+        
+        return super().take_damage(amount)
+    
+    def _stop_dash(self):
+        """Halt dash and trigger cooldown"""
+        self.is_dashing = False
+        self.dash_cd_remaining = self.dash_cooldown_turns
+        if not self.is_stunned:
+            self.dash_recovery_remaining = self.dash_recovery_turns
+            self.set_anim_state("idle", reset_frame=True)
+
+class MonsterFactory:
+    _registry = {
+        "flying_monster": DashMonster,
+        "mushroom_monster": DashMonster,
+    }
+
+    @classmethod
+    def create_monster(cls, data: dict, ai_config: Optional[Any] = None):
+        monster_name = data.get("name", "Unknown")
+
+        # Strip .json suffix if present
+        if monster_name.endswith(".json"):
+            monster_name = monster_name[:-5]
+
+        # Fetch specific class or fallback to base Monster
+        MonsterClass = cls._registry.get(monster_name, Monster)
+
+        return MonsterClass(data, ai_config)
 
 
 

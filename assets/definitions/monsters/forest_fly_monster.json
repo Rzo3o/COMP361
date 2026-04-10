@@ -1,0 +1,42 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Enemy2-IdleFly.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 8
+        },
+        "move": {
+            "texture": "Enemy2-BoostUp-NoVFX.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        },
+        "attack": {
+            "texture": "Enemy2-AttackV1.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 14
+        },
+        "hit": {
+            "texture": "Enemy2-Hit.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Enemy2-Die.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 12
+        }
+    },
+    "scale": 1.407377049180328,
+    "x_shift": 0,
+    "y_shift": 0,
+    "category": "monster",
+    "name": "forest_fly_monster.json",
+    "default_health": 50,
+    "default_damage": 10,
+    "attack_hit_frame": 11
+}

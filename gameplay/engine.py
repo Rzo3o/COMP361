@@ -207,7 +207,7 @@ class GameEngine:
         if player.hunger <= 0:
             player.hunger = 0
             if player.hp > 0:
-                player.hp -= 1
+                player.take_damage(5)
 
         if player.hp <= 0:
             player.hp = 0

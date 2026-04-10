@@ -1,0 +1,42 @@
+{
+    "animations": {
+        "die": {
+            "texture": "Bush_Monster-Die.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 12
+        },
+        "idle": {
+            "texture": "Bush_Monster-Idle.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 8
+        },
+        "move": {
+            "texture": "Bush_Monster-Run.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 7
+        },
+        "attack": {
+            "texture": "Bush_Monster-Attack.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 18
+        },
+        "hit": {
+            "texture": "Bush_Monster-Hit.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 4
+        }
+    },
+    "scale": 1.5084016393442623,
+    "x_shift": 0,
+    "y_shift": 0,
+    "category": "monster",
+    "name": "bush_monster.json",
+    "default_health": 50,
+    "default_damage": 10,
+    "attack_hit_frame": 10
+}
