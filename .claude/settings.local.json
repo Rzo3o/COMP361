@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(p\\).read\\(\\)\\) for p in ['gameplay/chest.py','gameplay/world.py','gameplay/engine.py','visuals/asset_manager.py','visuals/renderer.py','ui/game_window.py','core/config.py']]; print\\('OK'\\)\")",
+      "Bash(python -m pytest tests/test_inventory.py -q)",
+      "Bash(python -m pytest tests/test_inventory.py tests/test_gameplay_player.py tests/test_gameplay_monster.py -q)"
+    ]
+  }
+}

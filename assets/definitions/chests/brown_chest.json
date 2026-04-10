@@ -1,0 +1,24 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "assetBank/Chest/Chests.png",
+            "fw": 48,
+            "fh": 32,
+            "count": 5,
+            "row": 0
+        },
+        "opening": {
+            "texture": "assetBank/Chest/Chests.png",
+            "fw": 48,
+            "fh": 32,
+            "count": 5,
+            "row": 1
+        }
+    },
+    "scale": 2.2,
+    "x_shift": 10,
+    "y_shift": -28,
+    "category": "chest",
+    "name": "brown_chest",
+    "color": "brown"
+}

@@ -30,14 +30,21 @@ class AssetManager:
                                 for anim_name, anim_data in data["animations"].items():
                                     tex = anim_data.get("texture")
                                     if tex:
-                                        self.anim_metadata[tex] = {
+                                        # Per-(texture, row) metadata so one sheet
+                                        # can host multiple animation tracks
+                                        row = anim_data.get("row", 0)
+                                        self.anim_metadata[(tex, row)] = {
                                             "fw": anim_data.get("fw", 32),
                                             "fh": anim_data.get("fh", 32),
                                             "count": anim_data.get("count", 1),
                                             "scale": data.get("scale", 1.0),
                                             "x_shift": data.get("x_shift", 0),
                                             "y_shift": data.get("y_shift", 0),
+                                            "row": row,
                                         }
+                                        # Legacy single-row lookup still works
+                                        if tex not in self.anim_metadata:
+                                            self.anim_metadata[tex] = self.anim_metadata[(tex, row)]
                                         self.layouts[tex] = (
                                             float(data.get("scale", 1.0)),
                                             int(data.get("x_shift", 0)),
@@ -60,16 +67,24 @@ class AssetManager:
         """Returns (scale, x_shift, y_shift) for a given texture file."""
         return self.layouts.get(filename, (1.0, 0, 0))
 
-    def get_anim_frame(self, filename, frame_index=0):
-        """Extracts and scales a specific frame from a sprite sheet."""
-        if not filename or filename not in self.anim_metadata:
+    def get_anim_frame(self, filename, frame_index=0, row=0):
+        """Extracts and scales a specific frame from a sprite sheet.
+
+        `row` selects the horizontal strip inside a multi-row sheet
+        (e.g. chest sheet has 8 rows for 4 colors x 2 states).
+        """
+        if not filename:
+            return None
+
+        meta_key = (filename, row) if (filename, row) in self.anim_metadata else filename
+        if meta_key not in self.anim_metadata:
             return self.get_image(filename)  # Fallback to static
 
-        meta = self.anim_metadata[filename]
+        meta = self.anim_metadata[meta_key]
         path = os.path.join(Config.ASSET_DIR, filename)
-        
-        # Key includes frame_index so we cache each frame individually
-        key = (filename, frame_index, "anim")
+
+        # Key includes frame_index + row so we cache each frame individually
+        key = (filename, frame_index, row, "anim")
         if key in self.cache:
             return self.cache[key]
 
@@ -78,24 +93,26 @@ class AssetManager:
 
         try:
             # Helper to load raw sheet
-            if filename not in self.cache: 
+            if filename not in self.cache:
                  self.cache[filename] = pygame.image.load(path).convert_alpha()
-            
-            sheet = self.cache[filename] 
-            
+
+            sheet = self.cache[filename]
+
             fw = meta["fw"]
             fh = meta["fh"]
             count = meta["count"]
             scale = meta["scale"]
-            
+
             safe_idx = frame_index % max(1, count)
             x = safe_idx * fw
-            y = 0
-            
+            y = row * fh
+
             # Extract subsurface
             if x + fw > sheet.get_width():
                 x = 0
-            
+            if y + fh > sheet.get_height():
+                y = 0
+
             frame_surf = sheet.subsurface((x, y, fw, fh))
             
             # Scale

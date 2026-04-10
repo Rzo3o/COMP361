@@ -38,6 +38,10 @@ class GameWindow(Screen):
             self.db.conn.commit()
 
         self.engine = GameEngine(self.db, 1)
+        # Demo: spawn a visible chest next to the player until the DB-backed
+        # chest system is wired up.
+        if not self.engine.world.chests:
+            self.engine.world.spawn_demo_chest()
         self.assets = AssetManager()
         self.renderer = GameRenderer(self.assets)
 
@@ -103,6 +107,15 @@ class GameWindow(Screen):
             for monster in monsters_to_remove:
                 if monster in self.engine.world.monsters:
                     self.engine.world.monsters.remove(monster)
+
+            # Chest animations + despawn after opening
+            chests_to_remove = []
+            for chest in self.engine.world.chests:
+                chest.update_animation(self.assets)
+                if chest.remove_after_open:
+                    chests_to_remove.append(chest)
+            for chest in chests_to_remove:
+                self.engine.world.chests.remove(chest)
 
             if hasattr(self.engine.world, "update_vfx"):
                 self.engine.world.update_vfx()

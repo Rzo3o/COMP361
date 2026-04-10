@@ -133,6 +133,19 @@ class GameRenderer:
                     {"depth": mdy, "type": "entity", "entity": monster, "x": mdx, "y": mdy}
                 )
 
+        # Add Chests
+        for chest in world.chests:
+            cqx, cqy = HexMath.hex_to_pixel(chest.q, chest.r)
+            cdxp = cx + (cqx - ppx)
+            cdyp = cy + (cqy - ppy)
+            if (
+                -100 < cdxp < Config.WINDOW_WIDTH + 100
+                and -100 < cdyp < Config.WINDOW_HEIGHT + 100
+            ):
+                object_layer.append(
+                    {"depth": cdyp, "type": "chest", "chest": chest, "x": cdxp, "y": cdyp}
+                )
+
         # Add Ground Items
         for item in world.ground_items:
             # We add q, r to the item object for rendering by converting the tile id to q, r
@@ -182,6 +195,8 @@ class GameRenderer:
                 self._draw_entity(screen, obj["entity"], obj["x"], obj["y"], frame_index)
             elif obj["type"] == "item":
                 self._draw_item(screen, obj["item"], obj["x"], obj["y"], frame_index)
+            elif obj["type"] == "chest":
+                self._draw_chest(screen, obj["chest"], obj["x"], obj["y"])
 
         if hasattr(world, "effects"):
             for effect in world.effects:
@@ -315,6 +330,21 @@ class GameRenderer:
             screen.blit(img, rect)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)
+
+    def _draw_chest(self, screen, chest, x, y):
+        if not chest.texture:
+            return
+        img = self.assets.get_anim_frame(
+            chest.texture, chest.anim_tick, row=chest.anim_row
+        )
+        if not img:
+            return
+        scale, x_shift, y_shift = self.assets.get_layout(chest.texture)
+        rect = img.get_rect(
+            centerx=x + x_shift,
+            centery=y - Config.CALIB_OFFSET_Y - y_shift,
+        )
+        screen.blit(img, rect)
 
     def _draw_item(self, screen, item, x, y, frame_index):
         if not item.texture:

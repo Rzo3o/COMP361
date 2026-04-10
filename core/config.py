@@ -29,4 +29,5 @@ class Config:
         "prop": "assets/definitions/props",
         "monster": "assets/definitions/monsters",
         "player": "assets/definitions/player",
+        "chest": "assets/definitions/chests",
     }

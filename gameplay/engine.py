@@ -47,7 +47,10 @@ class GameEngine:
 
         # --- Normal gameplay controls ---
         if action == "INTERACT":
-            # pick up items take a turn
+            # Priority 1: open an adjacent chest
+            if self.try_open_adjacent_chest():
+                return "TURN_TAKEN"
+            # Priority 2: pick up items on the player's tile
             picked_up = self.pick_up_ground_items()
             return "TURN_TAKEN" if picked_up else "NO_ACTION"
 
@@ -141,6 +144,25 @@ class GameEngine:
         player.drop_item(self.selected_index, self.db, self.session_id)
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
+
+    def try_open_adjacent_chest(self):
+        """Open the first unopened chest adjacent to the player. Returns True
+        if a chest was opened (the opening animation started)."""
+        player = self.world.player
+        if not player:
+            return False
+
+        # Hex neighbors (axial, matches move_map in handle_input)
+        neighbors = [
+            (0, -1), (0, 1), (-1, 0), (1, 0), (-1, 1), (1, -1),
+        ]
+        for dq, dr in neighbors:
+            chest = self.world.get_chest_at(player.q + dq, player.r + dr)
+            if chest is not None and not chest.opened:
+                chest.open()
+                print(f"Opened chest at ({chest.q}, {chest.r})")
+                return True
+        return False
 
     def pick_up_ground_items(self):
         """Pick up all ground items on the player's current tile."""

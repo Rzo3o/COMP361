@@ -6,6 +6,7 @@ from gameplay.models import Tile
 from gameplay.player import Player
 from gameplay.monster import MonsterFactory
 from gameplay.item import Item
+from gameplay.chest import Chest
 from gameplay.resource_lock import (
     ResourceLockManager,
     ground_resource_id,
@@ -19,6 +20,7 @@ class World:
         self.tiles = {}  # {(q,r): Tile}
         self.monsters = []
         self.ground_items = []
+        self.chests = []
         self.player = None
         self.current_level = 1
         self.resource_locks = ResourceLockManager()
@@ -30,6 +32,7 @@ class World:
         self.load_player()
         self.load_monsters()
         self.load_ground_items()
+        self.load_chests()
 
     def load_world(self):
         # Use DB abstraction
@@ -78,6 +81,31 @@ class World:
     def get_ground_items_at(self, q, r):
         """Return all ground items on a tile."""
         return [item for item in self.ground_items if item.q == q and item.r == r]
+
+    def load_chests(self):
+        """Load chests for the current session from the DB if available."""
+        self.chests = []
+        if hasattr(self.db, "load_chests"):
+            try:
+                rows = self.db.load_chests(self.session_id)
+                for data in rows:
+                    self.chests.append(Chest(
+                        data["q"], data["r"],
+                        data.get("chest_type", "brown_chest"),
+                    ))
+            except Exception as e:
+                print(f"load_chests failed: {e}")
+
+    def spawn_demo_chest(self):
+        """Place a single chest one tile east of the player for manual testing."""
+        if self.player is not None:
+            self.chests.append(Chest(self.player.q + 1, self.player.r, "brown_chest"))
+
+    def get_chest_at(self, q, r):
+        for chest in self.chests:
+            if chest.q == q and chest.r == r:
+                return chest
+        return None
 
     def sync_inventory_resource_locks(self):
         """Register current inventory entries as lockable resources."""
@@ -168,6 +196,11 @@ class World:
         # check if there is a monster in the tile
         for m in self.monsters:
             if m.is_alive() and m.q == q and m.r == r:
+                return False
+
+        # chests block movement (players and monsters)
+        for chest in self.chests:
+            if chest.q == q and chest.r == r:
                 return False
         return True
     
