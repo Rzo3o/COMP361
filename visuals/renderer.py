@@ -191,7 +191,7 @@ class GameRenderer:
                 # Apply camera offset to keep VFX fixed on the map
                 edx = cx + (eqx - ppx)
                 edy = cy + (eqy - ppy)
-                
+            
                 if (
                     -200 < edx < Config.WINDOW_WIDTH + 200
                     and -200 < edy < Config.WINDOW_HEIGHT + 200
