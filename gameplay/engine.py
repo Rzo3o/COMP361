@@ -14,7 +14,7 @@ class GameEngine:
         self.selected_index = 0  # cursor position in inventory
         if self.world.player:
             self.world.player.load_inventory(self.db, self.session_id)
-            self.world.sync_inventory_resource_locks()
+            self.world.sync_inventory_resource_locks() # Sync resource locks after loading inventory
         self.start_time = time.time()
         self.monsters_need_turn = False  # Animation lock: A mark waiting for the monster to act
 
@@ -90,24 +90,28 @@ class GameEngine:
             self.selected_index = 0
             if player:
                 player.load_inventory(self.db, self.session_id)
-                self.world.sync_inventory_resource_locks()
+                self.world.sync_inventory_resource_locks() # Sync resource locks when opening inventory
             return "NO_ACTION"
 
         return "NO_ACTION"
 
     def use_selected_item(self):
         """Use or equip/unequip the currently selected inventory item."""
+        # get the player and check if selected index is valid
         player = self.world.player
         if not player or self.selected_index >= len(player.inventory):
             return False
 
+        # get the item and its resource lock if it has one
         item = player.inventory[self.selected_index]
         resource_id = item.resource_id
         if resource_id is not None:
+            # ensure the resource lock exists before trying to acquire it
             self.world.resource_locks.add_resource(resource_id)
+            # try to acquire the lock
             if not self.world.resource_locks.acquire(resource_id):
                 return False
-
+ 
         used = player.use_item(self.selected_index, self.db, self.session_id)
         if resource_id is not None:
             if used and item.type == "food":
@@ -116,8 +120,10 @@ class GameEngine:
                 self.world.resource_locks.release(resource_id)
 
         if used:
+            # Sync resource locks after using item\
             self.world.sync_inventory_resource_locks()
 
+        # If the item was consumed or equipped, we may need to adjust the selected index if it goes out of bounds
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
         return used
