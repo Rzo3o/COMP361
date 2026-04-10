@@ -46,6 +46,11 @@ class GameEngine:
             return "NO_ACTION"
 
         # --- Normal gameplay controls ---
+        if action == "INTERACT":
+            # pick up items take a turn
+            picked_up = self.pick_up_ground_items()
+            return "TURN_TAKEN" if picked_up else "NO_ACTION"
+
         move_map = {
             "MOVE_NORTH": (0, -1),
             "MOVE_SOUTH": (0, 1),
@@ -137,6 +142,46 @@ class GameEngine:
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
 
+    def pick_up_ground_items(self):
+        """Pick up all ground items on the player's current tile."""
+        player = self.world.player
+        if not player:
+            return False
+
+        ground_items = list(self.world.get_ground_items_at(player.q, player.r))
+        if not ground_items:
+            return False
+
+        picked_up_any = False
+        # if any item is successfully picked up add to inventory and remove from ground.
+        for item in ground_items:
+            resource_id = item.resource_id
+            if resource_id is None:
+                continue
+
+            # ensure the resource lock exists before trying to acquire it
+            self.world.resource_locks.add_resource(resource_id)
+            if not self.world.resource_locks.acquire(resource_id):
+                continue
+
+            try:
+                self.db.add_item(self.session_id, item.id)
+                self.db.remove_ground_item(item.id)
+                self.world.resource_locks.consume(resource_id)
+                picked_up_any = True
+            except Exception:
+                self.world.resource_locks.release(resource_id)
+
+        # fail if we couldn't pick up any items
+        if not picked_up_any:
+            return False
+
+        # reload inventory and sync resource locks
+        player.load_inventory(self.db, self.session_id)
+        self.world.load_ground_items()
+        self.world.sync_inventory_resource_locks()
+        return True
+
     def _safe_save_player(self, player):
         try:
             self.db.save_player(self.session_id, player)
@@ -153,6 +198,7 @@ class GameEngine:
             return False
 
     def attempt_move(self, dq, dr):
+        """Try to move the player by (dq, dr). Returns True if move succeeded, False if blocked."""
         player = self.world.player
         target_q = player.q + dq
         target_r = player.r + dr
