@@ -23,9 +23,7 @@ class Player(Entity):
         # Equipment slots: slot_name -> Item or None
         self.equipment = {
             "weapon": None,
-            "head": None,
-            "chest": None,
-            "legs": None,
+            "armor": None,
         }
 
         # Inventory for consumable items

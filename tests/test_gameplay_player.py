@@ -108,18 +108,9 @@ def test_player_equip_armor_increases_defense():
         "id": 2, "name": "Iron Armor", "item_type": "armor",
         "slot": "armor", "defense": 12,
     })
-<<<<<<< HEAD
     player.equip(armor)
-    assert player.total_defense == 12
-=======
-    chestplate = Item({
-        "id": 3, "name": "Iron Chestplate", "item_type": "armor",
-        "slot": "chest", "defense": 8,
-    })
-    player.equip(helmet)
-    player.equip(chestplate)
-    assert player.total_defense == 111  # 100 base + 3 + 8
->>>>>>> aeb1168bfe8450218a9dd52b430f8d4f3f5ffb24
+    assert player.total_defense == 112  # 100 base + 12
+    assert player.equipment["armor"] is armor
 
 
 def test_player_defense_reduces_damage():
@@ -128,12 +119,7 @@ def test_player_defense_reduces_damage():
         "id": 3, "name": "Iron Armor", "item_type": "armor",
         "slot": "armor", "defense": 8,
     })
-<<<<<<< HEAD
     player.equip(armor)
-=======
-    player.equip(chestplate)
-    # total_defense = 100 base + 8 armor = 108
->>>>>>> aeb1168bfe8450218a9dd52b430f8d4f3f5ffb24
 
     reduced = player.take_damage(118)  # max(1, 118-108) = 10
     assert reduced == 10
