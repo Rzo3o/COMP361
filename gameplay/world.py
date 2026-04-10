@@ -75,6 +75,10 @@ class World:
             if item.id is not None:
                 self.resource_locks.add_resource(ground_resource_id(item.id))
 
+    def get_ground_items_at(self, q, r):
+        """Return all ground items on a tile."""
+        return [item for item in self.ground_items if item.q == q and item.r == r]
+
     def sync_inventory_resource_locks(self):
         """Register current inventory entries as lockable resources."""
         if not self.player:

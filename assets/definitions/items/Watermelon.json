@@ -1,0 +1,19 @@
+{
+    "category": "item",
+    "name": "Watermelon.json",
+    "texture_file": "23_Watermelon.png",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 32,
+    "description": "Juicy and refreshing, perfect for long travels.  +10 Hunger",
+    "item_type": "food",
+    "item_slot": "general",
+    "slot": "general",
+    "weight": 1,
+    "base_damage": 0,
+    "defense": 0,
+    "max_durability": 100,
+    "healing_amount": 0,
+    "hunger_restore": 10,
+    "power_bonus": 0
+}
