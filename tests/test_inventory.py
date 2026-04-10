@@ -159,7 +159,7 @@ def test_get_equipped_items(tmp_path, monkeypatch):
     equipped = db.get_equipped_items(sid)
     assert len(equipped) == 2
     names = {e["name"] for e in equipped}
-    assert names == {"Sword", "Helmet"}
+    assert names == {"Sword", "Armor"}
     db.close()
 
 
@@ -351,13 +351,8 @@ def test_engine_equip_armor_applies_defense(tmp_path, monkeypatch):
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
-<<<<<<< HEAD
-    assert player.total_defense == 5
-    assert player.equipment["armor"] is not None
-=======
     assert player.total_defense == 105  # 100 + 5
-    assert player.equipment["head"] is not None
->>>>>>> aeb1168bfe8450218a9dd52b430f8d4f3f5ffb24
+    assert player.equipment["armor"] is not None
     db.close()
 
 

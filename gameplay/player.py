@@ -23,9 +23,7 @@ class Player(Entity):
         # Equipment slots: slot_name -> Item or None
         self.equipment = {
             "weapon": None,
-            "head": None,
-            "chest": None,
-            "legs": None,
+            "armor": None,
         }
 
         # Inventory for consumable items
@@ -349,8 +347,6 @@ class Player(Entity):
         if getattr(self, "damage_flash_timer", 0) > 0:
             self.damage_flash_timer -= 1
 
-        if getattr(self, "poison_flash_timer", 0) > 0:
-            self.poison_flash_timer -= 1
 
     def apply_poison(self, turns: int, damage_per_turn: int):
         """Apply poison status effect to the player"""

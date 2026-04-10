@@ -274,14 +274,12 @@ class GameWindow(Screen):
         # Define display labels for each equipment slot
         slot_labels = {
             "weapon": "Weapon",
-            "head": "Head",
-            "chest": "Chest",
-            "legs": "Legs",
+            "armor": "Armor",
         }
 
         line_y = rect.y + 46
         # Loop through each equipment slot and display the equipped item or "--" if empty
-        for slot_name in ("weapon", "head", "chest", "legs"):
+        for slot_name in ("weapon", "armor"):
             equipped = player.equipment.get(slot_name)
             label = equipped.name if equipped else "--"
             color = (186, 220, 198) if equipped else (120, 127, 135)
