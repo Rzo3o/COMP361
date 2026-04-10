@@ -9,6 +9,7 @@ import math
 
 from gameplay.models import Entity
 from gameplay.item import Item
+from gameplay.models import CircleExplosion
 
 
 @dataclass
@@ -756,7 +757,7 @@ class DashMonster(Monster):
     def take_damage(self, amount):
         self.is_dashing = False
         self.is_charging = False
-        
+
         return super().take_damage(amount)
     
     def _stop_dash(self):
@@ -767,10 +768,95 @@ class DashMonster(Monster):
             self.dash_recovery_remaining = self.dash_recovery_turns
             self.set_anim_state("idle", reset_frame=True)
 
+
+class SlimeMonster(Monster):
+    """
+    Slime monster variant that explodes upon death.
+    Green: 1-hex radius damage.
+    Orange: 2-hex radius massive damage.
+    Blue: 1-hex radius damage + applies poison to player.
+    """
+    def __init__(self, data: dict, ai: Optional[MonsterAIConfig] = None):
+        super().__init__(data, ai)
+        self.has_exploded = False
+        self._cached_world = None
+        self._cached_player = None
+
+    def decide_and_act(self, world: Any, player: Any) -> dict:
+        # Cache world and player to use during the death explosion
+        self._cached_world = world
+        self._cached_player = player
+        return super().decide_and_act(world, player)
+
+    def update_animation(self, asset_manager):
+        # Store death status before updating
+        was_dead = getattr(self, "death_finished", False)
+        
+        # Call base animation logic
+        super().update_animation(asset_manager)
+        
+        # Trigger explosion when the death animation finishes
+        if self.anim_state == "die" and self.death_finished and not was_dead:
+            if not self.has_exploded:
+                self._explode()
+                self.has_exploded = True
+
+    def _explode(self):
+        if not self._cached_player:
+            return
+
+        player = self._cached_player
+        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        
+        # Determine explosion properties based on slime name
+        radius = 1
+        is_poisonous = False
+        color = (255, 255, 255)  # default white color
+        slime_name = self.name.lower()
+        
+        if "orange" in slime_name:
+            radius = 2
+            color = (255, 100, 0)
+        elif "blue" in slime_name:
+            radius = 1
+            is_poisonous = True
+            color = (180, 50, 255)
+        elif "green" in slime_name:
+            radius = 1
+            color = (50, 255, 50)
+
+        # Add explosion effect in the world
+        if hasattr(self._cached_world, "effects"):
+            effect = CircleExplosion(self.q, self.r, color, radius)
+            self._cached_world.effects.append(effect) # type: ignore
+
+        # Check if player is caught in the blast radius
+        if dist <= radius:
+            # Explosion deals 1.5x base damage
+            explosion_damage = int(self.damage * 1.5) 
+            
+            if is_poisonous:
+                # Apply poison effect (3 turns, 2 damage per turn)
+                if hasattr(player, "apply_poison"):
+                    player.apply_poison(turns=5, damage_per_turn=3)
+                
+                # Trigger specific purple hit animation for poison
+                if hasattr(player, "take_poison_damage"):
+                    player.take_poison_damage(explosion_damage)
+                else:
+                    player.take_damage(explosion_damage)
+            else:
+                # Normal physical explosion hit
+                player.take_damage(explosion_damage)
+
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
         "mushroom_monster": DashMonster,
+        "green_slime": SlimeMonster,
+        "orange_slime": SlimeMonster,
+        "blue_slime": SlimeMonster,
     }
 
     @classmethod

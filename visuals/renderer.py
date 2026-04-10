@@ -183,6 +183,45 @@ class GameRenderer:
             elif obj["type"] == "item":
                 self._draw_item(screen, obj["item"], obj["x"], obj["y"], frame_index)
 
+        if hasattr(world, "effects"):
+            for effect in world.effects:
+                # Convert hex coordinates to pixel coordinates
+                eqx, eqy = HexMath.hex_to_pixel(effect.q, effect.r)
+                
+                # Apply camera offset to keep VFX fixed on the map
+                edx = cx + (eqx - ppx)
+                edy = cy + (eqy - ppy)
+                
+                if (
+                    -200 < edx < Config.WINDOW_WIDTH + 200
+                    and -200 < edy < Config.WINDOW_HEIGHT + 200
+                ):
+                    # Calculate alpha for fade-out effect (255 -> 0)
+                    progress = effect.current_radius / effect.max_pixel_radius
+                    alpha = int(255 * (1.0 - progress))
+                    alpha = max(0, min(255, alpha))
+                    
+                    if alpha <= 0:
+                        continue
+                        
+                    # Create a temporary surface with per-pixel alpha
+                    surf_size = int(effect.max_pixel_radius * 2)
+                    if surf_size <= 0:
+                        continue
+                        
+                    temp_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                    center = (surf_size // 2, surf_size // 2)
+                    
+                    # Draw the circle with color and alpha
+                    pygame.draw.circle(temp_surf, (*effect.color, alpha), center, int(effect.current_radius))
+                    
+                    # Blit onto the main screen
+                    rect = temp_surf.get_rect(
+                        centerx=edx,
+                        centery=edy - Config.CALIB_OFFSET_Y
+                    )
+                    screen.blit(temp_surf, rect)
+
     def _draw_hex_base(self, screen, tile, x, y):
         # HexMath returns list of floats, Pygame needs list of tuples
         poly_floats = HexMath.get_hex_polygon(x, y)
@@ -233,16 +272,23 @@ class GameRenderer:
             if not base_img:
                 return
         
+            flash_color = None
+
+            # first check poison state
+            if getattr(entity, "poison_flash_timer", 0) > 0:
+                flash_color = (180, 50, 255)
             # add red flash effect to both player and monster
-            is_flashing = getattr(entity, "damage_flash_timer", 0) > 0
+            elif getattr(entity, "damage_flash_timer", 0) > 0:
+                flash_color = (255, 50, 50)
+
             if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
                 if entity.anim_state.endswith("die") and entity.anim_tick < 4:
-                    is_flashing = True  
-                
+                    flash_color = (255, 50, 50)
+
             # Change the texture direction with player and monsters direction
             is_flipped = getattr(entity, "flip_x", False)
 
-            cache_key = (id(base_img), is_flashing, is_flipped)
+            cache_key = (id(base_img), flash_color, is_flipped)
 
             # First look in cache, if not found, generate new one and cache it
             if cache_key in self.image_cache:
@@ -250,9 +296,9 @@ class GameRenderer:
             else:
                 img = base_img
                 
-                if is_flashing:
+                if flash_color is not None:
                     flash_img = img.copy()  # make a copy of origin img
-                    flash_img.fill((255, 50, 50), special_flags=pygame.BLEND_RGB_MULT)
+                    flash_img.fill(flash_color, special_flags=pygame.BLEND_RGB_MULT)
                     img = flash_img
 
                 if is_flipped:

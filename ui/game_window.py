@@ -104,6 +104,9 @@ class GameWindow(Screen):
                 if monster in self.engine.world.monsters:
                     self.engine.world.monsters.remove(monster)
 
+            if hasattr(self.engine.world, "update_vfx"):
+                self.engine.world.update_vfx()
+
         # Implement real-time ARPG 
         player = self.engine.world.player
         if not player:
