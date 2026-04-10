@@ -71,8 +71,14 @@ class Player(Entity):
 
         # Damage flash timer
         self.damage_flash_timer = 0
+        self.poison_flash_timer = 0
+
 
         self.flip_x = False
+
+        # Apply poison damage timer
+        self.poison_turns_remaining = 0
+        self.poison_damage_per_turn = 0
 
         # debug
         print("[Player init] data keys:", data.keys())
@@ -342,3 +348,29 @@ class Player(Entity):
         # decrement the timer
         if getattr(self, "damage_flash_timer", 0) > 0:
             self.damage_flash_timer -= 1
+
+        if getattr(self, "poison_flash_timer", 0) > 0:
+            self.poison_flash_timer -= 1
+
+    def apply_poison(self, turns: int, damage_per_turn: int):
+        """Apply poison status effect to the player"""
+        self.poison_turns_remaining = turns
+        self.poison_damage_per_turn = damage_per_turn
+
+    def take_poison_damage(self, amount: int):
+        """Take damage and trigger the purple poison hit animation"""
+        self.hp -= amount
+        
+        self.poison_flash_timer = 3
+
+        if self.hp <= 0:
+            self.hp = 0
+            self.dead = True
+            
+        return amount
+    
+    def process_turn_effects(self):
+        """Call this function every time the player takes a turn/moves"""
+        if self.poison_turns_remaining > 0:
+            self.take_poison_damage(self.poison_damage_per_turn)
+            self.poison_turns_remaining -= 1

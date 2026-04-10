@@ -1,0 +1,41 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Orange_Slime-Idle.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 7
+        },
+        "move": {
+            "texture": "Orange_Slime-Run_Jump.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 11
+        },
+        "attack": {
+            "texture": "Orange_Slime-Attack_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 12
+        },
+        "hit": {
+            "texture": "Orange_Slime-Hit_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Orange_Slime-Die_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        }
+    },
+    "scale": 2.001639344262295,
+    "x_shift": 0,
+    "y_shift": 0,
+    "category": "monster",
+    "name": "orange_slime.json",
+    "default_health": 50,
+    "default_damage": 10
+}

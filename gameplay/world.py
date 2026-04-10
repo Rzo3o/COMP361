@@ -23,6 +23,9 @@ class World:
         self.current_level = 1
         self.resource_locks = ResourceLockManager()
 
+        # Store the explosion effect
+        self.effects = []
+
         self.load_world()
         self.load_player()
         self.load_monsters()
@@ -176,4 +179,11 @@ class World:
         if not tile:
             return True
         return tile.level > self.current_level
+
+    # Update the explosion effect
+    def update_vfx(self):
+        for effect in self.effects[:]: 
+            effect.update()
+            if effect.dead:
+                self.effects.remove(effect)
     

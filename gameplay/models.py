@@ -30,3 +30,21 @@ class Entity:
         self.q = q
         self.r = r
         self.texture = texture
+
+class CircleExplosion:
+    def __init__(self, q: int, r: int, color: tuple, target_radius_hex: int):
+        self.q = q
+        self.r = r
+        self.color = color
+        
+        self.max_pixel_radius = target_radius_hex * 80 + 30 
+        
+        self.current_radius = 5.0
+        self.expand_speed = self.max_pixel_radius / 15.0 
+        self.dead = False
+
+    def update(self, *args):
+        self.current_radius += self.expand_speed
+        
+        if self.current_radius >= self.max_pixel_radius:
+            self.dead = True

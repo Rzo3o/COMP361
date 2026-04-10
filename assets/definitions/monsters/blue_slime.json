@@ -1,0 +1,41 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Blue_Slime-Idle.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 7
+        },
+        "move": {
+            "texture": "Blue_Slime-Run_Jump.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 11
+        },
+        "attack": {
+            "texture": "Blue_Slime-Attack_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 12
+        },
+        "hit": {
+            "texture": "Blue_Slime-Hit_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Blue_Slime-Die_Ground.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        }
+    },
+    "scale": 2.0313524590163934,
+    "x_shift": 0,
+    "y_shift": 0,
+    "category": "monster",
+    "name": "blue_slime.json",
+    "default_health": 50,
+    "default_damage": 10
+}
