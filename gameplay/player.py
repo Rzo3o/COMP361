@@ -233,13 +233,23 @@ class Player(Entity):
     def set_anim_state(self, state, reset_frame=True):
         weapon = self.equipment.get("weapon")
         weapon_name = weapon.name.lower() if weapon else ""
-        print(f"[Player] set_anim_state: {state} (weapon: {weapon_name})")
         
-        if not state.startswith("archer_") and not state.startswith("infantry_"):
-            if "bow" in weapon_name:
-                state = "archer_" + state
-            elif "sword" in weapon_name:
-                state = "infantry_" + state
+        # Strip any existing prefix to get the clean base state
+        # To prevent prefixes from stacking (like "infantry_archer_idle") when swapping weapons, 
+        # which would break the animation logic and freeze the player again.
+        base_state = state
+        if state.startswith("archer_"):
+            base_state = state.replace("archer_", "", 1)
+        elif state.startswith("infantry_"):
+            base_state = state.replace("infantry_", "", 1)
+
+        # Re-apply the correct prefix based on the currently equipped weapon
+        if "bow" in weapon_name:
+            state = "archer_" + base_state
+        else:
+            state = "infantry_" + base_state
+
+        print(f"[Player] set_anim_state: {state} (weapon: {weapon_name})")
                 
         """Change animation state"""
         if self.anim_state == state and not reset_frame:
