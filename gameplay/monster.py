@@ -146,19 +146,6 @@ class Monster(Entity):
 
         self.flip_x = False
 
-    # Hex utilities
-    @staticmethod
-    def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
-        """Axial hex distance."""
-        dq = q2 - q1
-        dr = r2 - r1
-        return int((abs(dq) + abs(dq + dr) + abs(dr)) / 2)
-
-    def neighbors(self):
-        """Yield axial neighbor coordinates."""
-        for dq, dr in self.HEX_DIRS:
-            yield self.q + dq, self.r + dr
-
     # Equipment helpers
 
     @property
@@ -270,7 +257,7 @@ class Monster(Entity):
         if not self.is_alive():
             return False
 
-        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
         if dist > self.ai.attack_range:
             return False
 
@@ -319,7 +306,7 @@ class Monster(Entity):
         if not self.is_alive():
             return False
         
-        current_dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        current_dist = super().hex_distance(self.q, self.r, player.q, player.r)
         if current_dist <= 1:
             return False
 
@@ -328,7 +315,7 @@ class Monster(Entity):
         for nq, nr in self.neighbors():
             if not is_passable(nq, nr):
                 continue
-            d = self.hex_distance(nq, nr, player.q, player.r)
+            d = super().hex_distance(nq, nr, player.q, player.r)
             candidates.append((d, nq, nr))
 
         if not candidates:
@@ -381,7 +368,7 @@ class Monster(Entity):
             self._attack_cd_remaining -= 1
 
         # Detect player
-        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
         seen = dist <= self.ai.vision_range
 
         if seen:
@@ -607,7 +594,7 @@ class DashMonster(Monster):
         if self.dash_cd_remaining > 0:
             self.dash_cd_remaining -= 1
 
-        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
         
         # Check for dash opportunity
         if (dist <= self.ai.vision_range or self.aggro) and self.dash_cd_remaining <= 0 and 2 <= dist <= 6:
@@ -808,7 +795,7 @@ class SlimeMonster(Monster):
         if not world or not player:
             return
 
-        dist = self.hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
         
         # Determine explosion properties based on slime name
         radius = 1
@@ -846,7 +833,7 @@ class SlimeMonster(Monster):
         if hasattr(world, "monsters"):
             for m in world.monsters:
                 if m != self and m.is_alive():
-                    dist_to_monster = self.hex_distance(self.q, self.r, m.q, m.r)
+                    dist_to_monster = super().hex_distance(self.q, self.r, m.q, m.r)
                     
                     if dist_to_monster <= radius:
                         m.take_damage(explosion_damage)

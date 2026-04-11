@@ -1,17 +1,44 @@
+"""Item domain model.
+
+An Item is a data-driven game object constructed from a dict:
+  - a JSON definition file under assets/definitions/items/
+  - a row from the SQLite `items` / `inventory` tables
+  - a literal dict built in code (tests, demo spawns, etc.)
+
+All sources use the same key names so Item(data) works uniformly.
+"""
+
 from gameplay.resource_lock import ground_resource_id, inventory_resource_id
 
+
 class Item:
-    # Valid equipment slots
+    """A single item instance: weapon, armor, food, or misc.
+
+    Items are value-like — two Item instances with the same DB id are
+    equal from a save standpoint but live as separate Python objects
+    (one may sit in inventory, another on the ground). The
+    `inventory_entry_id` field distinguishes the specific inventory row
+    when the same item kind appears multiple times in a player's bag.
+    """
+
+    # The only two slots supported by the current player/monster model.
+    # An item is equippable iff its `slot` is one of these.
     EQUIPMENT_SLOTS = ("weapon", "armor")
 
     def __init__(self, data):
+        """Build an Item from any dict carrying the expected keys.
+
+        Unknown keys are ignored and missing keys get safe defaults, so
+        this constructor never raises on partial data.
+        """
         self.id = data.get("id")
         self.name = data.get("name", "Unknown Item")
         self.description = data.get("description", "")
-        self.type = data.get("item_type", "misc")  # weapon, armor, food, artifact
-        self.slot = data.get("slot")  # weapon, armor
+        self.type = data.get("item_type", "misc")
+        self.slot = data.get("slot")
         self.weight = data.get("weight", 0)
         self.damage_bonus = data.get("base_damage", 0)
+        self.range = data.get("range", 0)
         self.defense = data.get("defense", 0)
         self.healing_amount = data.get("healing_amount", 0)
         self.hunger_restore = data.get("hunger_restore", 0)
@@ -20,7 +47,9 @@ class Item:
         self.power_bonus = data.get("power_bonus", 0)
         self.texture = data.get("texture_file")
         self.equipped = bool(data.get("is_equipped", False))
-        self.inventory_entry_id = data.get("inventory_entry_id") # 
+        # Identifies the specific inventory row this Item was loaded from
+        # None if the Item was constructed outside the DB path
+        self.inventory_entry_id = data.get("inventory_entry_id")
 
     @property
     def is_equippable(self):
@@ -40,7 +69,7 @@ class Item:
         """Consume food/potion: heal HP and restore hunger."""
         if self.is_broken():
             return False
-        
+
         if self.type == "food":
             player.hp = min(player.max_hp, player.hp + self.healing_amount)
             player.hunger = min(player.max_hunger, player.hunger + self.hunger_restore)
