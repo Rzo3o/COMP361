@@ -392,3 +392,7 @@ class Player(Entity):
             self.dead = True
             
         return amount
+    
+    def increase_player_hp_50(self):
+        self.hp += 50
+        self.hp = min(self.hp, self.max_hp)  # cap it

@@ -7,6 +7,7 @@ from visuals.renderer import GameRenderer
 from ui.button import Button
 from ui.base_screen import Screen
 import random
+import os
 
 
 class GameWindow(Screen):
@@ -176,6 +177,25 @@ class GameWindow(Screen):
                         self.manager.switch_screen("winner")
                         return
                     elif result == "GAME_OVER":
+    
+                        slot = self.manager.selected_slot
+                        filename = f"game_data_{slot}.db"
+
+                        try:
+                            self.db.close()
+                        except Exception as e:
+                            print(f"Error closing db: {e}")
+
+                        import time
+                        time.sleep(0.1)
+                        if os.path.exists(filename):
+                            try:
+                                os.remove(filename)
+                                print(f"Deleted {filename}")
+                            except Exception as e:
+                                print(f"Error deleting {filename}: {e}")
+
+                        self.manager.selected_slot = None
                         self.manager.switch_screen("game_over")
 
             # Independent Monster AI Handling

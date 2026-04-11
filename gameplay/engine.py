@@ -413,6 +413,7 @@ class GameEngine:
                 return "WIN"
             
             unlocked = self.world.unlock_next_level()
+            self.world.player.increase_player_hp_50()
             # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             #if unlocked:
             #    self.start_time = time.time()
