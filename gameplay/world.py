@@ -1,4 +1,11 @@
-from numpy import tile
+"""World — the in-memory container for everything on the map.
+
+World holds the loaded tile grid, monsters, ground items, chests, and
+the player for a single save session. It is populated from the DB at
+construction and mutated by GameEngine as the player takes turns. All
+persistent state lives in the DB; World is a cache that the renderer
+and engine read from each frame.
+"""
 
 from core.config import Config
 from core.hexmath import HexMath
@@ -13,7 +20,21 @@ from gameplay.resource_lock import (
     inventory_resource_id,
 )
 
+
 class World:
+    """The runtime view of a single game session's map and entities.
+
+    Attributes:
+        tiles: dict keyed by (q, r) axial coords.
+        monsters: list of Monster instances (alive and dead).
+        ground_items: list of Item instances lying on tiles.
+        chests: list of Chest instances, each blocking movement.
+        player: the single Player for this session, or None if the save
+            is corrupt.
+        resource_locks: ResourceLockManager guarding pickup/use races.
+        current_level: the highest level the player has unlocked.
+    """
+
     def __init__(self, db, session_id):
         self.db = db
         self.session_id = session_id
@@ -46,11 +67,15 @@ class World:
             self.tiles[(t.q, t.r)] = t
 
     def load_player(self):
+        """Load the player for this session from the database.
+
+        If no player row exists (corrupt save, missing session, etc.) the
+        player stays None and the engine will report NO_PLAYER on the next
+        tick rather than crashing.
+        """
         p_data = self.db.get_player_state(self.session_id)
         if p_data:
             self.player = Player(p_data)
-        else:
-            print("ERROR: No player state found for session", self.session_id)
 
     def load_monsters(self):
         """Load all alive monsters from DB and equip their saved gear."""
@@ -100,29 +125,35 @@ class World:
         """Place a single chest one tile east of the player for manual testing.
 
         The chest contains two loaves of bread that restore HP and hunger so
-        opening it visibly affects the player.
+        opening it visibly affects the player. Safe to call on a broken DB
+        or when the player is not yet loaded — any failure short-circuits
+        and leaves the world untouched.
         """
         if self.player is None:
             return
 
-        # Ensure a 'Bread' item row exists in the DB and grab its id.
-        self.db.cursor.execute(
-            "SELECT id FROM items WHERE name=?", ("Bread",),
-        )
-        row = self.db.cursor.fetchone()
-        if row:
-            bread_id = row["id"]
-        else:
+        try:
+            # Ensure a 'Bread' item row exists in the DB and grab its id.
             self.db.cursor.execute(
-                """INSERT INTO items
-                   (name, description, item_type, slot, weight,
-                    healing_amount, hunger_restore, durability, max_durability)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                ("Bread", "Restores stamina and health", "food", None, 1,
-                 20, 15, 1, 1),
+                "SELECT id FROM items WHERE name=?", ("Bread",),
             )
-            self.db.conn.commit()
-            bread_id = self.db.cursor.lastrowid
+            row = self.db.cursor.fetchone()
+            if row:
+                bread_id = row["id"]
+            else:
+                self.db.cursor.execute(
+                    """INSERT INTO items
+                       (name, description, item_type, slot, weight,
+                        healing_amount, hunger_restore, durability, max_durability)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ("Bread", "Restores stamina and health", "food", None, 1,
+                     20, 15, 1, 1),
+                )
+                self.db.conn.commit()
+                bread_id = self.db.cursor.lastrowid
+        except Exception as e:
+            print(f"[World] spawn_demo_chest: failed to prepare Bread row: {e}")
+            return
 
         bread_items = [
             Item({

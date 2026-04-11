@@ -1,9 +1,40 @@
+"""Game engine — the coordinator between input, world, and database.
+
+GameEngine sits between the UI layer (game_window.py, which feeds it
+action strings like "MOVE_NORTH" or "INTERACT") and the domain layer
+(World, Player, Monster, Chest, Item). It owns the turn loop: one call
+to `run_turn` handles player input, advances player state, runs monster
+AI, and writes everything back to the SQLite save.
+
+Design patterns in this module:
+  - Command pattern: handle_input dispatches on action strings, each of
+    which maps to a discrete gameplay command.
+  - Facade: the rest of the game interacts with a single GameEngine
+    instead of poking at World/Player/DB directly.
+  - Resource lock guard: every pickup/use routes through
+    world.resource_locks so interleaved operations can't double-award
+    or double-consume an item.
+"""
+
 import time
 from gameplay.world import World
 from gameplay.item import Item
+from gameplay.chest import Chest
 
 
 class GameEngine:
+    """Turn-based coordinator for a single game session.
+
+    Responsibilities:
+      - Translate UI actions into world mutations (movement, attack,
+        pickup, chest open, inventory toggle).
+      - Drive monster turns after the player acts.
+      - Persist player/monster state to the DB after each mutation via
+        the `_safe_save_*` helpers (which swallow IO errors and surface
+        them as SAVE_ERROR return codes, never as crashes).
+      - Expose the loot notification queue for the UI to drain.
+    """
+
     def __init__(self, db, session_id):
         self.db = db
         self.session_id = session_id
@@ -168,9 +199,8 @@ class GameEngine:
         for dq, dr in neighbors:
             chest = self.world.get_chest_at(player.q + dq, player.r + dr)
             if chest is not None and not chest.opened:
-                chest.open()
+                chest.open_chest()
                 self._award_chest_items(chest)
-                print(f"Opened chest at ({chest.q}, {chest.r})")
                 return True
         return False
 
@@ -196,10 +226,6 @@ class GameEngine:
                 seen.append(item.name)
                 self.loot_notifications_queue.append((item.name, counts[item.name]))
 
-        print(
-            f"  -> awarded {len(chest.items)} items: "
-            f"{[i.name for i in chest.items]}"
-        )
         # Empty the chest so items aren't awarded twice
         chest.items = []
         # Refresh the player's inventory
@@ -284,43 +310,50 @@ class GameEngine:
         return True
 
     def drop_monster_loot(self, monster):
-        if not monster.is_alive():
-            if not getattr(monster, "death_loot_dropped", False):
-                drops = monster.on_death()
-                # Strip any Nones that may have slipped through
-                drops = [d for d in drops if d is not None]
+        """Spawn a loot chest at a freshly-killed monster's tile.
 
-                # Don't spawn an empty chest. Mark loot as handled so we
-                # don't keep re-rolling on every frame.
-                if not drops:
-                    print(f"{monster.name} died with no loot, no chest spawned.")
-                    monster.death_loot_dropped = True
-                else:
-                    print(
-                        f"{monster.name} dropped chest with: "
-                        f"{[item.name for item in drops]}"
-                    )
+        Called once per monster death (guarded by the monster's
+        death_loot_dropped flag so repeated calls during the death
+        animation are idempotent).
 
-                    # Resolve each item's id upfront so it's ready when the
-                    # chest is opened.
-                    for item in drops:
-                        if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
-                            item.id = self.db.get_or_create_item(item._def_name)
+        If the monster's loot roll produces nothing, no chest is spawned;
+        the flag is still set so we don't re-roll every frame.
+        """
+        if monster.is_alive():
+            return
+        if getattr(monster, "death_loot_dropped", False):
+            return
 
-                    # Spawn a chest at the monster's tile holding the loot.
-                    from gameplay.chest import Chest
+        drops = monster.on_death()
+        # Strip any Nones that may have slipped through the drop roll
+        drops = [d for d in drops if d is not None]
 
-                    loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
-                    self.world.chests.append(loot_chest)
-                    monster.death_loot_dropped = True
+        # Don't spawn an empty chest. Mark loot as handled so we
+        # don't keep re-rolling on every frame.
+        if not drops:
+            monster.death_loot_dropped = True
+            return
 
-            alive_count = sum(
-                1
-                for m in self.world.monsters
-                if m.is_alive() and m.level == self.world.current_level
-            )
+        # Resolve each item's id upfront so it's ready when the
+        # chest is opened.
+        for item in drops:
+            if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
+                try:
+                    item.id = self.db.get_or_create_item(item._def_name)
+                except Exception:
+                    # Definition missing — skip this item but keep the others.
+                    item.id = None
 
-            print(f"{monster.name} died! {alive_count} monsters left in this level.")
+        # Filter out anything we couldn't resolve to a DB row.
+        drops = [d for d in drops if getattr(d, "id", None) is not None]
+        if not drops:
+            monster.death_loot_dropped = True
+            return
+
+        # Spawn a chest at the monster's tile holding the loot.
+        loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
+        self.world.chests.append(loot_chest)
+        monster.death_loot_dropped = True
 
     def update(self):
         player = self.world.player

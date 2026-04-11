@@ -78,11 +78,6 @@ class Player(Entity):
         self.poison_turns_remaining = 0
         self.poison_damage_per_turn = 0
 
-        # debug
-        print("[Player init] data keys:", data.keys())
-        print("[Player init] texture_file:", data.get("texture_file"))
-        print("[Player init] animations:", data.get("animations"))
-
     @property
     def total_damage(self):
         """Base damage + weapon bonus."""
