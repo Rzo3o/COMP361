@@ -187,7 +187,6 @@ class GameEngine:
         if not player:
             return False
 
-        # Hex neighbors (axial, matches move_map in handle_input)
         neighbors = [
             (0, -1),
             (0, 1),
@@ -312,11 +311,8 @@ class GameEngine:
     def drop_monster_loot(self, monster):
         """Spawn a loot chest at a freshly-killed monster's tile.
 
-        Called once per monster death (guarded by the monster's
-        death_loot_dropped flag so repeated calls during the death
-        animation are idempotent).
-
-        If the monster's loot roll produces nothing, no chest is spawned;
+        Called once per monster death.
+        If the monster's loot roll produces nothing, no chest is spawned
         the flag is still set so we don't re-roll every frame.
         """
         if monster.is_alive():
@@ -344,7 +340,7 @@ class GameEngine:
                     # Definition missing — skip this item but keep the others.
                     item.id = None
 
-        # Filter out anything we couldn't resolve to a DB row.
+        # Filter out anything we couldn't resolve
         drops = [d for d in drops if getattr(d, "id", None) is not None]
         if not drops:
             monster.death_loot_dropped = True
@@ -441,13 +437,13 @@ class GameEngine:
             return "GAME_OVER"
 
         if self.check_level_completed():
-            
+
             if self.world.current_level == self.world.get_max_level():
                 return "WIN"
-            
+
             unlocked = self.world.unlock_next_level()
             # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
-            #if unlocked:
+            # if unlocked:
             #    self.start_time = time.time()
 
         return "TURN_DONE"
