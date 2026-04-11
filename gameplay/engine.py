@@ -104,25 +104,25 @@ class GameEngine:
             if player is None:
                 return "NO_PLAYER"
 
-            target_q = player.q + dq
-            target_r = player.r + dr
-
             # if target hex has a monster, then player attacks
-            monster = self.world.get_monster_at(target_q, target_r)
-            if monster is not None:
-                damage = player.attack_monster(monster)
+            for i in range(1, player.range + 1):
+                target_q = player.q + dq * i
+                target_r = player.r + dr * i
+                monster = self.world.get_monster_at(target_q, target_r)
+                if monster is not None:
+                    damage = player.attack_monster(monster)
 
-                if not self._safe_save_monster(monster):
-                    return "SAVE_ERROR"
+                    if not self._safe_save_monster(monster):
+                        return "SAVE_ERROR"
 
-                if not self._safe_save_player(player):
-                    return "SAVE_ERROR"
+                    if not self._safe_save_player(player):
+                        return "SAVE_ERROR"
 
-                if not monster.is_alive():
-                    self.drop_monster_loot(monster)
+                    if not monster.is_alive():
+                        self.drop_monster_loot(monster)
 
-                print(f"Player attacked {monster.name} for {damage} damage")
-                return "TURN_TAKEN"
+                    print(f"Player attacked {monster.name} for {damage} damage")
+                    return "TURN_TAKEN"
 
             # if no monster, then try to move
             moved = self.attempt_move(dq, dr)

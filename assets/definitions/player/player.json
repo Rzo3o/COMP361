@@ -35,10 +35,46 @@
             "fw": 38,
             "fh": 40,
             "count": 6
+        },
+        "armored_archer_idle": {
+            "texture": "Heavy_Archer_Idle.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 6
+        },
+        "armored_archer_attack": {
+            "texture": "Heavy_Archer_Attack.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 9
+        },
+        "armored_archer_move": {
+            "texture": "Heavy_Archer_Move.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 6
+        },
+        "armored_infantry_idle": {
+            "texture": "Heavy_Infantry_Idle.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
+        },
+        "armored_infantry_attack": {
+            "texture": "Heavy_Infantry_Attack.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 7
+        },
+        "armored_infantry_move": {
+            "texture": "Heavy_Infantry_Move.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
         }
     },
     "category": "player",
-    "name": "archer.json",
+    "name": "player.json",
     "scale": 2.597954545454545,
     "x_shift": 8,
     "y_shift": -48

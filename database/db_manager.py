@@ -45,6 +45,13 @@ class DatabaseManager:
             except sqlite3.OperationalError:
                 pass  # column already exists
 
+        # Add range column to items if missing
+        try:
+            self.cursor.execute("ALTER TABLE items ADD COLUMN range INTEGER DEFAULT 0")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
 
     def close(self):
         self.conn.close()
@@ -253,7 +260,7 @@ class DatabaseManager:
                 print(f"Error loading player definition {skin_name}: {e}")
         else:
             # Fallback to archer if specified skin not found (for demo purposes)
-            fallback_path = os.path.join("assets", "definitions", "player", "archer.json")
+            fallback_path = os.path.join("assets", "definitions", "player", "player.json")
             if os.path.exists(fallback_path):
                 try:
                     with open(fallback_path, "r") as f:
@@ -291,8 +298,8 @@ class DatabaseManager:
         self.cursor.execute(
             """INSERT INTO items (name, description, item_type, slot, weight, 
                base_damage, defense, max_durability, durability, healing_amount, 
-               hunger_restore, texture_file, power_bonus)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               hunger_restore, texture_file, power_bonus, range)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("name", item_name),
                 data.get("description", ""),
@@ -306,7 +313,8 @@ class DatabaseManager:
                 data.get("healing_amount", 0),
                 data.get("hunger_restore", 0),
                 data.get("texture_file"),
-                data.get("power_bonus", 0)
+                data.get("power_bonus", 0),
+                data.get("range", 0)
             )
         )
         self.conn.commit()
@@ -438,19 +446,19 @@ class DatabaseManager:
                wi.id AS wi_id, wi.name AS wi_name, wi.item_type AS wi_item_type,
                wi.slot AS wi_slot, wi.base_damage AS wi_base_damage,
                wi.defense AS wi_defense, wi.durability AS wi_durability,
-               wi.max_durability AS wi_max_durability,
+               wi.max_durability AS wi_max_durability, wi.range AS wi_range,
                hi.id AS hi_id, hi.name AS hi_name, hi.item_type AS hi_item_type,
                hi.slot AS hi_slot, hi.base_damage AS hi_base_damage,
                hi.defense AS hi_defense, hi.durability AS hi_durability,
-               hi.max_durability AS hi_max_durability,
+               hi.max_durability AS hi_max_durability, hi.range AS hi_range,
                ci.id AS ci_id, ci.name AS ci_name, ci.item_type AS ci_item_type,
                ci.slot AS ci_slot, ci.base_damage AS ci_base_damage,
                ci.defense AS ci_defense, ci.durability AS ci_durability,
-               ci.max_durability AS ci_max_durability,
+               ci.max_durability AS ci_max_durability, ci.range AS ci_range,
                li.id AS li_id, li.name AS li_name, li.item_type AS li_item_type,
                li.slot AS li_slot, li.base_damage AS li_base_damage,
                li.defense AS li_defense, li.durability AS li_durability,
-               li.max_durability AS li_max_durability
+               li.max_durability AS li_max_durability, li.range AS li_range
         FROM monsters m
         LEFT JOIN items wi ON m.weapon_item_id = wi.id
         LEFT JOIN items hi ON m.head_item_id = hi.id
@@ -497,6 +505,7 @@ class DatabaseManager:
                         "defense": row[f"{prefix}_defense"],
                         "durability": row[f"{prefix}_durability"],
                         "max_durability": row[f"{prefix}_max_durability"],
+                        "range": row[f"{prefix}_range"],
                     }
                 else:
                     equipment_data[f"{slot_name}_item"] = None

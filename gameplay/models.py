@@ -31,6 +31,19 @@ class Entity:
         self.r = r
         self.texture = texture
 
+    # Hex utilities
+    @staticmethod
+    def hex_distance(q1: int, r1: int, q2: int, r2: int) -> int:
+        """Axial hex distance."""
+        dq = q2 - q1
+        dr = r2 - r1
+        return int((abs(dq) + abs(dq + dr) + abs(dr)) / 2)
+
+    def neighbors(self):
+        """Yield axial neighbor coordinates."""
+        for dq, dr in self.HEX_DIRS:
+            yield self.q + dq, self.r + dr
+
 class CircleExplosion:
     def __init__(self, q: int, r: int, color: tuple, target_radius_hex: int):
         self.q = q

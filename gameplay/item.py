@@ -39,6 +39,7 @@ class Item:
         self.slot = data.get("slot")
         self.weight = data.get("weight", 0)
         self.damage_bonus = data.get("base_damage", 0)
+        self.range = data.get("range", 0)
         self.defense = data.get("defense", 0)
         self.healing_amount = data.get("healing_amount", 0)
         self.hunger_restore = data.get("hunger_restore", 0)

@@ -79,6 +79,15 @@ class Player(Entity):
         self.poison_damage_per_turn = 0
 
     @property
+    def range(self):
+        weapon = self.equipment.get("weapon")
+        if weapon and not weapon.is_broken():
+            if weapon.type == "ranged":
+                return weapon.range
+            return 1
+        return 0
+
+    @property
     def total_damage(self):
         """Base damage + weapon bonus."""
         bonus = 0
@@ -227,24 +236,26 @@ class Player(Entity):
     
     def set_anim_state(self, state, reset_frame=True):
         weapon = self.equipment.get("weapon")
-        weapon_name = weapon.name.lower() if weapon else ""
+        armor = self.equipment.get("armor")
+        weapon_type = weapon.type if weapon and not weapon.is_broken() else "unarmed"
+        defense = armor.defense if armor and not armor.is_broken() else 0
         
         # Strip any existing prefix to get the clean base state
         # To prevent prefixes from stacking (like "infantry_archer_idle") when swapping weapons, 
         # which would break the animation logic and freeze the player again.
-        base_state = state
-        if state.startswith("archer_"):
-            base_state = state.replace("archer_", "", 1)
-        elif state.startswith("infantry_"):
-            base_state = state.replace("infantry_", "", 1)
+        base_state = state.split("_")[-1]  # Get the part after the first underscore, or the whole state if no underscore
 
         # Re-apply the correct prefix based on the currently equipped weapon
-        if "bow" in weapon_name:
+        if weapon_type == "ranged":
             state = "archer_" + base_state
         else:
             state = "infantry_" + base_state
 
-        print(f"[Player] set_anim_state: {state} (weapon: {weapon_name})")
+        # Add armored prefix if defense is present
+        if defense > 0:
+            state = "armored_" + state
+
+        print(f"[Player] set_anim_state: {state} (weapon_type: {weapon_type})")
                 
         """Change animation state"""
         if self.anim_state == state and not reset_frame:

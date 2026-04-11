@@ -1077,6 +1077,7 @@ class LibraryTab(ttk.Frame):
         self.var_item_desc = tk.StringVar()
         self.var_item_weight = tk.IntVar(value=1)
         self.var_item_base_damage = tk.IntVar(value=0)
+        self.var_item_range = tk.IntVar(value=0)
         self.var_item_defense = tk.IntVar(value=0)
         self.var_item_max_durability = tk.IntVar(value=100)
         self.var_item_healing = tk.IntVar(value=0)
@@ -1239,6 +1240,7 @@ class LibraryTab(ttk.Frame):
             self.var_item_type.set(list(cats.keys())[0] if cats else "")
             self.var_item_weight.set(1)
             self.var_item_base_damage.set(0)
+            self.var_item_range.set(0)
             self.var_item_defense.set(0)
             self.var_item_max_durability.set(100)
             self.var_item_healing.set(0)
@@ -1412,6 +1414,7 @@ class LibraryTab(ttk.Frame):
     def _reset_item_stats(self):
         self.var_item_weight.set(1)
         self.var_item_base_damage.set(0)
+        self.var_item_range.set(0)
         self.var_item_defense.set(0)
         self.var_item_max_durability.set(100)
         self.var_item_healing.set(0)
@@ -1555,6 +1558,7 @@ class LibraryTab(ttk.Frame):
             ("slot", "Slot (per item)"),
             ("weight", "Weight"),
             ("base_damage", "Base Damage"),
+            ("range", "Range"),
             ("defense", "Defense"),
             ("max_durability", "Max Durability"),
             ("healing_amount", "Healing Amount"),
@@ -1607,6 +1611,7 @@ class LibraryTab(ttk.Frame):
             ("slot", "Slot (per item)"),
             ("weight", "Weight"),
             ("base_damage", "Base Damage"),
+            ("range", "Range"),
             ("defense", "Defense"),
             ("max_durability", "Max Durability"),
             ("healing_amount", "Healing Amount"),
@@ -1707,6 +1712,7 @@ class LibraryTab(ttk.Frame):
             ("slot", "Slot:"),
             ("weight", "Weight:"),
             ("base_damage", "Base Damage:"),
+            ("range", "Range:"),
             ("defense", "Defense:"),
             ("max_durability", "Max Durability:"),
             ("healing_amount", "Healing Amount:"),
@@ -1860,6 +1866,7 @@ class LibraryTab(ttk.Frame):
                     self.var_item_slot.set(data.get("slot", data.get("item_slot", "general")))
                     self.var_item_weight.set(data.get("weight", 1))
                     self.var_item_base_damage.set(data.get("base_damage", 0))
+                    self.var_item_range.set(data.get("range", 0))
                     self.var_item_defense.set(data.get("defense", 0))
                     self.var_item_max_durability.set(data.get("max_durability", 100))
                     self.var_item_healing.set(data.get("healing_amount", 0))
@@ -2146,7 +2153,7 @@ class LibraryTab(ttk.Frame):
             data = self.anim_data
         elif cat == "item":
             cats_load = self.app.asset_mgr.load_item_categories()
-            itype = self.var_item_type.get() if hasattr(self, "var_item_type") else "weapon"
+            itype = self.var_item_type.get() if hasattr(self, "var_item_type") else "melee"
 
             data = {
                 "category": cat,
@@ -2161,6 +2168,7 @@ class LibraryTab(ttk.Frame):
                 "slot": self.var_item_slot.get() if hasattr(self, "var_item_slot") else "general",
                 "weight": self.var_item_weight.get() if hasattr(self, "var_item_weight") else 1,
                 "base_damage": self.var_item_base_damage.get() if hasattr(self, "var_item_base_damage") else 0,
+                "range": self.var_item_range.get() if hasattr(self, "var_item_range") else 0,
                 "defense": self.var_item_defense.get() if hasattr(self, "var_item_defense") else 0,
                 "max_durability": self.var_item_max_durability.get() if hasattr(self, "var_item_max_durability") else 100,
                 "healing_amount": self.var_item_healing.get() if hasattr(self, "var_item_healing") else 0,
