@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import pygame
 
 from ui.base_screen import Screen
-
+import os
 
 
 #screens (only place all the screens are imported)
@@ -16,9 +16,11 @@ import ui.save_menu as screen6
 import ui.game_window as screen7
 import ui.game_over as screen8
 
+
 # singleton and state design pattern
 # singleton: (called first) run __new__(allocate memory) once, __init__(fill the memory) once to have non idempotent elements recreated
 class ScreenManager:
+    
 
     _screenManager_instance = None
     _initialized = False
@@ -40,6 +42,11 @@ class ScreenManager:
 
         pygame.init()
 
+        try:
+            pygame.mixer.init()
+        except pygame.error as e:
+            print(f"Audio init failed: {e}")
+
         pygame.display.set_caption("Beyond") 
 
         # font has differnet sizes
@@ -54,7 +61,7 @@ class ScreenManager:
         # used for welcome screen to switch after 5 seconds
         self.start_time = pygame.time.get_ticks()
         
-
+        self.current_music = None
         from core.config import Config
         import os
         import platform
@@ -106,13 +113,29 @@ class ScreenManager:
 
         #start screen
         self.current_screen = self.available_screens["welcome"](self)
+        self.play_music("menu.mp3")
 
         # part of singletone patern
         # want to avoid reinitialization 
         self._initialized = True
 
     def switch_screen(self, new_screen: str):
-            self.current_screen = self.available_screens[new_screen](self)
+        self.current_screen = self.available_screens[new_screen](self)
+
+        """ 
+        if new_screen == "welcome":
+            self.play_music("menu.mp3")
+        elif new_screen == "base_screen":
+            self.play_music("menu.mp3")
+        elif new_screen == "main_menu":
+            self.play_music("menu.mp3")
+        elif new_screen == "game_window":
+            self.play_music("game.mp3")
+        elif new_screen == "winner":
+            self.play_music("winner.mp3", loops=0)
+        elif new_screen == "game_over":
+            self.play_music("game_over.mp3", loops=0) 
+        """
 
     def run(self):
         while self.running:
@@ -135,6 +158,21 @@ class ScreenManager:
             self.clock.tick(60)  # Limit to 60 FPS
 
         pygame.quit()
+        
+    def play_music(self, filename, loops=-1, volume=0.5):
+        if self.current_music == filename:
+            return
+        try:
+            path = os.path.join("assets", "music", filename)
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(volume)
+            pygame.mixer.music.play(loops)
+        except pygame.error as e:
+            print(f"Could not play music {filename}: {e}")
+
+    def stop_music(self):
+        pygame.mixer.music.stop()
+        self.current_music = None
 
 if __name__ == "__main__":
     manager = ScreenManager()

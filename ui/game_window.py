@@ -49,6 +49,8 @@ class GameWindow(Screen):
         self.loot_font = pygame.font.SysFont("Arial", 22, bold=True)
         self.frame_index = 0
         self.anim_timer = 0
+        self.inventory_scroll_offset = 0 # tracks how far the inventory list is scrolled
+        self.inventory_last_selected_index = self.engine.selected_index
 
         # Active floating loot notification (only one shown at a time).
         # Each entry: {"text": str, "age_ms": int}
@@ -62,6 +64,13 @@ class GameWindow(Screen):
         if event.type == pygame.QUIT:
             self.manager.running = False
             # Key Presses (Single Action)
+        if event.type == pygame.MOUSEWHEEL and getattr(
+            self.engine, "show_inventory", False
+        ):
+            # Scroll inventory list up/down
+            self.inventory_scroll_offset -= event.y
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.manager.switch_screen("main_menu")
@@ -162,7 +171,11 @@ class GameWindow(Screen):
                         player.flip_x = False
                     
                     result = self.engine.run_turn(action)
-                    if result == "GAME_OVER":
+
+                    if result == "WIN":
+                        self.manager.switch_screen("winner")
+                        return
+                    elif result == "GAME_OVER":
                         self.manager.switch_screen("game_over")
 
             # Independent Monster AI Handling
@@ -270,7 +283,7 @@ class GameWindow(Screen):
         # Dispaly title, control instruction and player info
         title = title_font.render("Inventory", True, (236, 228, 204))
         controls = small_font.render(
-            "W/S: Select   F: Use/Equip   A: Drop   I: Close",
+            "W/S: Select   Wheel: Scroll   Space: Use   F: Equip/Unequip   I: Close",
             True,
             (162, 169, 178),
         )
@@ -295,6 +308,8 @@ class GameWindow(Screen):
 
         # Empty state
         if not items:
+            self.inventory_scroll_offset = 0
+            self.inventory_last_selected_index = self.engine.selected_index
             empty = self.font.render("Your inventory is empty.", True, (145, 150, 158))
             hint = self.font.render("Pick up items to see them here.", True, (105, 112, 121))
             self.manager.screen.blit(empty, (rect.x + 16, rect.y + 52))
@@ -302,19 +317,58 @@ class GameWindow(Screen):
             return
 
         row_height = 52
+        row_gap = 8
         top = rect.y + 42
         bottom = rect.bottom - 12
+        visible_count = max(1, (bottom - top + row_gap) // (row_height + row_gap))
+        max_scroll_offset = max(0, len(items) - visible_count)
+        selected_index = min(self.engine.selected_index, len(items) - 1)
+
+        self.inventory_scroll_offset = max(
+            0,
+            min(self.inventory_scroll_offset, max_scroll_offset),
+        )
+
+        # If the selected index has changed, adjust scroll offset to ensure it's visible
+        if selected_index != self.inventory_last_selected_index:
+            if selected_index < self.inventory_scroll_offset:
+                self.inventory_scroll_offset = selected_index
+            elif selected_index >= self.inventory_scroll_offset + visible_count:
+                self.inventory_scroll_offset = selected_index - visible_count + 1
+            self.inventory_last_selected_index = selected_index
+
+        self.inventory_scroll_offset = max(
+            0,
+            min(self.inventory_scroll_offset, max_scroll_offset),
+        )
+
+        if len(items) > visible_count:
+            # Show scroll range indicator
+            end_item = min(len(items), self.inventory_scroll_offset + visible_count)
+            range_text = self.font.render(
+                f"{end_item} / {len(items)}",
+                True,
+                (145, 150, 158),
+            )
+            self.manager.screen.blit(
+                range_text,
+                (rect.right - range_text.get_width() - 16, rect.y + 12),
+            )
 
         # Loop through items and display them
-        for i, item in enumerate(items):
+        visible_items = items[
+            self.inventory_scroll_offset:self.inventory_scroll_offset + visible_count
+        ]
+        for display_index, item in enumerate(visible_items):
             # If the row goes beyond the bottom of the panel, stop drawing more items
-            row_y = top + i * (row_height + 8)
+            row_y = top + display_index * (row_height + row_gap)
             if row_y + row_height > bottom:
                 break
 
             # Engine stores selected_index which is used to determine which item is highlighted
+            item_index = self.inventory_scroll_offset + display_index
             row_rect = pygame.Rect(rect.x + 12, row_y, rect.width - 24, row_height)
-            selected = i == self.engine.selected_index
+            selected = item_index == self.engine.selected_index
             row_fill = (92, 69, 41) if selected else (42, 46, 53)
             row_border = (230, 196, 120) if selected else (74, 80, 89)
             name_color = (255, 241, 197) if selected else (225, 228, 232)
@@ -390,6 +444,56 @@ class GameWindow(Screen):
             lines.append(("No additional details.", (145, 150, 158)))
         return lines
 
+    def _wrap_text(self, text, font, max_width):
+        # word-wrapping function that splits text into lines that fit within max_width
+        words = text.split()
+        if not words:
+            return [""]
+
+        wrapped_lines = []
+        current_line = ""
+
+        for word in words:
+            # If a single word is too long to fit on a line by itself, we need to split it character by character
+            if font.size(word)[0] > max_width:
+                if current_line:
+                    wrapped_lines.append(current_line)
+                    current_line = ""
+
+                wrapped_lines.extend(self._split_long_word(word, font, max_width))
+                continue
+
+            candidate = word if not current_line else f"{current_line} {word}"
+            if font.size(candidate)[0] <= max_width:
+                current_line = candidate
+            else:
+                wrapped_lines.append(current_line)
+                current_line = word
+
+        if current_line:
+            # Append any remaining text as the last line
+            wrapped_lines.append(current_line)
+        return wrapped_lines
+
+    def _split_long_word(self, word, font, max_width):
+        # Split a single long word into parts that fit within max_width
+        parts = []
+        current_part = ""
+
+        for char in word:
+            # If the current character makes the line too long, split here
+            candidate = f"{current_part}{char}"
+            if font.size(candidate)[0] <= max_width or not current_part:
+                current_part = candidate
+            else:
+                parts.append(current_part)
+                current_part = char
+
+        if current_part:
+            # Append any remaining characters as the last part
+            parts.append(current_part)
+        return parts
+
     # Right bottom of inventory page
     def _draw_selected_item_details(self, rect, item):
         self._draw_panel_box(rect, (31, 34, 40), (84, 90, 98))
@@ -408,10 +512,17 @@ class GameWindow(Screen):
             line_y = rect.y + 46
 
         # Loop through the lines of details for the selected item and display them
+        max_text_width = rect.width - 32
+        bottom_padding = 16
+        line_height = 24
         for line, color in self._selected_item_detail_lines(item):
-            surf = self.font.render(line, True, color)
-            self.manager.screen.blit(surf, (rect.x + 16, line_y))
-            line_y += 24
+            for wrapped_line in self._wrap_text(line, self.font, max_text_width):
+                # If the next line would go beyond the bottom of the panel, stop drawing more lines
+                if line_y + line_height > rect.bottom - bottom_padding:
+                    return
+                surf = self.font.render(wrapped_line, True, color)
+                self.manager.screen.blit(surf, (rect.x + 16, line_y))
+                line_y += line_height
 
 
     def _draw_ui(self):
