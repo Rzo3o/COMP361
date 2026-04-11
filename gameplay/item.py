@@ -1,7 +1,6 @@
 """Item domain model.
 
-An Item is a data-driven game object constructed from a dict that may
-come from three sources:
+An Item is a data-driven game object constructed from a dict:
   - a JSON definition file under assets/definitions/items/
   - a row from the SQLite `items` / `inventory` tables
   - a literal dict built in code (tests, demo spawns, etc.)
@@ -47,8 +46,8 @@ class Item:
         self.power_bonus = data.get("power_bonus", 0)
         self.texture = data.get("texture_file")
         self.equipped = bool(data.get("is_equipped", False))
-        # Identifies the specific inventory row this Item was loaded
-        # from; None if the Item was constructed outside the DB path.
+        # Identifies the specific inventory row this Item was loaded from
+        # None if the Item was constructed outside the DB path
         self.inventory_entry_id = data.get("inventory_entry_id")
 
     @property
@@ -69,7 +68,7 @@ class Item:
         """Consume food/potion: heal HP and restore hunger."""
         if self.is_broken():
             return False
-        
+
         if self.type == "food":
             player.hp = min(player.max_hp, player.hp + self.healing_amount)
             player.hunger = min(player.max_hunger, player.hunger + self.hunger_restore)

@@ -63,7 +63,6 @@ class Chest:
         self.data = data
         self.animations = data.get("animations", {})
 
-        # Animation state (FSM).
         self.anim_state = "idle"
         self.texture = self.animations.get("idle", {}).get("texture")
         self.anim_row = self.animations.get("idle", {}).get("row", 0)
@@ -75,9 +74,7 @@ class Chest:
         self.opened = False
         self.open_complete = False
         # The main loop calls update_animation every ~50ms, so 7 ticks
-        # is roughly a third of a second of "chest sits open" pause
-        # before despawning. Tweakable per-chest without affecting
-        # anything else.
+        # is roughly a third of a second of chest sits open
         self.despawn_delay_ticks = 7
         self._despawn_counter = 0
         self.remove_after_open = False
@@ -111,14 +108,10 @@ class Chest:
         return data
 
     def open_chest(self):
-        """Start the opening animation.
-
-        Returns True the first time the chest transitions from closed to
+        """Returns True the first time the chest transitions from closed to
         opening (so the engine can award loot exactly once). Subsequent
         calls on an already-opened chest return False.
 
-        Note: named open_chest rather than open to avoid shadowing the
-        Python built-in.
         """
         if self.opened:
             return False
@@ -133,10 +126,6 @@ class Chest:
         """Advance the animation FSM by one tick.
 
         Called once per animation frame (~20 Hz) from GameWindow.update.
-        The `_asset_manager` argument is accepted for signature parity
-        with Player.update_animation and Monster.update_animation but is
-        unused — chests own their frame state and do not need to look up
-        anything on the asset manager.
         """
         anim_cfg = self.animations.get(self.anim_state)
         if not anim_cfg:
