@@ -399,6 +399,6 @@ class Player(Entity):
             
         return amount
     
-    def increase_player_hp_50(self):
-        self.hp += 50
+    def increase_player_hp(self, amount: int):
+        self.hp += amount
         self.hp = min(self.hp, self.max_hp)  # cap it

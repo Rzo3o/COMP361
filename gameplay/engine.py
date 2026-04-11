@@ -448,7 +448,7 @@ class GameEngine:
 
             unlocked = self.world.unlock_next_level()
             self.level_up_sound.play()
-            self.world.player.increase_player_hp_50()
+            self.world.player.increase_player_hp(50)
             # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             # if unlocked:
             #    self.start_time = time.time()
