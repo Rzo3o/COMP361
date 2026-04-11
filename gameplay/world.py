@@ -97,9 +97,50 @@ class World:
                 print(f"load_chests failed: {e}")
 
     def spawn_demo_chest(self):
-        """Place a single chest one tile east of the player for manual testing."""
-        if self.player is not None:
-            self.chests.append(Chest(self.player.q + 1, self.player.r, "brown_chest"))
+        """Place a single chest one tile east of the player for manual testing.
+
+        The chest contains two loaves of bread that restore HP and hunger so
+        opening it visibly affects the player.
+        """
+        if self.player is None:
+            return
+
+        # Ensure a 'Bread' item row exists in the DB and grab its id.
+        self.db.cursor.execute(
+            "SELECT id FROM items WHERE name=?", ("Bread",),
+        )
+        row = self.db.cursor.fetchone()
+        if row:
+            bread_id = row["id"]
+        else:
+            self.db.cursor.execute(
+                """INSERT INTO items
+                   (name, description, item_type, slot, weight,
+                    healing_amount, hunger_restore, durability, max_durability)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ("Bread", "Restores stamina and health", "food", None, 1,
+                 20, 15, 1, 1),
+            )
+            self.db.conn.commit()
+            bread_id = self.db.cursor.lastrowid
+
+        bread_items = [
+            Item({
+                "id": bread_id,
+                "name": "Bread",
+                "item_type": "food",
+                "healing_amount": 20,
+                "hunger_restore": 15,
+                "durability": 1,
+                "max_durability": 1,
+            })
+            for _ in range(2)
+        ]
+
+        self.chests.append(Chest(
+            self.player.q + 1, self.player.r, "brown_chest",
+            items=bread_items,
+        ))
 
     def get_chest_at(self, q, r):
         for chest in self.chests:

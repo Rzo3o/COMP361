@@ -19,6 +19,7 @@ Random stuff/
 .vscode/
 .pytest_cache/
 game_data_*.db
+.*/
 
 # Test items
 assets/definitions/items/dog2.json

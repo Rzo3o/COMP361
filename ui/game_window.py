@@ -46,8 +46,15 @@ class GameWindow(Screen):
         self.renderer = GameRenderer(self.assets)
 
         self.font = pygame.font.SysFont("Arial", 18)
+        self.loot_font = pygame.font.SysFont("Arial", 22, bold=True)
         self.frame_index = 0
         self.anim_timer = 0
+
+        # Active floating loot notification (only one shown at a time).
+        # Each entry: {"text": str, "age_ms": int}
+        # Items in engine.loot_notifications_queue drip in one-by-one.
+        self.active_loot_notification = None
+        self.loot_notification_duration_ms = 1000  # 1 second fade
 
     
 
@@ -81,6 +88,9 @@ class GameWindow(Screen):
                     self.engine.run_turn(action)
                     
     def update(self):
+        # Loot notifications: per-frame (not tied to 50ms anim tick) so fade is smooth
+        self._update_loot_notifications(self.manager.clock.get_time())
+
         # Animation tick
         self.anim_timer += self.manager.clock.get_time()
         if self.anim_timer > 50:
@@ -180,6 +190,51 @@ class GameWindow(Screen):
                     monster.decide_and_act(self.engine.world, player)
                     monster.rt_action_timer = random.randint(30, 40)
 
+    def _update_loot_notifications(self, dt_ms):
+        """Advance the active notification and pull the next one off the queue."""
+        # Pop next notification if slot is free
+        if self.active_loot_notification is None:
+            if self.engine.loot_notifications_queue:
+                name, count = self.engine.loot_notifications_queue.pop(0)
+                self.active_loot_notification = {
+                    "text": f"{name} x{count}",
+                    "age_ms": 0,
+                }
+            return
+
+        # Age the active one
+        self.active_loot_notification["age_ms"] += dt_ms
+        if self.active_loot_notification["age_ms"] >= self.loot_notification_duration_ms:
+            self.active_loot_notification = None
+
+    def _draw_loot_notification(self):
+        """Draw the active floating loot text above the player with a fade."""
+        notif = self.active_loot_notification
+        if notif is None:
+            return
+
+        # Linear fade out across the full duration
+        progress = notif["age_ms"] / self.loot_notification_duration_ms
+        progress = max(0.0, min(1.0, progress))
+        alpha = int(255 * (1.0 - progress))
+        # Rise a little as it fades (10px over the full duration)
+        y_offset = int(progress * 10)
+
+        text_surf = self.loot_font.render(
+            notif["text"], True, (255, 236, 140)
+        )
+        # Per-pixel alpha requires a scratch surface
+        faded = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
+        faded.blit(text_surf, (0, 0))
+        faded.set_alpha(alpha)
+
+        # Center horizontally, anchor above the player's HUD position.
+        # Player is always drawn at screen center.
+        cx = self.manager.screen.get_width() // 2
+        cy = self.manager.screen.get_height() // 2
+        rect = faded.get_rect(center=(cx, cy - 80 - y_offset))
+        self.manager.screen.blit(faded, rect)
+
     def draw(self):
         self.update()
         # Render World
@@ -187,6 +242,9 @@ class GameWindow(Screen):
 
         # Render UI Overlay
         self._draw_ui()
+
+        # Loot pickup text (drawn after world, before inventory overlay)
+        self._draw_loot_notification()
 
         # inventory
         if self.engine.show_inventory:

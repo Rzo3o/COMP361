@@ -3,7 +3,6 @@ from gameplay.world import World
 from gameplay.item import Item
 
 
-
 class GameEngine:
     def __init__(self, db, session_id):
         self.db = db
@@ -14,9 +13,14 @@ class GameEngine:
         self.selected_index = 0  # cursor position in inventory
         if self.world.player:
             self.world.player.load_inventory(self.db, self.session_id)
-            self.world.sync_inventory_resource_locks() # Sync resource locks after loading inventory
+            self.world.sync_inventory_resource_locks()  # Sync resource locks after loading inventory
         self.start_time = time.time()
-        self.monsters_need_turn = False  # Animation lock: A mark waiting for the monster to act
+        self.monsters_need_turn = (
+            False  # Animation lock: A mark waiting for the monster to act
+        )
+        # Queue of (name, count) tuples to show as floating pickup text.
+        # The UI layer drains this and renders them with a fade.
+        self.loot_notifications_queue = []
 
     def handle_input(self, action):
         player = self.world.player
@@ -65,7 +69,7 @@ class GameEngine:
         if action in move_map:
             dq, dr = move_map[action]
             player = self.world.player
-            
+
             if player is None:
                 return "NO_PLAYER"
 
@@ -88,7 +92,7 @@ class GameEngine:
 
                 print(f"Player attacked {monster.name} for {damage} damage")
                 return "TURN_TAKEN"
-            
+
             # if no monster, then try to move
             moved = self.attempt_move(dq, dr)
             return "TURN_TAKEN" if moved else "NO_ACTION"
@@ -98,7 +102,7 @@ class GameEngine:
             self.selected_index = 0
             if player:
                 player.load_inventory(self.db, self.session_id)
-                self.world.sync_inventory_resource_locks() # Sync resource locks when opening inventory
+                self.world.sync_inventory_resource_locks()  # Sync resource locks when opening inventory
             return "NO_ACTION"
 
         return "NO_ACTION"
@@ -119,7 +123,7 @@ class GameEngine:
             # try to acquire the lock
             if not self.world.resource_locks.acquire(resource_id):
                 return False
- 
+
         used = player.use_item(self.selected_index, self.db, self.session_id)
         if resource_id is not None:
             if used and item.type == "food":
@@ -154,15 +158,53 @@ class GameEngine:
 
         # Hex neighbors (axial, matches move_map in handle_input)
         neighbors = [
-            (0, -1), (0, 1), (-1, 0), (1, 0), (-1, 1), (1, -1),
+            (0, -1),
+            (0, 1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (1, -1),
         ]
         for dq, dr in neighbors:
             chest = self.world.get_chest_at(player.q + dq, player.r + dr)
             if chest is not None and not chest.opened:
                 chest.open()
+                self._award_chest_items(chest)
                 print(f"Opened chest at ({chest.q}, {chest.r})")
                 return True
         return False
+
+    def _award_chest_items(self, chest):
+        """Add each item stored in the chest to the player's inventory."""
+        player = self.world.player
+        if player is None or not chest.items:
+            return
+
+        # Tally items by name so duplicates collapse into "Bread x2"
+        counts = {}
+        for item in chest.items:
+            if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
+                item.id = self.db.get_or_create_item(item._def_name)
+            if getattr(item, "id", None) is not None:
+                self.db.add_item(self.session_id, item.id)
+            counts[item.name] = counts.get(item.name, 0) + 1
+
+        # Push one notification per distinct item name, preserving order
+        seen = []
+        for item in chest.items:
+            if item.name not in seen:
+                seen.append(item.name)
+                self.loot_notifications_queue.append((item.name, counts[item.name]))
+
+        print(
+            f"  -> awarded {len(chest.items)} items: "
+            f"{[i.name for i in chest.items]}"
+        )
+        # Empty the chest so items aren't awarded twice
+        chest.items = []
+        # Refresh the player's inventory
+        player.load_inventory(self.db, self.session_id)
+        self.world.sync_inventory_resource_locks()
 
     def pick_up_ground_items(self):
         """Pick up all ground items on the player's current tile."""
@@ -210,7 +252,7 @@ class GameEngine:
             return True
         except Exception:
             return False
-        
+
     def _safe_save_monster(self, monster):
         try:
             if hasattr(self.db, "save_monster"):
@@ -243,20 +285,31 @@ class GameEngine:
 
     def drop_monster_loot(self, monster):
         if not monster.is_alive():
-            if not getattr(monster, 'death_loot_dropped', False):
+            if not getattr(monster, "death_loot_dropped", False):
                 drops = monster.on_death()
-                print("Dropped: ", [item.name for item in drops])
+                print(
+                    f"{monster.name} dropped chest with: "
+                    f"{[item.name for item in drops]}"
+                )
+
+                # Resolve each item's id upfront so it's ready when the
+                # chest is opened.
                 for item in drops:
-                    if getattr(item, 'id', None) is None and hasattr(item, '_def_name'):
+                    if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
                         item.id = self.db.get_or_create_item(item._def_name)
-                    if getattr(item, 'id', None) is not None:
-                        self.db.add_item(self.session_id, item.id)
-                self.world.player.load_inventory(self.db, self.session_id)
+
+                # Spawn a chest at the monster's tile holding the loot.
+                from gameplay.chest import Chest
+
+                loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
+                self.world.chests.append(loot_chest)
                 monster.death_loot_dropped = True
 
             alive_count = sum(
-                1 for m in self.world.monsters
-                if m.is_alive() and m.level == self.world.current_level)
+                1
+                for m in self.world.monsters
+                if m.is_alive() and m.level == self.world.current_level
+            )
 
             print(f"{monster.name} died! {alive_count} monsters left in this level.")
 
@@ -265,7 +318,7 @@ class GameEngine:
 
         if player is None:
             return "NO_PLAYER"
-        
+
         if player.dead:
             return "GAME_OVER"
 
@@ -307,7 +360,7 @@ class GameEngine:
         for monster in self.world.monsters:
             if not monster.is_alive():
                 continue
-            
+
             if monster.level != self.world.current_level:
                 continue
 
@@ -329,7 +382,7 @@ class GameEngine:
         # Save player state too, because monsters may have damaged the player
         self.db.save_player(self.session_id, player)
         return logs
-    
+
     def run_turn(self, action):
         result = self.handle_input(action)
 
@@ -339,26 +392,26 @@ class GameEngine:
         if result != "TURN_TAKEN":
             return "NO_ACTION"
 
-        self.monsters_need_turn = True 
+        self.monsters_need_turn = True
 
         game_state = self.update()
         if game_state == "GAME_OVER":
             return "GAME_OVER"
-        
+
         if self.check_level_completed():
             unlocked = self.world.unlock_next_level()
-            #print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
+            # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             if unlocked:
                 self.start_time = time.time()
 
         return "TURN_DONE"
-    
+
     def check_level_completed(self):
         current_level_monsters = [
-            m for m in self.world.monsters
+            m
+            for m in self.world.monsters
             if m.level == self.world.current_level and m.is_alive()
-            ]
+        ]
         return len(current_level_monsters) == 0
-    
-        #return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
-        
+
+        # return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())

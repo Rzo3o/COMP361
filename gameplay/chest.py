@@ -12,10 +12,14 @@ class Chest:
     # Class-level cache of loaded chest definitions {name: data}
     _definitions = {}
 
-    def __init__(self, q, r, chest_type="brown_chest"):
+    def __init__(self, q, r, chest_type="brown_chest", items=None):
         self.q = q
         self.r = r
         self.chest_type = chest_type
+        # Items the player will receive when this chest is opened.
+        # Each entry should be an Item instance (same objects produced by
+        # monster.on_death() / world.load_ground_items).
+        self.items = list(items) if items else []
 
         data = Chest._load_definition(chest_type)
         self.data = data
