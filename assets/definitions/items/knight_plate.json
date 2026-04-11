@@ -1,0 +1,19 @@
+{
+    "category": "item",
+    "name": "Knight's Plate",
+    "texture_file": "",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 32,
+    "description": "A full suit of polished steel. Heavy, but nearly impenetrable. +25 Defense",
+    "item_type": "armor",
+    "slot": "armor",
+    "weight": 15,
+    "base_damage": 0,
+    "defense": 25,
+    "max_durability": 200,
+    "durability": 200,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 0
+}

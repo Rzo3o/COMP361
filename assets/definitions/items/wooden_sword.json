@@ -1,0 +1,19 @@
+{
+    "category": "item",
+    "name": "Wooden Sword",
+    "texture_file": "",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 32,
+    "description": "A crude practice blade. Better than nothing. +3 Damage",
+    "item_type": "weapon",
+    "slot": "weapon",
+    "weight": 3,
+    "base_damage": 3,
+    "defense": 0,
+    "max_durability": 40,
+    "durability": 40,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 0
+}

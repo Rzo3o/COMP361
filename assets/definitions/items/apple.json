@@ -1,0 +1,20 @@
+{
+    "category": "item",
+    "name": "Apple",
+    "texture_file": "",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 32,
+    "description": "A crisp red apple. A quick bite on the road. +5 HP, +10 Hunger",
+    "item_type": "food",
+    "item_slot": "general",
+    "slot": "general",
+    "weight": 1,
+    "base_damage": 0,
+    "defense": 0,
+    "max_durability": 1,
+    "durability": 1,
+    "healing_amount": 5,
+    "hunger_restore": 10,
+    "power_bonus": 0
+}

@@ -1,0 +1,19 @@
+{
+    "category": "item",
+    "name": "Steel Axe",
+    "texture_file": "",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 32,
+    "description": "A heavy two-handed axe. Slow but devastating. +15 Damage",
+    "item_type": "weapon",
+    "slot": "weapon",
+    "weight": 8,
+    "base_damage": 15,
+    "defense": 0,
+    "max_durability": 120,
+    "durability": 120,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 0
+}
