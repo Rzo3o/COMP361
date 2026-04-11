@@ -49,6 +49,8 @@ class GameWindow(Screen):
         self.loot_font = pygame.font.SysFont("Arial", 22, bold=True)
         self.frame_index = 0
         self.anim_timer = 0
+        self.inventory_scroll_offset = 0 # tracks how far the inventory list is scrolled
+        self.inventory_last_selected_index = self.engine.selected_index
 
         # Active floating loot notification (only one shown at a time).
         # Each entry: {"text": str, "age_ms": int}
@@ -62,6 +64,13 @@ class GameWindow(Screen):
         if event.type == pygame.QUIT:
             self.manager.running = False
             # Key Presses (Single Action)
+        if event.type == pygame.MOUSEWHEEL and getattr(
+            self.engine, "show_inventory", False
+        ):
+            # Scroll inventory list up/down
+            self.inventory_scroll_offset -= event.y
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.manager.switch_screen("main_menu")
@@ -274,7 +283,7 @@ class GameWindow(Screen):
         # Dispaly title, control instruction and player info
         title = title_font.render("Inventory", True, (236, 228, 204))
         controls = small_font.render(
-            "W/S: Select   F/Space: Equip or Use   F: Unequip   I: Close",
+            "W/S: Select   Wheel: Scroll   Space: Use   F: Equip/Unequip   I: Close",
             True,
             (162, 169, 178),
         )
@@ -299,6 +308,8 @@ class GameWindow(Screen):
 
         # Empty state
         if not items:
+            self.inventory_scroll_offset = 0
+            self.inventory_last_selected_index = self.engine.selected_index
             empty = self.font.render("Your inventory is empty.", True, (145, 150, 158))
             hint = self.font.render("Pick up items to see them here.", True, (105, 112, 121))
             self.manager.screen.blit(empty, (rect.x + 16, rect.y + 52))
@@ -306,19 +317,58 @@ class GameWindow(Screen):
             return
 
         row_height = 52
+        row_gap = 8
         top = rect.y + 42
         bottom = rect.bottom - 12
+        visible_count = max(1, (bottom - top + row_gap) // (row_height + row_gap))
+        max_scroll_offset = max(0, len(items) - visible_count)
+        selected_index = min(self.engine.selected_index, len(items) - 1)
+
+        self.inventory_scroll_offset = max(
+            0,
+            min(self.inventory_scroll_offset, max_scroll_offset),
+        )
+
+        # If the selected index has changed, adjust scroll offset to ensure it's visible
+        if selected_index != self.inventory_last_selected_index:
+            if selected_index < self.inventory_scroll_offset:
+                self.inventory_scroll_offset = selected_index
+            elif selected_index >= self.inventory_scroll_offset + visible_count:
+                self.inventory_scroll_offset = selected_index - visible_count + 1
+            self.inventory_last_selected_index = selected_index
+
+        self.inventory_scroll_offset = max(
+            0,
+            min(self.inventory_scroll_offset, max_scroll_offset),
+        )
+
+        if len(items) > visible_count:
+            # Show scroll range indicator
+            end_item = min(len(items), self.inventory_scroll_offset + visible_count)
+            range_text = self.font.render(
+                f"{end_item} / {len(items)}",
+                True,
+                (145, 150, 158),
+            )
+            self.manager.screen.blit(
+                range_text,
+                (rect.right - range_text.get_width() - 16, rect.y + 12),
+            )
 
         # Loop through items and display them
-        for i, item in enumerate(items):
+        visible_items = items[
+            self.inventory_scroll_offset:self.inventory_scroll_offset + visible_count
+        ]
+        for display_index, item in enumerate(visible_items):
             # If the row goes beyond the bottom of the panel, stop drawing more items
-            row_y = top + i * (row_height + 8)
+            row_y = top + display_index * (row_height + row_gap)
             if row_y + row_height > bottom:
                 break
 
             # Engine stores selected_index which is used to determine which item is highlighted
+            item_index = self.inventory_scroll_offset + display_index
             row_rect = pygame.Rect(rect.x + 12, row_y, rect.width - 24, row_height)
-            selected = i == self.engine.selected_index
+            selected = item_index == self.engine.selected_index
             row_fill = (92, 69, 41) if selected else (42, 46, 53)
             row_border = (230, 196, 120) if selected else (74, 80, 89)
             name_color = (255, 241, 197) if selected else (225, 228, 232)
