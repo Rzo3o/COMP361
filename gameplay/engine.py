@@ -20,6 +20,8 @@ import time
 from gameplay.world import World
 from gameplay.item import Item
 from gameplay.chest import Chest
+import pygame
+import os
 
 
 class GameEngine:
@@ -52,6 +54,9 @@ class GameEngine:
         # Queue of (name, count) tuples to show as floating pickup text.
         # The UI layer drains this and renders them with a fade.
         self.loot_notifications_queue = []
+        
+        self.level_up_sound = pygame.mixer.Sound(os.path.join("assets", "music", "level_up.mp3"))
+        self.level_up_sound.set_volume(0.6)
 
     def handle_input(self, action):
         player = self.world.player
@@ -442,6 +447,7 @@ class GameEngine:
                 return "WIN"
 
             unlocked = self.world.unlock_next_level()
+            self.level_up_sound.play()
             self.world.player.increase_player_hp_50()
             # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
             # if unlocked:

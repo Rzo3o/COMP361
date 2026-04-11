@@ -113,7 +113,8 @@ class ScreenManager:
 
         #start screen
         self.current_screen = self.available_screens["welcome"](self)
-        self.play_music("menu.mp3")
+        self.play_music("start.mp3")
+        self.current_music = "start.mp3"
 
         # part of singletone patern
         # want to avoid reinitialization 
@@ -122,20 +123,16 @@ class ScreenManager:
     def switch_screen(self, new_screen: str):
         self.current_screen = self.available_screens[new_screen](self)
 
-        """ 
-        if new_screen == "welcome":
-            self.play_music("menu.mp3")
-        elif new_screen == "base_screen":
-            self.play_music("menu.mp3")
-        elif new_screen == "main_menu":
-            self.play_music("menu.mp3")
+        
+        if new_screen == "main_menu" :
+            self.play_music("start.mp3")
         elif new_screen == "game_window":
             self.play_music("game.mp3")
         elif new_screen == "winner":
             self.play_music("winner.mp3", loops=0)
         elif new_screen == "game_over":
             self.play_music("game_over.mp3", loops=0) 
-        """
+        
 
     def run(self):
         while self.running:
@@ -167,6 +164,7 @@ class ScreenManager:
             pygame.mixer.music.load(path)
             pygame.mixer.music.set_volume(volume)
             pygame.mixer.music.play(loops)
+            self.current_music = filename
         except pygame.error as e:
             print(f"Could not play music {filename}: {e}")
 
