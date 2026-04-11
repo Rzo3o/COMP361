@@ -547,6 +547,35 @@ class GameWindow(Screen):
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
+        #Adding level box 
+        level = self.engine.world.current_level
+
+        # Colors
+        bg_color = (20, 20, 30)
+        border_color = (212, 175, 55)   # gold
+        text_color = (255, 236, 140)
+
+        # Box
+        badge_rect = pygame.Rect(Config.WINDOW_WIDTH - 260, 45, 200, 50)
+
+        # Shadow 
+        shadow_rect = badge_rect.move(3, 3)
+        pygame.draw.rect(self.manager.screen, (0, 0, 0), shadow_rect, border_radius=12)
+
+        # Background
+        pygame.draw.rect(self.manager.screen, bg_color, badge_rect, border_radius=12)
+
+        # Border
+        pygame.draw.rect(self.manager.screen, border_color, badge_rect, 3, border_radius=12)
+
+        # Text
+        level_text = self.font.render(f"LEVEL {level}", True, text_color)
+
+        # Center text
+        text_rect = level_text.get_rect(center=badge_rect.center)
+
+        self.manager.screen.blit(level_text, text_rect)
+
     # Inventory screen with 3 sections
     def _draw_inventory(self):
         # Semi-transparent dark overlay
