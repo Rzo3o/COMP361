@@ -50,5 +50,11 @@
     "name": "mushroom_monster.json",
     "default_health": 50,
     "default_damage": 10,
-    "attack_hit_frame": 6
+    "attack_hit_frame": 6,
+    "drops": [
+        "minor_health_potion",
+        "health_potion",
+        "greater_health_potion",
+        "chainmail"
+    ]
 }

@@ -38,5 +38,10 @@
     "name": "forest_fly_monster.json",
     "default_health": 50,
     "default_damage": 10,
-    "attack_hit_frame": 11
+    "attack_hit_frame": 11,
+    "drops": [
+        "steel_axe",
+        "chainmail",
+        "cooked_meat"
+    ]
 }

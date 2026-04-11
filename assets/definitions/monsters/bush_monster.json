@@ -38,5 +38,11 @@
     "name": "bush_monster.json",
     "default_health": 50,
     "default_damage": 10,
-    "attack_hit_frame": 10
+    "attack_hit_frame": 10,
+    "drops": [
+        "berries",
+        "apple",
+        "cooked_meat",
+        "leather_armor"
+    ]
 }

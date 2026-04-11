@@ -37,5 +37,10 @@
     "category": "monster",
     "name": "blue_slime.json",
     "default_health": 50,
-    "default_damage": 10
+    "default_damage": 10,
+    "drops": [
+        "berries",
+        "apple",
+        "wooden_sword"
+    ]
 }

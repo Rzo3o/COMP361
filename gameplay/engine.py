@@ -287,23 +287,32 @@ class GameEngine:
         if not monster.is_alive():
             if not getattr(monster, "death_loot_dropped", False):
                 drops = monster.on_death()
-                print(
-                    f"{monster.name} dropped chest with: "
-                    f"{[item.name for item in drops]}"
-                )
+                # Strip any Nones that may have slipped through
+                drops = [d for d in drops if d is not None]
 
-                # Resolve each item's id upfront so it's ready when the
-                # chest is opened.
-                for item in drops:
-                    if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
-                        item.id = self.db.get_or_create_item(item._def_name)
+                # Don't spawn an empty chest. Mark loot as handled so we
+                # don't keep re-rolling on every frame.
+                if not drops:
+                    print(f"{monster.name} died with no loot, no chest spawned.")
+                    monster.death_loot_dropped = True
+                else:
+                    print(
+                        f"{monster.name} dropped chest with: "
+                        f"{[item.name for item in drops]}"
+                    )
 
-                # Spawn a chest at the monster's tile holding the loot.
-                from gameplay.chest import Chest
+                    # Resolve each item's id upfront so it's ready when the
+                    # chest is opened.
+                    for item in drops:
+                        if getattr(item, "id", None) is None and hasattr(item, "_def_name"):
+                            item.id = self.db.get_or_create_item(item._def_name)
 
-                loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
-                self.world.chests.append(loot_chest)
-                monster.death_loot_dropped = True
+                    # Spawn a chest at the monster's tile holding the loot.
+                    from gameplay.chest import Chest
+
+                    loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
+                    self.world.chests.append(loot_chest)
+                    monster.death_loot_dropped = True
 
             alive_count = sum(
                 1

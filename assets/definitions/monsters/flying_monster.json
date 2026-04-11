@@ -53,12 +53,9 @@
     "attack_hit_frame": 6,
     "vision_range": 7,
     "drops": [
-        "dog.json",
-        "dog2.json",
-        "dog3.json",
-        "test_bow.json",
-        "test_armor.json",
-        "test_sword.json",
-        "test key.json"
+        "dragonfang_blade",
+        "knight_plate",
+        "greater_health_potion",
+        "royal_feast"
     ]
 }
