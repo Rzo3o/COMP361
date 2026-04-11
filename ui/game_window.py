@@ -162,7 +162,11 @@ class GameWindow(Screen):
                         player.flip_x = False
                     
                     result = self.engine.run_turn(action)
-                    if result == "GAME_OVER":
+
+                    if result == "WIN":
+                        self.manager.switch_screen("winner")
+                        return
+                    elif result == "GAME_OVER":
                         self.manager.switch_screen("game_over")
 
             # Independent Monster AI Handling

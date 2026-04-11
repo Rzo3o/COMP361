@@ -408,10 +408,14 @@ class GameEngine:
             return "GAME_OVER"
 
         if self.check_level_completed():
+            
+            if self.world.current_level == self.world.get_max_level():
+                return "WIN"
+            
             unlocked = self.world.unlock_next_level()
             # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
-            if unlocked:
-                self.start_time = time.time()
+            #if unlocked:
+            #    self.start_time = time.time()
 
         return "TURN_DONE"
 
