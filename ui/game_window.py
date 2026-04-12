@@ -74,6 +74,7 @@ class GameWindow(Screen):
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                self.cleanup()
                 self.manager.switch_screen("main_menu")
 
             # Open/Close Inventory should strictly be a single key press
@@ -96,6 +97,10 @@ class GameWindow(Screen):
 
                 if action:
                     self.engine.run_turn(action)
+
+    def cleanup(self):
+        if hasattr(self, "db") and self.db:
+            self.db.close()
                     
     def update(self):
         # Loot notifications: per-frame (not tied to 50ms anim tick) so fade is smooth
