@@ -453,7 +453,15 @@ class GameEngine:
             # if unlocked:
             #    self.start_time = time.time()
 
+        self._save_all_monsters()
         return "TURN_DONE"
+
+    def _save_all_monsters(self):
+        """Saves the state of every monster in the world to the DB
+        every game loop. This ensures that deaths are persistent.
+        """
+        for monster in self.world.monsters:
+            self._safe_save_monster(monster)
 
     def check_level_completed(self):
         current_level_monsters = [

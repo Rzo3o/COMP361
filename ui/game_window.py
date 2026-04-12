@@ -74,7 +74,6 @@ class GameWindow(Screen):
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.cleanup()
                 self.manager.switch_screen("main_menu")
 
             # Open/Close Inventory should strictly be a single key press
@@ -182,24 +181,8 @@ class GameWindow(Screen):
                         self.manager.switch_screen("winner")
                         return
                     elif result == "GAME_OVER":
-    
-                        slot = self.manager.selected_slot
-                        filename = f"game_data_{slot}.db"
-
-                        try:
-                            self.db.close()
-                        except Exception as e:
-                            print(f"Error closing db: {e}")
-
-                        import time
-                        time.sleep(0.1)
-                        if os.path.exists(filename):
-                            try:
-                                os.remove(filename)
-                                print(f"Deleted {filename}")
-                            except Exception as e:
-                                print(f"Error deleting {filename}: {e}")
-
+                        # Deleted the part for deleting the save file
+                        # when the player dies, it will just go back to the main menu
                         self.manager.selected_slot = None
                         self.manager.switch_screen("game_over")
 

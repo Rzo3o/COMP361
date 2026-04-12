@@ -92,10 +92,6 @@ class DatabaseManager:
             session_id = self.cursor.lastrowid
 
         # Initialize Player State
-        # We need a default texture.
-        # Ideally, this should be handled by Gameplay logic, but for now we follow the old pattern
-        # to ensure compatibility, or we just insert defaults and let the Player class handle loading.
-        # I'll keep it simple: just insert defaults.
 
         default_texture = None
         player_def_dir = "assets/definitions/player"
