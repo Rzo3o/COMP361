@@ -1,7 +1,10 @@
 # tests/conftest.py
 import sqlite3
 import pytest
+import pygame
 from database.db_manager import DatabaseManager
+import os
+
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS game_sessions (
@@ -153,3 +156,38 @@ def initialize_level_unlocks_for_test(db: DatabaseManager, session_id: int):
         (session_id,),
     )
     db.conn.commit()
+
+
+
+
+
+os.environ["SDL_AUDIODRIVER"] = "dummy"
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+
+import pygame
+import pytest
+
+pygame.init()
+try:
+    pygame.mixer.init()
+except pygame.error:
+    pass
+
+
+class DummySound:
+    
+    def play(self, *args, **kwargs):
+        pass
+
+    def set_volume(self, *args, **kwargs):
+        pass
+
+
+# patch at import time too
+pygame.mixer.Sound = lambda *args, **kwargs: DummySound()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def init_pygame():
+    yield
+    pygame.quit()

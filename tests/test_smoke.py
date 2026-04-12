@@ -10,7 +10,6 @@ from database.db_manager import DatabaseManager
 from gameplay.world import World
 from gameplay.engine import GameEngine
 #from visuals.asset_manager import get_asset
-import unittest
 from ui.game_window import GameWindow
 
 

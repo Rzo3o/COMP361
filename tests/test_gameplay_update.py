@@ -3,13 +3,19 @@ from gameplay.engine import GameEngine
 
 
 class DummyPlayer:
-    def __init__(self, q=0, r=0, health=10, hunger=5, dead=False):
+    def __init__(self, q=0, r=0, hp=10, hunger=5, dead=False):
         self.q = q
         self.r = r
-        self.health = health
+        self.hp = hp
         self.hunger = hunger
         self.dead = dead
         self.death_count = 0
+        
+    def take_damage(self, dmg):
+        self.hp -= dmg
+        if self.hp <= 0:
+            self.dead = True
+
 
     def move(self, dq, dr):
         self.q += dq
@@ -75,40 +81,40 @@ def test_attempt_move_rollback_on_save_error():
 
 
 def test_update_reduces_hunger():
-    player = DummyPlayer(health=10, hunger=5)
+    player = DummyPlayer(hp=10, hunger=5)
     engine = make_engine(player)
 
     result = engine.update()
 
     assert result == "UPDATED"
     assert player.hunger == 4
-    assert player.health == 10
+    assert player.hp == 10
 
 
 def test_update_starvation_damage():
-    player = DummyPlayer(health=10, hunger=0)
+    player = DummyPlayer(hp=10, hunger=0)
     engine = make_engine(player)
 
     result = engine.update()
 
     assert result == "UPDATED"
-    assert player.health == 9
+    assert player.hp == 9
 
 
 def test_update_player_dies():
-    player = DummyPlayer(health=1, hunger=0)
+    player = DummyPlayer(hp=1, hunger=0)
     engine = make_engine(player)
 
     result = engine.update()
 
     assert result == "GAME_OVER"
     assert player.dead is True
-    assert player.health == 0
+    assert player.hp == 0
     assert player.death_count == 1
 
 
 def test_update_returns_save_error():
-    player = DummyPlayer(health=10, hunger=5)
+    player = DummyPlayer(hp=10, hunger=5)
     engine = make_engine(player)
     engine.db.save_player.side_effect = Exception("db failed")
 
