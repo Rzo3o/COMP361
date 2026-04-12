@@ -60,7 +60,7 @@ class MainMenu(Screen):
 
         self.rules_button = Button(
             center_x - self.button_width // 2,
-            start_y + self.button_height + self.button_gap,
+            start_y + (self.button_height + self.button_gap),
             self.button_width,
             self.button_height,
             "GAME RULES",
@@ -71,20 +71,21 @@ class MainMenu(Screen):
             text_color=self.manager.text_color_white,
         )
 
-        self.exit_button = Button(
+        # quit button
+        self.quit_button = Button(
             center_x - self.button_width // 2,
             start_y + 2 * (self.button_height + self.button_gap),
             self.button_width,
             self.button_height,
-            "GAME OVER DEMO",
+            "QUIT",
             self.button_font,
-            action_name="game_over",
-            bg_color=(204, 0, 204),
+            action_name="quit",
+            bg_color=(255, 69, 0),
             hover_color=(120, 100, 160),
             text_color=self.manager.text_color_white,
         )
 
-        self.buttons = [self.play_button, self.rules_button, self.exit_button]
+        self.buttons = [self.play_button, self.rules_button, self.quit_button]
 
     def draw_image(self, image_name: str, x: int, y: int, angle: int, scale: float):
         """
@@ -120,22 +121,19 @@ class MainMenu(Screen):
             button.draw(self.manager.screen)
 
     def handle_event(self, event):
-            mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = pygame.mouse.get_pos()
 
-            for button in self.buttons:
-                button.check_hover(mouse_pos)
-    
-                for button in self.buttons:
-                    action = button.handle_event(event)
+        for button in self.buttons:
+            button.check_hover(mouse_pos)
+            action = button.handle_event(event)
 
-                    if action == "play":
-                        self.manager.switch_screen("save_menu")
-
-                    elif action == "rules":
-                        self.manager.switch_screen("game_rules")
-
-                    elif action == "game_over":
-                        self.manager.switch_screen("game_over")
+            if action == "play":
+                self.manager.switch_screen("save_menu")
+            elif action == "rules":
+                self.manager.switch_screen("game_rules")
+            elif action == "quit":
+                pygame.quit()
+                sys.exit()
 
                   
 
