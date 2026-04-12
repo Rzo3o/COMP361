@@ -285,6 +285,28 @@ class Player(Entity):
         - move: interpolates from one tile to another, then returns to idle
         - attack: plays once, then returns to idle
         """
+        # decrement the timer
+        if getattr(self, "damage_flash_timer", 0) > 0:
+            self.damage_flash_timer -= 1
+
+        if getattr(self, "poison_flash_timer", 0) > 0:
+            self.poison_flash_timer -= 1
+
+        if getattr(self, "poison_turns_remaining", 0) > 0 and self.is_alive():
+            # Initialize the timer if it doesn't exist
+            if not hasattr(self, "poison_tick_timer"):
+                self.poison_tick_timer = 0
+                
+            self.poison_tick_timer += 1
+            
+            # Since update_animation is called every 50ms (from game_window),
+            if self.poison_tick_timer >= 20:
+                self.take_poison_damage(self.poison_damage_per_turn)
+                self.poison_turns_remaining -= 1
+                
+                # Reset the timer for the next second's tick
+                self.poison_tick_timer = 0
+
         animations = getattr(self, "data", {}).get("animations", {}) if hasattr(self, "data") else {}
         anim_cfg = animations.get(self.anim_state) or animations.get("idle")
 
@@ -363,28 +385,6 @@ class Player(Entity):
             else:
                 self.anim_tick = 0
                 self.anim_progress = 0.0
-
-        # decrement the timer
-        if getattr(self, "damage_flash_timer", 0) > 0:
-            self.damage_flash_timer -= 1
-
-        if getattr(self, "poison_flash_timer", 0) > 0:
-            self.poison_flash_timer -= 1
-
-        if getattr(self, "poison_turns_remaining", 0) > 0 and self.is_alive():
-            # Initialize the timer if it doesn't exist
-            if not hasattr(self, "poison_tick_timer"):
-                self.poison_tick_timer = 0
-                
-            self.poison_tick_timer += 1
-            
-            # Since update_animation is called every 50ms (from game_window),
-            if self.poison_tick_timer >= 20:
-                self.take_poison_damage(self.poison_damage_per_turn)
-                self.poison_turns_remaining -= 1
-                
-                # Reset the timer for the next second's tick
-                self.poison_tick_timer = 0
 
     def apply_poison(self, turns: int, damage_per_turn: int):
         """Apply poison status effect to the player"""

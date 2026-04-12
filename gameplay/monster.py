@@ -745,6 +745,10 @@ class DashMonster(Monster):
         self.is_dashing = False
         self.is_charging = False
 
+        # Wake slap
+        if self.is_stunned or getattr(self, "anim_state", "").endswith("stun"):
+            self.is_stunned = False
+            
         return super().take_damage(amount)
     
     def _stop_dash(self):
