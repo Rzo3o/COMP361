@@ -336,7 +336,7 @@ class Renderer:
     def __init__(self, asset_mgr):
         self.am = asset_mgr
 
-    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False, view_mode="Standard"):
+    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False, view_mode="Standard", zoom=1.0):
         poly = HexEngine.get_hex_polygon(cx, cy)
         fill = ""
         t_type = tile_data.get("tile_type")
@@ -356,29 +356,41 @@ class Renderer:
             t_y_shift = tile_data.get("tile_y_shift")
             if t_scale is None:
                 t_scale, t_x_shift, t_y_shift = self.am.get_asset_layout(tex)
+            
+            # Scale shifts by zoom
+            s_x = (t_x_shift or 0) * zoom
+            s_y = (t_y_shift or 0) * zoom
+            
             img = self.am.get_tk_image(tex, scale=t_scale)
             if img:
                 canvas.create_image(
-                    cx + t_x_shift, cy - Config.CALIB_OFFSET_Y - t_y_shift, image=img, tags="hex_art"
+                    cx + s_x, cy - Config.CALIB_OFFSET_Y - s_y, image=img, tags="hex_art"
                 )
         p_tex = tile_data.get("prop_texture_file")
         if p_tex:
             p_scale = tile_data.get("prop_scale", 1.0)
             p_x_shift = tile_data.get("prop_x_shift", 0)
             p_y_shift = tile_data.get("prop_y_shift", 0)
+            
+            # Scale shifts by zoom
+            ps_x = (p_x_shift or 0) * zoom
+            ps_y = (p_y_shift or 0) * zoom
+            
             img = self.am.get_tk_image(p_tex, scale=p_scale)
             if img:
                 canvas.create_image(
-                    cx + p_x_shift, cy - Config.CALIB_OFFSET_Y - p_y_shift, image=img, tags="hex_prop"
+                    cx + ps_x, cy - Config.CALIB_OFFSET_Y - ps_y, image=img, tags="hex_prop"
                 )
         outline = "red" if selected else "#555"
         width = 2 if selected else 1
         if tile_data.get("is_spawn") and view_mode != "Spawns":
+            # Scale indicator size by zoom
+            rad = 5 * zoom
             canvas.create_oval(
-                cx - 5, cy - 5, cx + 5, cy + 5, fill="#00FF00", outline="black"
+                cx - rad, cy - rad, cx + rad, cy + rad, fill="#00FF00", outline="black"
             )
             canvas.create_text(
-                cx, cy + 15, text=f"Lvl {tile_data.get('level', 1)}", fill="white", font=("Arial", 8, "bold")
+                cx, cy + (15 * zoom), text=f"Lvl {tile_data.get('level', 1)}", fill="white", font=("Arial", int(8 * zoom), "bold")
             )
             outline = "#00FF00"
             width = 3
@@ -401,14 +413,27 @@ class MapTab(ttk.Frame):
 
         self._setup_ui()
         self._bind_events()
+        self.zoom_level = 1.0  # Base scale
         self.anim_tick = 0
+        
+        self.tile_cache = {}
+        self.monster_cache = []
+        self.refresh_cache()
+
         self.after(100, self._center_view)
         self._animate()
 
     def _animate(self):
         self.anim_tick += 1
-        self.render()
+        # Only force re-render if animations are active (zoom >= 60%)
+        if self.zoom_level >= 0.6:
+            self.render()
         self.after(250, self._animate) # 250ms for a steady idle pace
+
+    def refresh_cache(self):
+        """Rebuild the local data cache from the database."""
+        self.tile_cache = {(t["q"], t["r"]): t for t in self.app.db.get_all_tiles()}
+        self.monster_cache = self.app.db.get_all_monsters()
 
     def _center_view(self):
         self.update_idletasks()
@@ -432,8 +457,17 @@ class MapTab(ttk.Frame):
             bg="#202020",
             scrollregion=(0, 0, Config.MAP_WIDTH, Config.MAP_HEIGHT),
         )
-        vbar = ttk.Scrollbar(c_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        hbar = ttk.Scrollbar(c_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        
+        # Wrap scroll commands to trigger re-render for culling
+        def on_vscroll(*args):
+            self.canvas.yview(*args)
+            self.render()
+        def on_hscroll(*args):
+            self.canvas.xview(*args)
+            self.render()
+
+        vbar = ttk.Scrollbar(c_frame, orient=tk.VERTICAL, command=on_vscroll)
+        hbar = ttk.Scrollbar(c_frame, orient=tk.HORIZONTAL, command=on_hscroll)
         self.canvas.configure(yscrollcommand=vbar.set, xscrollcommand=hbar.set)
         vbar.pack(side=tk.RIGHT, fill=tk.Y)
         hbar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -648,6 +682,8 @@ class MapTab(ttk.Frame):
         hp = self.var_monster_health.get()
         dmg = self.var_monster_damage.get()
         self.app.db.update_monster_stats(self.selected_q, self.selected_r, hp, dmg)
+        self.refresh_cache()
+        self.render()
         self.app.show_toast(f"Updated monster at ({self.selected_q},{self.selected_r})")
         
     def _bind_events(self):
@@ -657,6 +693,7 @@ class MapTab(ttk.Frame):
         self.canvas.bind("<Enter>", lambda e: self.canvas.focus_set())
         self.canvas.bind("<MouseWheel>", self._on_mousewheel_v)
         self.canvas.bind("<Shift-MouseWheel>", self._on_mousewheel_h)
+        self.canvas.bind("<Control-MouseWheel>", self._on_zoom)
 
     def _on_mousewheel_v(self, event):
         delta = event.delta
@@ -664,6 +701,7 @@ class MapTab(ttk.Frame):
         if units == 0 and delta != 0:
             units = -1 if delta > 0 else 1
         self.canvas.yview_scroll(units, "units")
+        self.render()
 
     def _on_mousewheel_h(self, event):
         delta = event.delta
@@ -671,6 +709,32 @@ class MapTab(ttk.Frame):
         if units == 0 and delta != 0:
             units = -1 if delta > 0 else 1
         self.canvas.xview_scroll(units, "units")
+        self.render()
+
+    def _on_zoom(self, event):
+        """Handle zooming (pinch gesture or Ctrl+MouseWheel)."""
+        # Zoom factor per scroll tick
+        factor = 1.1 if event.delta > 0 else 0.9
+
+        # Apply zoom limits (10% to 300% of base)
+        # Base HEX_RADIUS is 16, BASE_HEX_SIZE before zoom was 48 (16 * 3)
+        new_zoom = self.zoom_level * factor
+        if new_zoom < 0.1: new_zoom = 0.1
+        if new_zoom > 5.0: new_zoom = 5.0
+
+        self.zoom_level = new_zoom
+
+        # Update global config for HexEngine and Renderer
+        # Original GAME_SCALE was 3
+        current_scale = 3.0 * self.zoom_level
+        Config.HEX_SIZE = Config.BASE_HEX_RADIUS * current_scale
+        Config.CALIB_OFFSET_Y = 16 * current_scale
+
+        # Re-render map with new scale
+        self.render()
+        if hasattr(self, 'lbl_zoom'):
+            self.lbl_zoom.config(text=f"Zoom: {int(self.zoom_level * 100)}%")
+        self.app.show_toast(f"Zoom: {int(self.zoom_level * 100)}%")
 
     def refresh_libraries(self):
         if hasattr(self, 'cb_tiles') and self.cb_tiles.winfo_exists():
@@ -680,23 +744,67 @@ class MapTab(ttk.Frame):
 
     def render(self):
         self.canvas.delete("all")
-        db_tiles = {(t["q"], t["r"]): t for t in self.app.db.get_all_tiles()}
-        monsters = self.app.db.get_all_monsters() # For monster view
+        
+        # 1. Get visible viewport in canvas coordinates
+        x0 = self.canvas.canvasx(0)
+        y0 = self.canvas.canvasy(0)
+        w = self.canvas.winfo_width()
+        h = self.canvas.winfo_height()
+        
+        # Fallback for initial render before window is mapped
+        if w <= 1: w = 800
+        if h <= 1: h = 600
+        
+        x1 = x0 + w
+        y1 = y0 + h
         
         cx, cy = Config.CENTER_X, Config.CENTER_Y
-        r_range = Config.GRID_RANGE
+        
+        # 2. Convert viewport corners to hex coordinates to find the visible range
+        # We add some padding (2 hexes) to avoid popping
+        padding = 2
+        
+        # Local pixel coords relative to map center
+        # hex_q, hex_r = pixel_to_hex(px, py) where px = x - cx
+        q0, r0 = HexEngine.pixel_to_hex(x0 - cx, y0 - cy)
+        q1, r1 = HexEngine.pixel_to_hex(x1 - cx, y0 - cy)
+        q2, r2 = HexEngine.pixel_to_hex(x0 - cx, y1 - cy)
+        q3, r3 = HexEngine.pixel_to_hex(x1 - cx, y1 - cy)
+        
+        q_min = min(q0, q1, q2, q3) - padding
+        q_max = max(q0, q1, q2, q3) + padding
+        r_min = min(r0, r1, r2, r3) - padding
+        r_max = max(r0, r1, r2, r3) + padding
+        
+        # Use Cached Data
+        db_tiles = self.tile_cache
+        monsters = self.monster_cache
         
         mode = self.view_mode.get()
 
         render_list = []
-        for q in range(-r_range, r_range + 1):
-            for r_idx in range(-r_range, r_range + 1):
-                if abs(q + r_idx) > r_range:
-                    continue
+        # Respect global GRID_RANGE but limit to visible bounds
+        g_range = Config.GRID_RANGE
+        
+        q_start = max(-g_range, q_min)
+        q_end = min(g_range, q_max)
+        r_start_global = -g_range
+        r_end_global = g_range
+
+        for q in range(q_start, q_end + 1):
+            # For each q, compute the valid r range in a large hexagon
+            # abs(q + r) <= g_range  =>  -g_range - q <= r <= g_range - q
+            r_hex_min = -g_range - q
+            r_hex_max = g_range - q
+            
+            # Intersection of hex range and visible r range
+            curr_r_start = max(r_hex_min, r_min)
+            curr_r_end = min(r_hex_max, r_max)
+            
+            for r_idx in range(curr_r_start, curr_r_end + 1):
                 px, py = HexEngine.hex_to_pixel(q, r_idx)
                 draw_x, draw_y = cx + px, cy + py
-                if not (0 < draw_x < Config.MAP_WIDTH and 0 < draw_y < Config.MAP_HEIGHT):
-                    continue
+                
                 tile_data = db_tiles.get((q, r_idx), {})
                 
                 # Apply level view filter
@@ -712,7 +820,7 @@ class MapTab(ttk.Frame):
             is_selected = q == self.selected_q and r_idx == self.selected_r
             
             # Base Render
-            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected, mode)
+            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected, mode, zoom=self.zoom_level)
             
             poly = HexEngine.get_hex_polygon(x, y)
 
@@ -728,7 +836,7 @@ class MapTab(ttk.Frame):
                 c = colors[c_idx]
                 if lvl > 0:
                     self.canvas.create_polygon(poly, fill=c, stipple="gray50", outline="")
-                    self.canvas.create_text(x, y, text=str(lvl), fill="white", font=("Bold", 14))
+                    self.canvas.create_text(x, y, text=str(lvl), fill="white", font=("Bold", int(14 * self.zoom_level)))
 
             elif mode == "Collision":
                 passable = data.get("is_permanently_passable", 1)
@@ -743,11 +851,12 @@ class MapTab(ttk.Frame):
                     c = colors[c_idx]
                     if lvl > 0:
                         self.canvas.create_polygon(poly, fill=c, stipple="gray50", outline="")
-                        self.canvas.create_text(x, y, text=str(lvl), fill="white", font=("Bold", 14))
+                        self.canvas.create_text(x, y, text=str(lvl), fill="white", font=("Bold", int(14 * self.zoom_level)))
 
                 if data.get("is_spawn"):
-                    self.canvas.create_oval(x-10, y-10, x+10, y+10, fill="cyan", outline="white", width=2)
-                    self.canvas.create_text(x, y+20, text=f"Lvl {data.get('level',1)}", fill="white")
+                    rad = 10 * self.zoom_level
+                    self.canvas.create_oval(x-rad, y-rad, x+rad, y+rad, fill="cyan", outline="white", width=2)
+                    self.canvas.create_text(x, y+(20*self.zoom_level), text=f"Lvl {data.get('level',1)}", fill="white")
                     
                 if not data.get("is_permanently_passable", 1):
                     self.canvas.create_polygon(poly, fill="#FF0000", stipple="gray25", outline="")
@@ -758,6 +867,10 @@ class MapTab(ttk.Frame):
             for m in monsters:
                 mq, mr = m["current_q"], m["current_r"]
                 
+                # CULLING: Only render if within visible hex bounds
+                if not (q_min <= mq <= q_max and r_min <= mr <= r_max):
+                    continue
+
                 # Filter by level if active
                 if view_lvl and view_lvl > 0:
                     t_data = db_tiles.get((mq, mr), {})
@@ -769,8 +882,9 @@ class MapTab(ttk.Frame):
                 
                 if mode == "Monsters":
                     # Simple purple circle for clarity in monster view
-                    self.canvas.create_oval(mx-10, my-10, mx+10, my+10, fill="purple", outline="white", width=2)
-                    self.canvas.create_text(mx, my-15, text=m["name"], fill="white", font=("Arial", 8))
+                    rad = 10 * self.zoom_level
+                    self.canvas.create_oval(mx-rad, my-rad, mx+rad, my+rad, fill="purple", outline="white", width=2)
+                    self.canvas.create_text(mx, my-(15*self.zoom_level), text=m["name"], fill="white", font=("Arial", int(8*self.zoom_level)))
                 elif mode in ["Standard", "Levels", "Spawns"]:
                     # Real idle texture
                     m_data = self.app.asset_mgr.load_json("monster", m["name"])
@@ -780,18 +894,25 @@ class MapTab(ttk.Frame):
                         fw = anim_idle.get("fw", 32)
                         fh = anim_idle.get("fh", 32)
                         count = anim_idle.get("count", 1)
-                        scale = m_data.get("scale", 1.0)
-                        x_shift = m_data.get("x_shift", 0)
-                        y_shift = m_data.get("y_shift", 0)
+                        
+                        # SCALE MONSTER BY ZOOM
+                        base_scale = m_data.get("scale", 1.0)
+                        scale = base_scale * self.zoom_level
+                        
+                        # Scale shifts by zoom
+                        sx_m = m_data.get("x_shift", 0) * self.zoom_level
+                        sy_m = m_data.get("y_shift", 0) * self.zoom_level
                         
                         if not tex:
                             continue
 
-                        img = self.app.asset_mgr.get_anim_frame(tex, self.anim_tick, fw, fh, count, scale)
+                        # Optimize: Only animate if zoom is >= 60%
+                        frame_idx = self.anim_tick if self.zoom_level >= 0.6 else 0
+                        img = self.app.asset_mgr.get_anim_frame(tex, frame_idx, fw, fh, count, scale)
                         if img:
                             self.canvas.create_image(
-                                mx + x_shift, 
-                                my - Config.CALIB_OFFSET_Y - y_shift, 
+                                mx + sx_m, 
+                                my - Config.CALIB_OFFSET_Y - sy_m, 
                                 image=img, 
                                 tags="monster_art"
                             )
@@ -884,6 +1005,7 @@ class MapTab(ttk.Frame):
                 self.var_monster_damage.set(def_dmg)
                 if hasattr(self, "btn_update_monster"):
                     self.btn_update_monster.config(state="normal")
+                self.refresh_cache()
                 self.render()
             else:
                 if hasattr(self, "btn_update_monster"):
@@ -903,6 +1025,7 @@ class MapTab(ttk.Frame):
                 self.btn_update_monster.config(state="disabled")
                 self.var_monster_health.set(0)
                 self.var_monster_damage.set(0)
+            self.refresh_cache()
             self.render()
 
     def _update_tile_safe(self, q, r, changes):
@@ -918,6 +1041,8 @@ class MapTab(ttk.Frame):
         
         data.update(changes)
         self.app.db.save_tile(data)
+        self.refresh_cache()
+        self.render()
 
     def _load_into_inspector(self, data):
         tile_tex = data.get("texture_file", "")
@@ -1032,6 +1157,7 @@ class MapTab(ttk.Frame):
     def _delete_tile(self):
         self.app.db.delete_tile(self.selected_q, self.selected_r)
         self.app.db.delete_monsters_at(self.selected_q, self.selected_r)
+        self.refresh_cache()
         self.render()
 
 
