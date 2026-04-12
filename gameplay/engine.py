@@ -329,6 +329,10 @@ class GameEngine:
         if getattr(monster, "death_loot_dropped", False):
             return
 
+        # Saves the monster as defeated in the DB immediately which
+        # prevents the reappearing monster bug if the player quits before the next turn
+        self._safe_save_monster(monster)
+
         drops = monster.on_death()
         # Strip any Nones that may have slipped through the drop roll
         drops = [d for d in drops if d is not None]

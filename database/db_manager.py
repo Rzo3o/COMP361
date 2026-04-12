@@ -627,6 +627,43 @@ class DatabaseManager:
         )
         self.save_monster_equipment(monster.id, monster.equipment)
 
+    def get_monster_at(self, q, r):
+        """Get a single monster attributes by q, r coordinates."""
+        query = "SELECT * FROM monsters WHERE current_q = ? AND current_r = ?"
+        self.cursor.execute(query, (q, r))
+        row = self.cursor.fetchone()
+        return dict(row) if row else None
+
+    def add_monster(self, name, q, r, hp, dmg, level):
+        """Insert a new monster into the DB (Editor)"""
+        self.cursor.execute(
+            """INSERT INTO monsters (name, current_q, current_r, health, damage, level, is_defeated)
+               VALUES (?, ?, ?, ?, ?, ?, 0)""",
+            (name, q, r, hp, dmg, level),
+        )
+        self.conn.commit()
+
+    def update_monster_stats(self, q, r, hp, dmg):
+        """Updates health and damage of a monster at a q/r"""
+        self.cursor.execute(
+            "UPDATE monsters SET health = ?, damage = ? WHERE current_q = ? AND current_r = ?",
+            (hp, dmg, q, r),
+        )
+        self.conn.commit()
+
+    def update_monster_level(self, q, r, level):
+        """Update a monster's level"""
+        self.cursor.execute(
+            "UPDATE monsters SET level = ? WHERE current_q = ? AND current_r = ?",
+            (level, q, r),
+        )
+        self.conn.commit()
+
+    def delete_monster(self, q, r):
+        """Remove a monster from the DB (Editor."""
+        self.cursor.execute("DELETE FROM monsters WHERE current_q = ? AND current_r = ?", (q, r))
+        self.conn.commit()
+
     # =========================
     # Editor / Map Management
     # =========================

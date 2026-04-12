@@ -39,9 +39,13 @@ class GameWindow(Screen):
             self.db.conn.commit()
 
         self.engine = GameEngine(self.db, 1)
-        # Demo: spawn a visible chest next to the player until the DB-backed
-        # chest system is wired up.
-        if not self.engine.world.chests:
+        
+        # Ensure inventory is loaded so we can check if this is a fresh session
+        self.engine.world.player.load_inventory(self.db, 1)
+
+        # Demo: spawn a visible chest next to the player only if it's a fresh game
+        # (check if inventory only has the starting weapon or less)
+        if not self.engine.world.chests and len(self.engine.world.player.inventory) <= 1:
             self.engine.world.spawn_demo_chest()
         self.assets = AssetManager()
         self.renderer = GameRenderer(self.assets)
