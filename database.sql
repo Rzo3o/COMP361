@@ -112,6 +112,19 @@ CREATE TABLE IF NOT EXISTS inventory (
 );
 
 -- ==========================================
+-- 6. CHESTS (PERSISTENT LOOT)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS session_chests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+    q INTEGER NOT NULL,
+    r INTEGER NOT NULL,
+    chest_type TEXT DEFAULT 'brown_chest',
+    items_json TEXT, -- List of items in the chest
+    UNIQUE(session_id, q, r)
+);
+
+-- ==========================================
 -- 6. AUTOMATION (TRIGGERS)
 -- ==========================================
 -- Automatically updates the 'last_saved' timestamp when player state changes

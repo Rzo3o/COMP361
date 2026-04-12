@@ -52,6 +52,20 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             pass  # column already exists
 
+        # Ensure session_chests table exists for versions that don't have it
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS session_chests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+                q INTEGER NOT NULL,
+                r INTEGER NOT NULL,
+                chest_type TEXT DEFAULT 'brown_chest',
+                items_json TEXT, -- Serialized list of item data
+                UNIQUE(session_id, q, r)
+            )"""
+        )
+        self.conn.commit()
+
 
     def close(self):
         self.conn.close()
@@ -425,6 +439,70 @@ class DatabaseManager:
         """
         self.cursor.execute(query, (session_id,))
         return [dict(row) for row in self.cursor.fetchall()]
+
+    # =========================
+    # Chests
+    # =========================
+
+    def load_chests(self, session_id):
+        """Returns all persistent chests for the session."""
+        self.cursor.execute(
+            "SELECT * FROM session_chests WHERE session_id = ?", (session_id,)
+        )
+        rows = self.cursor.fetchall()
+        results = []
+        for row in rows:
+            d = dict(row)
+            if d.get("items_json"):
+                try:
+                    d["items"] = json.loads(d["items_json"])
+                except Exception:
+                    d["items"] = []
+            else:
+                d["items"] = []
+            results.append(d)
+        return results
+
+    def save_chest(self, session_id, q, r, chest_type, items):
+        """Persists a chest and its contents to the session state.
+        
+        items: list of Item objects (we extract their relevant data).
+        """
+        # Convert items to a list of dicts for serialization
+        item_list = []
+        for item in items:
+            item_list.append({
+                "id": item.id,
+                "name": item.name,
+                "item_type": item.type,
+                "texture_file": item.texture,
+                "base_damage": item.damage_bonus,
+                "defense": item.defense,
+                "healing_amount": item.healing_amount,
+                "hunger_restore": item.hunger_restore,
+                "durability": item.durability,
+                "max_durability": item.max_durability,
+                "range": item.range
+            })
+        
+        items_json = json.dumps(item_list)
+        
+        self.cursor.execute(
+            """INSERT INTO session_chests (session_id, q, r, chest_type, items_json)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(session_id, q, r) DO UPDATE SET
+               chest_type=excluded.chest_type, items_json=excluded.items_json""",
+            (session_id, q, r, chest_type, items_json)
+        )
+        self.conn.commit()
+
+    def delete_chest(self, session_id, q, r):
+        """Removes a chest from persistent state."""
+        self.cursor.execute(
+            "DELETE FROM session_chests WHERE session_id=? AND q=? AND r=?",
+            (session_id, q, r)
+        )
+        self.conn.commit()
 
     # =========================
     # Monsters

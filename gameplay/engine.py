@@ -232,6 +232,10 @@ class GameEngine:
 
         # Empty the chest so items aren't awarded twice
         chest.items = []
+        # Persistent state by removing the chest from DB
+        if hasattr(self.db, "delete_chest"):
+            self.db.delete_chest(self.session_id, chest.q, chest.r)
+        
         # Refresh the player's inventory
         player.load_inventory(self.db, self.session_id)
         self.world.sync_inventory_resource_locks()
@@ -354,6 +358,11 @@ class GameEngine:
         # Spawn a chest at the monster's tile holding the loot.
         loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
         self.world.chests.append(loot_chest)
+        
+        # Persistent state by saving the chest to DB
+        if hasattr(self.db, "save_chest"):
+            self.db.save_chest(self.session_id, monster.q, monster.r, "brown_chest", drops)
+            
         monster.death_loot_dropped = True
 
     def update(self):

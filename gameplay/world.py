@@ -114,9 +114,14 @@ class World:
             try:
                 rows = self.db.load_chests(self.session_id)
                 for data in rows:
+                    items = []
+                    for item_data in data.get("items", []):
+                        items.append(Item(item_data))
+                    
                     self.chests.append(Chest(
                         data["q"], data["r"],
                         data.get("chest_type", "brown_chest"),
+                        items=items
                     ))
             except Exception as e:
                 print(f"load_chests failed: {e}")
@@ -172,6 +177,10 @@ class World:
             self.player.q + 1, self.player.r, "brown_chest",
             items=bread_items,
         ))
+        
+        # Save demo chest to DB so it persists/remembers its state
+        if hasattr(self.db, "save_chest"):
+            self.db.save_chest(self.session_id, self.player.q + 1, self.player.r, "brown_chest", bread_items)
 
     def get_chest_at(self, q, r):
         for chest in self.chests:
