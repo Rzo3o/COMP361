@@ -70,8 +70,8 @@ class ScreenManager:
         info = pygame.display.Info()
         self.width, self.height = info.current_w, info.current_h
         
-        # Initialize as resizable first
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.RESIZABLE)
+        # FIX: Initialize with fixed size (no resizing allowed)
+        self.screen = pygame.display.set_mode((self.width, self.height))
         
         # Maximize window on Windows
         if platform.system() == "Windows":
@@ -147,13 +147,7 @@ class ScreenManager:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                elif event.type == pygame.VIDEORESIZE:
-                    from core.config import Config
-                    self.width, self.height = event.w, event.h
-                    Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT = self.width, self.height
-                    Config.CENTER_X, Config.CENTER_Y = self.width // 2, self.height // 2
-                    # The screen surface itself is automatically resized in Pygame 2+
-                    # but we update current_screen if it needs re-init (optional, most screens draw dynamically)
+                    # Removed screen resize event handler
                 else:
                     self.current_screen.handle_event(event)
 
