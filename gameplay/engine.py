@@ -184,6 +184,10 @@ class GameEngine:
         player.drop_item(self.selected_index, self.db, self.session_id)
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
+        
+        # Refresh world state so item appears on ground
+        self.world.load_ground_items()
+        self.world.sync_inventory_resource_locks()
 
     def try_open_adjacent_chest(self):
         """Open the first unopened chest adjacent to the player. Returns True
@@ -251,6 +255,8 @@ class GameEngine:
             return False
 
         picked_up_any = False
+        counts = {}  # For notifications: {item_name: count}
+        
         # if any item is successfully picked up add to inventory and remove from ground.
         for item in ground_items:
             resource_id = item.resource_id
@@ -266,13 +272,21 @@ class GameEngine:
                 self.db.add_item(self.session_id, item.id)
                 self.db.remove_ground_item(item.id)
                 self.world.resource_locks.consume(resource_id)
+                
+                # Track for notification
+                counts[item.name] = counts.get(item.name, 0) + 1
                 picked_up_any = True
-            except Exception:
+            except Exception as e:
+                print(f"Error picking up ground item {item.name}: {e}")
                 self.world.resource_locks.release(resource_id)
 
         # fail if we couldn't pick up any items
         if not picked_up_any:
             return False
+
+        # Add notifications to the queue
+        for item_name, count in counts.items():
+            self.loot_notifications_queue.append((item_name, count))
 
         # reload inventory and sync resource locks
         player.load_inventory(self.db, self.session_id)

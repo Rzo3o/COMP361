@@ -376,6 +376,14 @@ class DatabaseManager:
         self.cursor.execute("UPDATE items SET tile=NULL WHERE id=?", (item_id,))
         self.conn.commit()
 
+    def add_ground_item(self, item_id, q, r):
+        """Place an item on the ground at specific q, r (editor)"""
+        self.cursor.execute(
+            "UPDATE items SET tile = (SELECT id FROM map_tiles WHERE q=? AND r=?) WHERE id=?",
+            (q, r, item_id),
+        )
+        self.conn.commit()
+
     def remove_item(self, session_id, item_id, quantity=1):
         """Removes quantity of an item. Deletes row if quantity hits 0."""
         self.cursor.execute(

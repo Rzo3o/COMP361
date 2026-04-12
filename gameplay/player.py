@@ -166,6 +166,11 @@ class Player(Entity):
         if not self.inventory or index >= len(self.inventory):
             return False
         item = self.inventory[index]
+        
+        # Place it on the ground at current position
+        db.add_ground_item(item.id, self.q, self.r)
+        
+        # Remove from inventory
         db.remove_item(session_id, item.id, quantity=1)
         self.load_inventory(db, session_id)
         return True

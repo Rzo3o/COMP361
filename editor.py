@@ -168,6 +168,53 @@ class DatabaseManager:
         self.cursor.execute("DELETE FROM monsters WHERE current_q=? AND current_r=?", (q, r))
         self.conn.commit()
 
+    # --- Item Methods ---
+    def get_all_ground_items(self):
+        """Returns all items currently placed on a map tile."""
+        query = """
+        SELECT i.*, m.q, m.r
+        FROM items i
+        JOIN map_tiles m ON i.tile = m.id
+        """
+        self.cursor.execute(query)
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def add_item_to_map(self, name, q, r, item_data):
+        """Adds a copy of an item to the map at q, r."""
+        # Find tile_id
+        self.cursor.execute("SELECT id FROM map_tiles WHERE q=? AND r=?", (q, r))
+        tile_row = self.cursor.fetchone()
+        if not tile_row:
+            return False
+        
+        tile_id = tile_row["id"]
+        
+        # Insert a new item instance for the map
+        # Note: We copy the definition but set the tile
+        cols = ["name", "description", "item_type", "slot", "weight", 
+                "base_damage", "defense", "max_durability", "durability", 
+                "healing_amount", "hunger_restore", "texture_file", "power_bonus"]
+        
+        placeholders = ", ".join(["?" for _ in cols])
+        placeholders += ", ?" # for tile
+        
+        sql = f"INSERT INTO items ({', '.join(cols)}, tile) VALUES ({placeholders})"
+        
+        vals = [item_data.get(c) for c in cols]
+        vals.append(tile_id)
+        
+        self.cursor.execute(sql, vals)
+        self.conn.commit()
+        return True
+
+    def delete_items_at(self, q, r):
+        """Removes items from a map tile by setting their tile to NULL."""
+        self.cursor.execute(
+            "UPDATE items SET tile = NULL WHERE tile = (SELECT id FROM map_tiles WHERE q=? AND r=?)",
+            (q, r)
+        )
+        self.conn.commit()
+
     def close(self):
         self.conn.close()
 
@@ -411,13 +458,14 @@ class MapTab(ttk.Frame):
         self.var_paint_delete = tk.BooleanVar(value=False)
         self.brush_size = tk.IntVar(value=1)
 
+        self.tile_cache = {}
+        self.monster_cache = []
+        self.item_cache = []
         self._setup_ui()
         self._bind_events()
         self.zoom_level = 1.0  # Base scale
         self.anim_tick = 0
         
-        self.tile_cache = {}
-        self.monster_cache = []
         self.refresh_cache()
 
         self.after(100, self._center_view)
@@ -434,6 +482,7 @@ class MapTab(ttk.Frame):
         """Rebuild the local data cache from the database."""
         self.tile_cache = {(t["q"], t["r"]): t for t in self.app.db.get_all_tiles()}
         self.monster_cache = self.app.db.get_all_monsters()
+        self.item_cache = self.app.db.get_all_ground_items()
 
     def _center_view(self):
         self.update_idletasks()
@@ -480,7 +529,7 @@ class MapTab(ttk.Frame):
         # View Mode Selector
         view_frame = ttk.LabelFrame(self.sidebar, text="View Mode", padding=5)
         view_frame.pack(fill="x", pady=(0, 10))
-        modes = ["Standard", "Levels", "Collision", "Spawns", "Monsters"]
+        modes = ["Standard", "Levels", "Collision", "Spawns", "Monsters", "Items"]
         for m in modes:
             ttk.Radiobutton(view_frame, text=m, variable=self.view_mode, value=m, command=self._on_view_mode_change).pack(anchor="w")
 
@@ -525,6 +574,8 @@ class MapTab(ttk.Frame):
             self._build_spawn_inspector()
         elif mode == "Monsters":
             self._build_monster_inspector()
+        elif mode == "Items":
+            self._build_item_inspector()
         
         self.render()
 
@@ -677,6 +728,26 @@ class MapTab(ttk.Frame):
         
         self.btn_update_monster = ttk.Button(frame, text="Update Stats", command=self._update_selected_monster_stats, state="disabled")
         self.btn_update_monster.pack(fill="x", pady=5)
+
+    def _build_item_inspector(self):
+        """UI for placing items on the ground."""
+        frame = self.inspector_area
+        ttk.Label(frame, text="Item Placer", font=("Bold", 12)).pack(pady=10)
+        
+        ttk.Label(frame, text="Select Item:").pack(anchor="w")
+        self.cb_items = ttk.Combobox(frame, state="readonly", values=self.app.asset_mgr.list_assets("item"))
+        self.cb_items.pack(fill="x")
+        if self.cb_items["values"]:
+            self.cb_items.current(0)
+            
+        ttk.Label(frame, text="Left Click: Place Item").pack(pady=(20,0))
+        ttk.Label(frame, text="Right Click: Clear Items").pack()
+        
+        ttk.Separator(frame).pack(fill="x", pady=20)
+        
+        # Selection info
+        self.lbl_item_info = ttk.Label(frame, text="Select a tile to see its items", wraplength=180)
+        self.lbl_item_info.pack(fill="x")
 
     def _update_selected_monster_stats(self):
         hp = self.var_monster_health.get()
@@ -908,6 +979,7 @@ class MapTab(ttk.Frame):
 
                         # Optimize: Only animate if zoom is >= 60%
                         frame_idx = self.anim_tick if self.zoom_level >= 0.6 else 0
+                        
                         img = self.app.asset_mgr.get_anim_frame(tex, frame_idx, fw, fh, count, scale)
                         if img:
                             self.canvas.create_image(
@@ -916,7 +988,42 @@ class MapTab(ttk.Frame):
                                 image=img, 
                                 tags="monster_art"
                             )
-                            # Tag for interaction if needed
+
+            # --- Ground Item Render ---
+            for item in self.item_cache:
+                iq, ir = item["q"], item["r"]
+                
+                # CULLING
+                if not (q_min <= iq <= q_max and r_min <= ir <= r_max):
+                    continue
+
+                # Filter by level if active
+                if view_lvl and view_lvl > 0:
+                    t_data = db_tiles.get((iq, ir), {})
+                    if t_data.get("level", 1) != view_lvl:
+                        continue
+
+                px, py = HexEngine.hex_to_pixel(iq, ir)
+                ix, iy = cx + px, cy + py
+
+                if mode == "Items":
+                    # Distinct yellow marker in Items view
+                    rad = 8 * self.zoom_level
+                    self.canvas.create_polygon(
+                        ix, iy-rad, ix+rad, iy, ix, iy+rad, ix-rad, iy,
+                        fill="gold", outline="white", width=1
+                    )
+                    self.canvas.create_text(ix, iy-(12*self.zoom_level), text=item["name"], fill="white", font=("Arial", int(7*self.zoom_level)))
+                elif mode in ["Standard", "Levels", "Spawns"]:
+                    # Draw item icon if zoomed in
+                    if self.zoom_level >= 0.5:
+                        tex = item.get("texture_file")
+                        if tex:
+                            # Usually items are small, let's scale them slightly
+                            scale = 0.8 * self.zoom_level 
+                            img = self.app.asset_mgr.get_tk_image(tex, scale)
+                            if img:
+                                self.canvas.create_image(ix, iy * self.zoom_level, image=img, anchor="center")
 
     def _on_click(self, event):
         cx = self.canvas.canvasx(event.x)
@@ -978,6 +1085,21 @@ class MapTab(ttk.Frame):
         elif mode == "Spawns":
             if target_changed:
                 self.render()
+
+        elif mode == "Items":
+            item_fname = self.cb_items.get()
+            if not item_fname:
+                return
+            
+            # Load item data
+            item_data = self.app.asset_mgr.load_json("item", item_fname)
+            if item_data:
+                # Add a copy to the map
+                if self.app.db.add_item_to_map(item_data["name"], q, r, item_data):
+                    self.refresh_cache()
+                    self.render()
+                else:
+                    self.app.show_toast("Cannot place item on an empty tile.")
             
         elif mode == "Monsters":
             existing = self.app.db.get_monster_at(q, r)
@@ -1025,6 +1147,13 @@ class MapTab(ttk.Frame):
                 self.btn_update_monster.config(state="disabled")
                 self.var_monster_health.set(0)
                 self.var_monster_damage.set(0)
+            self.refresh_cache()
+            self.render()
+        elif mode == "Items":
+            cx = self.canvas.canvasx(event.x)
+            cy = self.canvas.canvasy(event.y)
+            q, r = HexEngine.pixel_to_hex(cx - Config.CENTER_X, cy - Config.CENTER_Y)
+            self.app.db.delete_items_at(q, r)
             self.refresh_cache()
             self.render()
 

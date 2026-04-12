@@ -357,7 +357,7 @@ class GameRenderer:
         if img:
             rect = img.get_rect(
                 centerx=x + x_shift,
-                centery=y - Config.CALIB_OFFSET_Y - y_shift
+                centery=y - Config.CALIB_OFFSET_Y - y_shift + 35
             )
             screen.blit(img, rect)
 
