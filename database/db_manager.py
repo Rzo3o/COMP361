@@ -374,22 +374,32 @@ class DatabaseManager:
         return [dict(row) for row in self.cursor.fetchall()]
 
     def add_item(self, session_id, item_id, quantity=1):
-        """Adds an item to inventory. Stacks if already owned."""
+        """Adds an item to inventory. Stacks if already owned (except for equipment)."""
+        # Check if the item is equippable (weapons/armor don't stack)
+        self.cursor.execute("SELECT slot FROM items WHERE id=?", (item_id,))
+        item_row = self.cursor.fetchone()
+        is_equipment = item_row and item_row["slot"] in ("weapon", "armor")
+
+        if not is_equipment:
+            self.cursor.execute(
+                "SELECT id, quantity FROM inventory WHERE session_id=? AND item_id=?",
+                (session_id, item_id),
+            )
+            existing = self.cursor.fetchone()
+            if existing:
+                self.cursor.execute(
+                    "UPDATE inventory SET quantity=? WHERE id=?",
+                    (existing["quantity"] + quantity, existing["id"]),
+                )
+                
+                self.conn.commit()
+                return
+
+        # Not found or is equipment: insert as new row
         self.cursor.execute(
-            "SELECT id, quantity FROM inventory WHERE session_id=? AND item_id=?",
-            (session_id, item_id),
+            "INSERT INTO inventory (session_id, item_id, quantity) VALUES (?, ?, ?)",
+            (session_id, item_id, quantity),
         )
-        existing = self.cursor.fetchone()
-        if existing:
-            self.cursor.execute(
-                "UPDATE inventory SET quantity=? WHERE id=?",
-                (existing["quantity"] + quantity, existing["id"]),
-            )
-        else:
-            self.cursor.execute(
-                "INSERT INTO inventory (session_id, item_id, quantity) VALUES (?, ?, ?)",
-                (session_id, item_id, quantity),
-            )
         self.conn.commit()
 
     def remove_ground_item(self, item_id):

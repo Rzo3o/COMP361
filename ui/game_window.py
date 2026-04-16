@@ -480,8 +480,12 @@ class GameWindow(Screen):
             # Display item name, quantity, type, slot and equipped status
             # Offset text to the right of the icon
             text_x_offset = 60
-            quantity = f"x{item.quantity}"
-            name = self.font.render(f"{item.name} {quantity}", True, name_color)
+            
+            # Hide quantity for equipment or for single items
+            show_quantity = item.quantity > 1 and not item.is_equippable
+            qty_text = f" x{item.quantity}" if show_quantity else ""
+            
+            name = self.font.render(f"{item.name}{qty_text}", True, name_color)
             meta_bits = [item.type.title()]
             if item.is_equippable and item.slot:
                 meta_bits.append(item.slot.title())
