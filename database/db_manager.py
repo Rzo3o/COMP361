@@ -288,29 +288,36 @@ class DatabaseManager:
 
     def get_or_create_item(self, item_name):
         """Finds an item by name or definition name in the DB, or creates it by loading its JSON definition."""
-        if item_name.endswith(".json"):
-            item_name = item_name[:-5]
+        # Normalize name first (e.g., "berries.json" -> "Berries")
+        cleaned_name = item_name
+        if cleaned_name.endswith(".json"):
+            cleaned_name = cleaned_name[:-5]
+        cleaned_name = cleaned_name.replace("_", " ").title()
 
-        self.cursor.execute("SELECT id FROM items WHERE name=?", (item_name,))
+        self.cursor.execute("SELECT id FROM items WHERE name=?", (cleaned_name,))
         row = self.cursor.fetchone()
         if row:
             return row["id"]
         
+        # Original filename needed for file path
+        filename = item_name
+        if not filename.endswith(".json"):
+            filename = f"{filename}.json"
+
         # Load from json
-        item_path = os.path.join("assets", "definitions", "items", f"{item_name}.json")
+        item_path = os.path.join("assets", "definitions", "items", filename)
         if not os.path.exists(item_path):
-            print(f"Error: Item definition {item_name}.json not found.")
+            print(f"Error: Item definition {filename} not found.")
             return None
             
         with open(item_path, "r") as f:
             data = json.load(f)
             
-            # By default in the editor the name is the filename with the extension
-            # but we want to store it in the database as a more readable format
-            cleaned_name = data.get("name", item_name)
-            if cleaned_name.endswith(".json"):
-                cleaned_name = cleaned_name[:-5]
-            cleaned_name = cleaned_name.replace("_", " ").title()
+            # The cleaned_name we calculated at the top is what we'll use if the JSON doesn't override it
+            final_name = data.get("name", cleaned_name)
+            if final_name.endswith(".json"):
+                final_name = final_name[:-5]
+            final_name = final_name.replace("_", " ").title()
 
             self.cursor.execute(
                 """INSERT INTO items (name, description, item_type, slot, weight, 
@@ -318,7 +325,7 @@ class DatabaseManager:
                    hunger_restore, texture_file, power_bonus, range)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    cleaned_name,
+                    final_name,
 
                 data.get("description", ""),
                 data.get("item_type", "misc"),
