@@ -67,15 +67,15 @@ class Characters(Screen):
         )
 
         # GRID SETTINGS
-        cols = 4      # 4 per row
-        rows = 2      # 2 rows
-        gap_x = 350   # horizontal spacing
+        cols = 2      # Balanced for 2 characters
+        rows = 1      # Only one row needed
+        gap_x = 400   # slightly wider spacing
         gap_y = 300   # vertical spacing
 
         # Starting point (center the whole grid)
         grid_width = (cols - 1) * gap_x
         start_x = self.manager.width // 2 - grid_width // 2
-        start_y = int(self.manager.height * 0.55)   # move grid down relative to height
+        start_y = int(self.manager.height * 0.65)   # moved grid lower on the screen
 
         for index, button_name in enumerate(self.button_names):
             row = index // cols
@@ -162,12 +162,22 @@ class Characters(Screen):
         path = os.path.join(BASE_DIR, "..", "assets", "assetBank", "Classic China Characters", image_name)
         image = pygame.image.load(path).convert_alpha()
 
-        # original scaling (looked good)
-        original_w, original_h = image.get_size()
-        image = pygame.transform.scale(image, (int(original_w * 6.5), int(original_h * 6.5)))
+        # Find the actual sprite content to ignore transparent padding at the bottom/sides
+        content_rect = image.get_bounding_rect()
 
-        # align by feet instead of top
-        rect = image.get_rect(midbottom=(x, y))
+        if content_rect.width > 0 and content_rect.height > 0:
+            # Crop to the active area
+            image = image.subsurface(content_rect)
+
+        # Scale to a consistent height (200px) so both characters 
+        # look the same size regardless of the orginal sprite
+        target_height = 200
+        aspect_ratio = image.get_width() / image.get_height()
+        target_width = int(target_height * aspect_ratio)
+        image = pygame.transform.scale(image, (target_width, target_height))
+
+        # Align by the ground positions (x, y - 15 {just so it doesnt stick to the button}).
+        rect = image.get_rect(midbottom=(x, y - 15))
 
         self.manager.screen.blit(image, rect)
 
