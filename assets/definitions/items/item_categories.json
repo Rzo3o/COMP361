@@ -28,6 +28,7 @@
         "slot": "general",
         "props": [
             "slot",
+            "healing_amount",
             "hunger_restore"
         ]
     },

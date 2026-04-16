@@ -1,6 +1,6 @@
 {
     "category": "item",
-    "name": "Apple",
+    "name": "apple.json",
     "texture_file": "",
     "crop_x": 0,
     "crop_y": 0,
@@ -11,9 +11,9 @@
     "slot": "general",
     "weight": 1,
     "base_damage": 0,
+    "range": 0,
     "defense": 0,
     "max_durability": 1,
-    "durability": 1,
     "healing_amount": 5,
     "hunger_restore": 10,
     "power_bonus": 0
