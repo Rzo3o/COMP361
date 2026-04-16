@@ -28,7 +28,7 @@ class GameWindow(Screen):
             sid = self.db.create_session(1, char_type=char_type)
             
             # Add and equip starting weapon
-            weapon_name = "test_bow" if char_type == "archer" else "test_sword"
+            weapon_name = "test_bow" if char_type == "archer" else "wooden_sword"
             weapon_id = self.db.get_or_create_item(weapon_name)
             if weapon_id:
                 self.db.add_item(sid, weapon_id, quantity=1)
