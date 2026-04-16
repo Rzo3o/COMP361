@@ -448,7 +448,38 @@ class GameWindow(Screen):
 
             self._draw_panel_box(row_rect, row_fill, row_border)
 
+            # Draw item icon or placeholder
+            icon_size = 40
+            icon_x = row_rect.x + 8
+            icon_y = row_rect.y + (row_height - icon_size) // 2
+            icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
+
+            item_icon = None
+            if item.texture:
+                # Scale calculation because get_image uses Config.HEX_SIZE
+                raw_icon = self.assets.get_image(item.texture, scale=1.0) # get base scale
+                if raw_icon:
+                    # Resize to fit the inventory row exactly
+                    item_icon = pygame.transform.scale(raw_icon, (icon_size, icon_size))
+            
+            if item_icon:
+                self.manager.screen.blit(item_icon, icon_rect)
+            else:
+                # Placeholder: A simple rounded box for items with no texture
+                placeholder_color = (60, 65, 75)
+                pygame.draw.rect(self.manager.screen, placeholder_color, icon_rect, border_radius=6)
+                pygame.draw.rect(self.manager.screen, row_border, icon_rect, 1, border_radius=6)
+                
+                letter = item.name[0].upper()
+
+                # Draw the letter in the center of the icon
+                letter_surf = self.font.render(letter, True, (100, 105, 115))
+                letter_rect = letter_surf.get_rect(center=icon_rect.center)
+                self.manager.screen.blit(letter_surf, letter_rect)
+
             # Display item name, quantity, type, slot and equipped status
+            # Offset text to the right of the icon
+            text_x_offset = 60
             quantity = f"x{item.quantity}"
             name = self.font.render(f"{item.name} {quantity}", True, name_color)
             meta_bits = [item.type.title()]
@@ -458,8 +489,8 @@ class GameWindow(Screen):
                 meta_bits.append("Equipped")
             meta = self.font.render("  |  ".join(meta_bits), True, meta_color)
 
-            self.manager.screen.blit(name, (row_rect.x + 14, row_rect.y + 10))
-            self.manager.screen.blit(meta, (row_rect.x + 14, row_rect.y + 28))
+            self.manager.screen.blit(name, (row_rect.x + text_x_offset, row_rect.y + 10))
+            self.manager.screen.blit(meta, (row_rect.x + text_x_offset, row_rect.y + 28))
 
     # Right top of inventory page
     def _draw_equipment_summary(self, rect, player):
