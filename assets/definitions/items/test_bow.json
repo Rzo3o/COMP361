@@ -5,7 +5,7 @@
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
-    "description": "Basic bow weapon",
+    "description": "Basic bow weapon.",
     "item_type": "ranged",
     "item_slot": "weapon",
     "slot": "weapon",

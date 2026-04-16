@@ -5,7 +5,7 @@
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
-    "description": "A sturdy forged blade. Reliable in any skirmish. +10 Damage",
+    "description": "A sturdy forged blade. Reliable in any skirmish. +10 Damage.",
     "item_type": "melee",
     "item_slot": "weapon",
     "slot": "weapon",

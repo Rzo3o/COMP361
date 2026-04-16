@@ -5,7 +5,7 @@
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
-    "description": "Basic sword weapon",
+    "description": "Basic sword weapon.",
     "item_type": "melee",
     "item_slot": "weapon",
     "slot": "weapon",

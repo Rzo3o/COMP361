@@ -5,7 +5,7 @@
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
-    "description": "Juicy and refreshing, perfect for long travels.  +10 Hunger",
+    "description": "Juicy and refreshing, perfect for long travels.",
     "item_type": "food",
     "item_slot": "general",
     "slot": "general",
