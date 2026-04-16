@@ -513,8 +513,17 @@ class GameWindow(Screen):
         # Loop through each equipment slot and display the equipped item or "--" if empty
         for slot_name in ("weapon", "armor"):
             equipped = player.equipment.get(slot_name)
-            label = equipped.name if equipped else "--"
-            color = (186, 220, 198) if equipped else (120, 127, 135)
+            
+            label = "--"
+            color = (120, 127, 135)
+            
+            if equipped:
+                label = equipped.name
+                color = (186, 220, 198)
+            elif slot_name == "weapon":
+                label = "(No Weapon Equipped)"
+                color = (255, 120, 120) # Red warning
+            
             slot_surf = self.font.render(
                 f"{slot_labels[slot_name]}: {label}",
                 True,
@@ -672,12 +681,19 @@ class GameWindow(Screen):
             f"Hunger: {p.hunger}/{p.max_hunger}", True, (255, 160, 50)
         )
         dmg_text = self.font.render(f"ATK: {p.total_damage}", True, (255, 200, 100))
+        # Add unarmed warning to HUD if no weapon
+        unarmed_warning = None
+        if not p.equipment.get("weapon"):
+            unarmed_warning = self.font.render("(Unarmed!)", True, (255, 100, 100))
+
         def_text = self.font.render(f"DEF: {p.total_defense}", True, (100, 200, 255))
         loc_text = self.font.render(f"Q:{p.q} R:{p.r}", True, (200, 200, 200))
 
         self.manager.screen.blit(hp_text, (20, 10))
         self.manager.screen.blit(hunger_text, (150, 10))
         self.manager.screen.blit(dmg_text, (320, 10))
+        if unarmed_warning:
+            self.manager.screen.blit(unarmed_warning, (320 + dmg_text.get_width() + 5, 10))
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
