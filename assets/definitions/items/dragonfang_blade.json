@@ -1,7 +1,7 @@
 {
     "category": "item",
     "name": "dragonfang_blade.json",
-    "texture_file": "",
+    "texture_file": "File 2025_5_0.png",
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
@@ -11,6 +11,7 @@
     "slot": "weapon",
     "weight": 6,
     "base_damage": 25,
+    "range": 0,
     "defense": 0,
     "max_durability": 200,
     "healing_amount": 0,

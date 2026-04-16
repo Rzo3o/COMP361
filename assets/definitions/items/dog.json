@@ -1,6 +1,6 @@
 {
     "category": "item",
-    "name": "dog",
+    "name": "Dog",
     "texture_file": "dog.png",
     "crop_x": 0,
     "crop_y": 0,

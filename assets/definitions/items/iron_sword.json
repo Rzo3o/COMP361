@@ -1,7 +1,7 @@
 {
     "category": "item",
     "name": "iron_sword.json",
-    "texture_file": "",
+    "texture_file": "File 2025_5_4.png",
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
@@ -11,6 +11,7 @@
     "slot": "weapon",
     "weight": 5,
     "base_damage": 10,
+    "range": 0,
     "defense": 0,
     "max_durability": 100,
     "healing_amount": 0,

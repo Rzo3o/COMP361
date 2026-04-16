@@ -1,7 +1,7 @@
 {
     "category": "item",
     "name": "steel_axe.json",
-    "texture_file": "",
+    "texture_file": "File 2025_4_0.png",
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 32,
@@ -11,6 +11,7 @@
     "slot": "weapon",
     "weight": 8,
     "base_damage": 15,
+    "range": 0,
     "defense": 0,
     "max_durability": 120,
     "healing_amount": 0,

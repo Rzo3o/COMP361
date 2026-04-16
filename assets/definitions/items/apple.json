@@ -1,10 +1,10 @@
 {
     "category": "item",
     "name": "apple.json",
-    "texture_file": "",
+    "texture_file": "Apple.png",
     "crop_x": 0,
     "crop_y": 0,
-    "crop_size": 32,
+    "crop_size": 16,
     "description": "A crisp red apple. A quick bite on the road. +5 HP, +10 Hunger",
     "item_type": "food",
     "item_slot": "general",
