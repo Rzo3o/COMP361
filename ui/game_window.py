@@ -526,29 +526,32 @@ class GameWindow(Screen):
     # Right bottom of inventory page
     def _selected_item_detail_lines(self, item):
         if not item:
-            return [("Select an item to inspect its details.", (145, 150, 158))]
+            return [("Select an item to inspect its details.", (145, 150, 158), None)]
 
         lines = []
         if item.description:
-            lines.append((item.description, (182, 188, 196)))
-        if item.damage_bonus:
-            lines.append((f"Damage +{item.damage_bonus}", (169, 214, 205)))
-        if item.defense:
-            lines.append((f"Defense +{item.defense}", (169, 214, 205)))
-        if item.max_durability:
+            lines.append((item.description, (182, 188, 196), None))
+        if item.damage_bonus > 1:
+            lines.append((f"Damage +{item.damage_bonus}", (169, 214, 205), None))
+        if item.defense > 1:
+            lines.append((f"Defense +{item.defense}", (169, 214, 205), None))
+        if item.max_durability > 1:
             lines.append(
                 (
                     f"Durability {item.durability}/{item.max_durability}",
                     (169, 214, 205),
+                    None
                 )
             )
         if item.type == "food":
-            lines.append((f"Heal {item.healing_amount}", (169, 214, 205)))
-            lines.append((f"Hunger +{item.hunger_restore}", (169, 214, 205)))
-        if item.weight:
-            lines.append((f"Weight {item.weight}", (169, 214, 205)))
+            if item.healing_amount > 0:
+                lines.append((f"{item.healing_amount}", (169, 214, 205), "Heart.png"))
+            if item.hunger_restore > 0:
+                lines.append((f"{item.hunger_restore}", (169, 214, 205), "Food_Restaurant_Eating_Utensils_Plate_Fork_Knife.png"))
+        if item.weight > 1:
+            lines.append((f"Weight {item.weight}", (169, 214, 205), None))
         if not lines:
-            lines.append(("No additional details.", (145, 150, 158)))
+            lines.append(("No additional details.", (145, 150, 158), None))
         return lines
 
     def _wrap_text(self, text, font, max_width):
@@ -622,13 +625,37 @@ class GameWindow(Screen):
         max_text_width = rect.width - 32
         bottom_padding = 16
         line_height = 24
-        for line, color in self._selected_item_detail_lines(item):
-            for wrapped_line in self._wrap_text(line, self.font, max_text_width):
+        # Loop through the lines of details for the selected item and display them
+        max_text_width = rect.width - 32
+        bottom_padding = 16
+        line_height = 24
+        icon_size = 20
+        
+        for line, color, icon_file in self._selected_item_detail_lines(item):
+            # If there's an icon we need to offset the text and draw the icon
+            icon_img = None
+            text_x = rect.x + 16
+            
+            if icon_file:
+                # Load and scale icon
+                raw_img = self.assets.get_image(icon_file, scale=1.0)
+                if raw_img:
+                    icon_img = pygame.transform.scale(raw_img, (icon_size, icon_size))
+                    text_x += icon_size + 6
+
+            for wrapped_line in self._wrap_text(line, self.font, max_text_width - (icon_size + 6 if icon_img else 0)):
                 # If the next line would go beyond the bottom of the panel, stop drawing more lines
                 if line_y + line_height > rect.bottom - bottom_padding:
                     return
+                
+                # Draw icon on the first line of the wrapped text if applicable
+                if icon_img:
+                    icon_y = line_y + (line_height - icon_size) // 2
+                    self.manager.screen.blit(icon_img, (rect.x + 16, icon_y))
+                    icon_img = None # Only draw icon once per logical line
+                
                 surf = self.font.render(wrapped_line, True, color)
-                self.manager.screen.blit(surf, (rect.x + 16, line_y))
+                self.manager.screen.blit(surf, (text_x, line_y))
                 line_y += line_height
 
 
