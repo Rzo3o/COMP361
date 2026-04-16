@@ -843,6 +843,22 @@ class SlimeMonster(Monster):
                         m.take_damage(explosion_damage)
 
 
+class BushMonster(Monster):
+    """
+    Bush monster variant that applies poison to the player on a attack hit.
+    """
+    def update_animation(self, asset_manager):
+        damage_was_applied = getattr(self, "attack_damage_applied", False)
+        target = self.pending_attack_target
+
+        super().update_animation(asset_manager)
+
+        if self.anim_state == "attack" and not damage_was_applied and self.attack_damage_applied:
+            if target and target.is_alive() and hasattr(target, "apply_poison"):
+                target.apply_poison(turns=3, damage_per_turn=2)
+                print(f"[Combat] {self.name} applied poison to the player!")
+
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
@@ -850,6 +866,7 @@ class MonsterFactory:
         "green_slime": SlimeMonster,
         "orange_slime": SlimeMonster,
         "blue_slime": SlimeMonster,
+        "bush_monster": BushMonster,
     }
 
     @classmethod
