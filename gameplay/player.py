@@ -17,7 +17,7 @@ class Player(Entity):
         self.dead = False
 
         # Base stats (without equipment)
-        self.base_damage = 10
+        self.base_damage = 5
         self.base_defense = 100
 
         # Equipment slots: slot_name -> Item or None
@@ -85,7 +85,8 @@ class Player(Entity):
             if weapon.type == "ranged":
                 return weapon.range
             return 1
-        return 0
+        # Unarmed reach
+        return 1
 
     @property
     def total_damage(self):
