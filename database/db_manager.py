@@ -305,13 +305,21 @@ class DatabaseManager:
         with open(item_path, "r") as f:
             data = json.load(f)
             
-        self.cursor.execute(
-            """INSERT INTO items (name, description, item_type, slot, weight, 
-               base_damage, defense, max_durability, durability, healing_amount, 
-               hunger_restore, texture_file, power_bonus, range)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                data.get("name", item_name),
+            # By default in the editor the name is the filename with the extension
+            # but we want to store it in the database as a more readable format
+            cleaned_name = data.get("name", item_name)
+            if cleaned_name.endswith(".json"):
+                cleaned_name = cleaned_name[:-5]
+            cleaned_name = cleaned_name.replace("_", " ").title()
+
+            self.cursor.execute(
+                """INSERT INTO items (name, description, item_type, slot, weight, 
+                   base_damage, defense, max_durability, durability, healing_amount, 
+                   hunger_restore, texture_file, power_bonus, range)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    cleaned_name,
+
                 data.get("description", ""),
                 data.get("item_type", "misc"),
                 data.get("slot"),

@@ -32,7 +32,12 @@ class Item:
         this constructor never raises on partial data.
         """
         self.id = data.get("id")
-        self.name = data.get("name", "Unknown Item")
+        raw_name = data.get("name", "Unknown Item")
+        # Clean technical names (e.g., "greater_health_potion.json" -> "Greater Health Potion")
+        if raw_name.endswith(".json"):
+            raw_name = raw_name[:-5]
+        self.name = raw_name.replace("_", " ").title()
+
         self.description = data.get("description", "")
         self.type = data.get("item_type", "misc")
         self.slot = data.get("slot")
