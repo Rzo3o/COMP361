@@ -1023,7 +1023,7 @@ class MapTab(ttk.Frame):
                             scale = 0.8 * self.zoom_level 
                             img = self.app.asset_mgr.get_tk_image(tex, scale)
                             if img:
-                                self.canvas.create_image(ix, iy * self.zoom_level, image=img, anchor="center")
+                                self.canvas.create_image(ix, iy - (Config.CALIB_OFFSET_Y * self.zoom_level) + 35, image=img, anchor="center")
 
     def _on_click(self, event):
         cx = self.canvas.canvasx(event.x)
