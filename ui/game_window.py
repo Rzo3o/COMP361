@@ -355,7 +355,7 @@ class GameWindow(Screen):
         # Dispaly title, control instruction and player info
         title = title_font.render("Inventory", True, (236, 228, 204))
         controls = small_font.render(
-            "W/S: Select   Wheel: Scroll   Space: Use   F: Equip/Unequip   I: Close",
+            "1 left click: to select   2 left clicks/F: to Equip/Unequip   Wheel: Scroll   I/ESC: Close",
             True,
             (162, 169, 178),
         )
