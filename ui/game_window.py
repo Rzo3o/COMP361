@@ -56,6 +56,10 @@ class GameWindow(Screen):
         self.anim_timer = 0
         self.inventory_scroll_offset = 0 # tracks how far the inventory list is scrolled
         self.inventory_last_selected_index = self.engine.selected_index
+        
+        # Timing and state for mouse inventory interactions
+        self.last_click_time = 0 # timestamp of the previous click to detect double-clicks
+        self.last_clicked_index = -1 # index of the item previously clicked
 
         # Active floating loot notification (only one shown at a time).
         # Each entry: {"text": str, "age_ms": int}
@@ -75,6 +79,59 @@ class GameWindow(Screen):
             # Scroll inventory list up/down
             self.inventory_scroll_offset -= event.y
             return
+
+        # Handling clicking on inventory items
+        if event.type == pygame.MOUSEBUTTONDOWN and getattr(
+            self.engine, "show_inventory", False
+        ):
+            if event.button == 1:  # Left click
+                # Re-calculate the list panel dimensions to find if the click is inside the item list area.
+                # These variables must match the layout logic in _draw_inventory so change both if needed
+                panel_x, panel_y = 200, 80
+                panel_w = Config.WINDOW_WIDTH - 400
+                panel_h = Config.WINDOW_HEIGHT - 160
+                
+                body_top = panel_y + 116
+                body_height = panel_h - 140
+                left_width = int(panel_w * 0.62)
+                list_rect = pygame.Rect(panel_x + 18, body_top, left_width, body_height)
+
+                # Only proceed if the user clicked inside the item list region
+                if list_rect.collidepoint(event.pos):
+                    # 'top' is the starting Y-coordinate of the first item in the list (including padding)
+                    top = list_rect.y + 42
+                    row_height = 52
+                    row_gap = 8
+                    
+                    mouse_y = event.pos[1]
+                    relative_y = mouse_y - top
+                    
+                    # Ensure the click isn't in the header area of the list
+                    if relative_y >= 0:
+                        # Convert vertical pixel distance to a row index
+                        clicked_row = relative_y // (row_height + row_gap)
+
+                        # Offset the row by the current scroll position to get the actual item index
+                        clicked_index = self.inventory_scroll_offset + clicked_row
+                        
+                        items = self.engine.world.player.inventory
+                        # Check if the calculated index matches an existing item
+                        if 0 <= clicked_index < len(items):
+                            # Double-Click Detection:
+                            # If the same item was clicked twice within 500ms, trigger the "INTERACT" action.
+                            now = pygame.time.get_ticks()
+                            if (clicked_index == self.last_clicked_index and 
+                                now - self.last_click_time < 500):
+                                self.engine.selected_index = clicked_index
+                                self.engine.run_turn("INTERACT") # Executes 'Use' or 'Equip/Unequip'
+                                self.last_click_time = 0 # Reset timer to prevent triple-click triggering twice
+                            else:
+                                # First click: simply select and highlight the item
+                                self.engine.selected_index = clicked_index
+                                self.last_click_time = now
+                                self.last_clicked_index = clicked_index
+                            # Stop event propagation for this click
+                            return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
