@@ -78,7 +78,10 @@ class GameWindow(Screen):
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.manager.switch_screen("main_menu")
+                if getattr(self.engine, "show_inventory", False):
+                    self.engine.run_turn("INVENTORY")
+                else:
+                    self.manager.switch_screen("main_menu")
 
             # Open/Close Inventory should strictly be a single key press
             elif event.key == pygame.K_i or event.key == pygame.K_TAB:
