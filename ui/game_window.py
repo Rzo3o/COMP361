@@ -46,7 +46,7 @@ class GameWindow(Screen):
         # Demo: spawn a visible chest next to the player only if it's a fresh game
         # (check if inventory only has the starting weapon or less)
         if not self.engine.world.chests and len(self.engine.world.player.inventory) <= 1:
-            self.engine.world.spawn_demo_chest()
+            self.engine.world.spawn_chest()
         self.assets = AssetManager()
         self.renderer = GameRenderer(self.assets)
 

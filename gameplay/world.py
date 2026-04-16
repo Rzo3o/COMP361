@@ -126,59 +126,37 @@ class World:
             except Exception as e:
                 print(f"load_chests failed: {e}")
 
-    def spawn_demo_chest(self):
-        """Place a single chest one tile east of the player for manual testing.
+    def spawn_chest(self):
+        """Place a single starter chest one tile east of the player.
 
-        The chest contains two loaves of bread that restore HP and hunger so
-        opening it visibly affects the player. Safe to call on a broken DB
-        or when the player is not yet loaded — any failure short-circuits
-        and leaves the world untouched.
+        Uses the existing 'Bread' definition from the asset folder instead of hardcoded one
         """
         if self.player is None:
             return
 
         try:
-            # Ensure a 'Bread' item row exists in the DB and grab its id.
-            self.db.cursor.execute(
-                "SELECT id FROM items WHERE name=?", ("Bread",),
-            )
-            row = self.db.cursor.fetchone()
-            if row:
-                bread_id = row["id"]
-            else:
-                self.db.cursor.execute(
-                    """INSERT INTO items
-                       (name, description, item_type, slot, weight,
-                        healing_amount, hunger_restore, durability, max_durability)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    ("Bread", "Restores stamina and health", "food", None, 1,
-                     20, 15, 1, 1),
-                )
-                self.db.conn.commit()
-                bread_id = self.db.cursor.lastrowid
+            # Ensure 'Bread' exists and get its persistent ID
+            bread_id = self.db.get_or_create_item("bread")
+            if not bread_id:
+                return
+            
+            # Fetch the full clean item data
+            bread_data = self.db.get_item_by_id(bread_id)
+            if not bread_data:
+                return
         except Exception as e:
-            print(f"[World] spawn_demo_chest: failed to prepare Bread row: {e}")
+            print(f"[World] spawn_chest: failed to prepare Bread: {e}")
             return
 
-        bread_items = [
-            Item({
-                "id": bread_id,
-                "name": "Bread",
-                "item_type": "food",
-                "healing_amount": 20,
-                "hunger_restore": 15,
-                "durability": 1,
-                "max_durability": 1,
-            })
-            for _ in range(2)
-        ]
+        # Create Item objects using the database metadata
+        bread_items = [Item(bread_data) for _ in range(2)]
 
         self.chests.append(Chest(
             self.player.q + 1, self.player.r, "brown_chest",
             items=bread_items,
         ))
         
-        # Save demo chest to DB so it persists/remembers its state
+        # Save chest to DB
         if hasattr(self.db, "save_chest"):
             self.db.save_chest(self.session_id, self.player.q + 1, self.player.r, "brown_chest", bread_items)
 

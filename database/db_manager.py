@@ -338,6 +338,12 @@ class DatabaseManager:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def get_item_by_id(self, item_id):
+        """Returns the full data for a specific item as a dictionary."""
+        self.cursor.execute("SELECT * FROM items WHERE id=?", (item_id,))
+        row = self.cursor.fetchone()
+        return dict(row) if row else None
+
     def load_inventory(self, session_id):
         """Returns all items in the player's inventory for this session."""
         query = """
