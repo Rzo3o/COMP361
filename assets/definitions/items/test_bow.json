@@ -1,6 +1,6 @@
 {
     "category": "item",
-    "name": "test_bow.json",
+    "name": "Basic Bow",
     "texture_file": "Icon42[1].png",
     "crop_x": 0,
     "crop_y": 0,
