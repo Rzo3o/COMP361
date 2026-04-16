@@ -5,7 +5,7 @@
     "crop_x": 0,
     "crop_y": 0,
     "crop_size": 100,
-    "description": "A full suit of polished steel. Heavy, but nearly impenetrable. +25 Defense.",
+    "description": "A full suit of polished steel. Heavy, but nearly impenetrable.",
     "item_type": "armor",
     "item_slot": "armor",
     "slot": "armor",
