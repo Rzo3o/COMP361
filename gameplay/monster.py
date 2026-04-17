@@ -10,6 +10,7 @@ import math
 from gameplay.models import Entity
 from gameplay.item import Item
 from gameplay.models import CircleExplosion
+from collections import deque
 
 
 @dataclass
@@ -294,48 +295,76 @@ class Monster(Entity):
         self.is_moving = True
         self.set_anim_state("move", reset_frame=True)
 
-    def move_towards_player(
-        self,
-        player: Any,
-        is_passable: Callable[[int, int], bool],
-    ) -> bool:
+    def move_towards_player(self, player: Any, is_passable: Callable[[int, int], bool]) -> bool:
         """
-        Greedy 1-step move: choose neighbor that minimizes distance to player.
-        Returns True if moved.
+        Smart movement: Calculates a path around walls to reach the player.
         """
         if not self.is_alive():
             return False
         
         current_dist = super().hex_distance(self.q, self.r, player.q, player.r)
         if current_dist <= 1:
-            return False
+            return False # Already adjacent, no need to move
 
-        candidates = []
+        # Ask the GPS for the next step around obstacles
+        next_step = self._find_path_next_step(player.q, player.r, is_passable)
 
-        for nq, nr in self.neighbors():
-            if not is_passable(nq, nr):
-                continue
-            d = super().hex_distance(nq, nr, player.q, player.r)
-            candidates.append((d, nq, nr))
-
-        if not candidates:
-            return False
-
-        candidates.sort(key=lambda x: x[0])
-
-        best_dist, best_q, best_r = candidates[0]
-
-        if best_dist < current_dist:
-            self.start_move(best_q, best_r)
-            return True
-
-        side_options = [(d, q, r) for (d, q, r) in candidates if d == current_dist]
-        if side_options:
-            _, sq, sr = random.choice(side_options)
-            self.start_move(sq, sr)
-            return True
+        # If a path exists, and the next step isn't exactly the player's tile
+        if next_step and next_step != (player.q, player.r):
+            nq, nr = next_step
+            # Double check if the tile is actually clear to step on
+            if is_passable(nq, nr):
+                self.start_move(nq, nr)
+                return True
 
         return False
+    
+    def _find_path_next_step(self, target_q, target_r, is_passable):
+        """
+        Uses BFS (Breadth-First Search) to find the shortest path around obstacles.
+        Returns the (q, r) tuple of the very next step to take, or None if completely blocked.
+        """
+        start = (self.q, self.r)
+        goal = (target_q, target_r)
+
+        queue = deque([start])
+        came_from = {start: None}
+
+        # Cap the search limit so the game doesn't lag on massive maps
+        max_search_nodes = 150 
+        nodes_searched = 0
+
+        while queue and nodes_searched < max_search_nodes:
+            current = queue.popleft()
+            nodes_searched += 1
+
+            # Stop scanning if we found the target
+            if current == goal:
+                break
+
+            # Check all 6 hex neighbors
+            for dq, dr in self.HEX_DIRS:
+                nxt = (current[0] + dq, current[1] + dr)
+
+                if nxt not in came_from:
+                    # Treat the goal tile as passable even if a player is standing on it
+                    if nxt == goal or is_passable(nxt[0], nxt[1]):
+                        queue.append(nxt)
+                        came_from[nxt] = current # type: ignore
+
+        # If we couldn't reach the goal (e.g., player is walled off entirely)
+        if goal not in came_from:
+            return None
+
+        # Trace the path backward from the goal to find our FIRST step
+        current = goal
+        while current is not None:
+            prev = came_from.get(current)
+            if prev == start:
+                return current
+            current = prev
+            
+        return None
     
     def wander(self, is_passable) -> bool:
         """
@@ -390,7 +419,8 @@ class Monster(Entity):
             if moved:
                 return {"id": self.id, "action": "chase_move", "dist": dist}
 
-            return {"id": self.id, "action": "chase_stuck", "dist": dist}
+            paced = self.wander(world.is_passable)
+            return {"id": self.id, "action": "pacing_wall" if paced else "trapped", "dist": dist}
 
         # If not aggro: optionally wander
         if random.random() < self.ai.wander_chance:
@@ -1016,13 +1046,24 @@ class ForestFlyMonster(Monster):
             direction = self._get_attack_axis(player)
 
             if direction:
-                self._attack_cd_remaining = self.ai.attack_cooldown_turns
-                self.set_anim_state("attack", reset_frame=True)
-                self.flip_x = direction[0] < 0
+                # Line of Sight
+                path_clear = True
+                for step in range(1, int(dist)):
+                    check_q = self.q + direction[0] * step
+                    check_r = self.r + direction[1] * step
+                    # If there are obstacles along the way, it indicates that the view is blocked
+                    if not world.is_passable(check_q, check_r):
+                        path_clear = False
+                        break
 
-                self.pending_projectile_dir = direction
-                self.has_fired_this_anim = False
-                return {"action": "windup_projectile"}
+                if path_clear:
+                    self._attack_cd_remaining = self.ai.attack_cooldown_turns
+                    self.set_anim_state("attack", reset_frame=True)
+                    self.flip_x = direction[0] < 0
+
+                    self.pending_projectile_dir = direction
+                    self.has_fired_this_anim = False
+                    return {"action": "windup_projectile"}
 
         return super().decide_and_act(world, player)
     
