@@ -80,7 +80,7 @@ class MainMenu(Screen):
             "QUIT",
             self.button_font,
             action_name="quit",
-            bg_color=(255, 69, 0),
+            bg_color=(170, 40, 115),
             hover_color=(120, 100, 160),
             text_color=self.manager.text_color_white,
         )
