@@ -19,28 +19,13 @@ class GameRenderer:
         # render cache pool, to reduce lagging
         self.image_cache = {}
 
-        self.cloud_images = [
-        pygame.image.load("assets/assetBank/clouds/cloud 1.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 2.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 3.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 4.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 5.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 6.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 7.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 8.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 9.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 10.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 11.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 12.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 13.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 14.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 15.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 16.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 17.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 18.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 19.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 20.png").convert_alpha()
-        ]
+
+        # load cloud images into list
+        self.cloud_images = []
+
+        for image_number in range(1, 21):
+            image = pygame.image.load(f"assets/assetBank/clouds/cloud {image_number}.png").convert_alpha()
+            self.cloud_images.append(image)
         
 
     def render(self, screen, world, frame_index=0):
