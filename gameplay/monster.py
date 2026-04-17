@@ -859,6 +859,201 @@ class BushMonster(Monster):
                 print(f"[Combat] {self.name} applied poison to the player!")
 
 
+class ForestFlyProjectile(Monster):
+    """ForestFly's linear projectile (special entity)"""
+    def __init__(self, q, r, direction, damage, level):
+        json_path = os.path.join("assets", "definitions", "monsters", "fly_projectile.json")
+        with open(json_path, "r") as f:
+            data = json.load(f)
+        
+        data["id"] = f"fly_proj_{id(self)}"
+        data["current_q"] = q
+        data["current_r"] = r
+        data["damage"] = damage 
+        data["level"] = level
+
+        super().__init__(data)
+        self.direction = direction
+        self.dist_traveled = 0
+        self.max_dist = 7
+        self.move_speed = 0.5
+        self.pending_impact_target = None
+        self.is_targetable = False
+
+        self._cached_world = None
+        self._cached_player = None
+
+    def on_death(self):
+        return []  
+
+    def take_damage(self, amount):
+        if amount < 999:
+            return 0 
+        self.hp = 0
+        self.dead = True
+        self.death_finished = True
+        self.remove_after_death = True
+        return 0
+
+    def decide_and_act(self, world, player):
+        # Projectiles bypass turn-based AI; movement is driven entirely by update_animation
+        return {"action": "flying"}
+
+    def _continue_fly(self):
+        """Seamlessly transition to the next tile"""
+        if not self.is_alive(): return
+        
+        world = getattr(self, "_cached_world", None)
+        player = getattr(self, "_cached_player", None)
+        if not world or not player: return
+
+        self.dist_traveled += 1
+        if self.dist_traveled > self.max_dist:
+            self.take_damage(999)
+            return
+
+        next_q = self.q + self.direction[0]
+        next_r = self.r + self.direction[1]
+
+        # Target player found
+        if next_q == player.q and next_r == player.r:
+            self.pending_impact_target = player
+            self.start_move(next_q, next_r)
+            return
+
+        # Hit an obstacle or another monster
+        if not world.is_passable(next_q, next_r):
+            hit_monster = None
+            for m in world.monsters:
+                if m != self and m.q == next_q and m.r == next_r and m.is_alive():
+                    hit_monster = m
+                    break
+            self.pending_impact_target = hit_monster if hit_monster else "wall"
+            self.start_move(next_q, next_r)
+            return
+
+        # Path is clear, continue flight interpolation
+        self.start_move(next_q, next_r)
+
+    def update_animation(self, asset_manager):
+        # Continuous flight interpolation core
+        if self.anim_state == "move":
+            if getattr(self, "is_moving", False):
+                self.move_progress += self.move_speed
+                if self.move_progress >= 1.0:
+                    self.move_progress = 1.0
+                    self.is_moving = False
+                    
+                    # Trigger the next flight step immediately if no impact is pending
+                    if self.pending_impact_target is None:
+                        self._continue_fly()
+
+            # Update sprite frame
+            current_anim_speed = getattr(self, "anim_speeds", {}).get("move", 1.0)
+            self.anim_progress += current_anim_speed
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.anim_tick = 0
+                self.anim_progress = 0.0
+
+            if not getattr(self, "is_moving", False) and self.pending_impact_target is None:
+                self.set_anim_state("idle", reset_frame=True)
+
+        else:
+            super().update_animation(asset_manager)
+
+        if self.pending_impact_target is not None and not getattr(self, "is_moving", False):
+            target = self.pending_impact_target
+            
+            if not isinstance(target, str):
+                if hasattr(target, "take_damage") and target.is_alive():
+                    target.take_damage(self.base_damage)
+
+            self.take_damage(999)
+
+
+class ForestFlyMonster(Monster):
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        self.ai.attack_cooldown_turns = 4    # Cooldown
+        self.has_fired_this_anim = True
+
+    def attack_player(self, player):
+        return False    # Melee attack banned
+
+    def _get_attack_axis(self, player) -> Optional[Tuple[int, int]]:
+        """Aim assist: Check if player is on a hex axis (allows 1 tile tolerance)"""
+        dq = player.q - self.q
+        dr = player.r - self.r
+        ds = (-player.q - player.r) - (-self.q - self.r)
+
+        min_dist = min(abs(dq), abs(dr), abs(ds))
+        
+        if min_dist <= 1: 
+            if abs(dq) == min_dist:
+                return (0, 1 if dr > 0 else -1)  
+            elif abs(dr) == min_dist:
+                return (1 if dq > 0 else -1, 0) 
+            else:
+                return (1 if dq > 0 else -1, -1 if dq > 0 else 1)
+        return None
+    
+    def decide_and_act(self, world, player):
+        if not self.is_alive(): return super().decide_and_act(world, player)
+
+        # Cache world and player to pass to the projectile later
+        self._cached_world = world
+        self._cached_player = player
+
+        if self._attack_cd_remaining > 0:
+            self._attack_cd_remaining -= 1
+
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        
+        if dist <= self.ai.vision_range and self._attack_cd_remaining <= 0:
+            direction = self._get_attack_axis(player)
+
+            if direction:
+                self._attack_cd_remaining = self.ai.attack_cooldown_turns
+                self.set_anim_state("attack", reset_frame=True)
+                self.flip_x = direction[0] < 0
+
+                self.pending_projectile_dir = direction
+                self.has_fired_this_anim = False
+                return {"action": "windup_projectile"}
+
+        return super().decide_and_act(world, player)
+    
+    def update_animation(self, asset_manager):
+        super().update_animation(asset_manager)
+
+        if self.anim_state == "attack" and not getattr(self, "has_fired_this_anim", True):
+            if self.anim_tick >= self.attack_hit_frame:
+                self.has_fired_this_anim = True  
+                
+                world = getattr(self, "_cached_world", None)
+                player = getattr(self, "_cached_player", None)
+                
+                if world and player:
+                    dir = self.pending_projectile_dir
+                    
+                    projectile = ForestFlyProjectile(
+                        self.q, self.r, 
+                        dir, self.damage, self.level
+                    )
+                    projectile.flip_x = self.flip_x
+                    
+                    # Bind contextual data to the projectile
+                    projectile._cached_world = world
+                    projectile._cached_player = player
+                    
+                    world.monsters.append(projectile)
+                    
+                    projectile._continue_fly()
+    
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
@@ -867,6 +1062,8 @@ class MonsterFactory:
         "orange_slime": SlimeMonster,
         "blue_slime": SlimeMonster,
         "bush_monster": BushMonster,
+        "forest_fly_monster": ForestFlyMonster, 
+        "fly_projectile": ForestFlyProjectile,
     }
 
     @classmethod

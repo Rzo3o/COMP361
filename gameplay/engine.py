@@ -114,7 +114,8 @@ class GameEngine:
                 target_q = player.q + dq * i
                 target_r = player.r + dr * i
                 monster = self.world.get_monster_at(target_q, target_r)
-                if monster is not None:
+                # Do not trigger attack for projectile
+                if monster is not None and getattr(monster, "is_targetable", True):
                     damage = player.attack_monster(monster)
 
                     if not self._safe_save_monster(monster):

@@ -1,0 +1,23 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Enemy2-ProjectileV1.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 1
+        },
+        "move": {
+            "texture": "Enemy2-ProjectileV3.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 6
+        }
+    },
+    "scale": 2.346311475409836,
+    "x_shift": 0,
+    "y_shift": -15,
+    "category": "monster",
+    "name": "fly_projectile.json",
+    "default_health": 50,
+    "default_damage": 10
+}
