@@ -1064,7 +1064,7 @@ class LinearShooterMonster(Monster):
                 if path_clear:
                     self._attack_cd_remaining = self.ai.attack_cooldown_turns
                     self.set_anim_state("attack", reset_frame=True)
-                    self.flip_x = direction[0] < 0
+                    self.flip_x = direction[0] > 0
 
                     self.pending_projectile_dir = direction
                     self.has_fired_this_anim = False
