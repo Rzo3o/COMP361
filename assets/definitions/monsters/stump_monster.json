@@ -1,0 +1,41 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Enemy3-Idle.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 8
+        },
+        "move": {
+            "texture": "Enemy3-Fly.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 8
+        },
+        "attack": {
+            "texture": "Enemy3-Spawn.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 14
+        },
+        "hit": {
+            "texture": "Enemy3-Hit.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Enemy3-Die.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 16
+        }
+    },
+    "scale": 1.223155737704918,
+    "x_shift": 0,
+    "y_shift": -18,
+    "category": "monster",
+    "name": "stump_monster.json",
+    "default_health": 50,
+    "default_damage": 10
+}

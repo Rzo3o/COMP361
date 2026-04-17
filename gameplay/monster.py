@@ -1112,6 +1112,157 @@ class FlyingDemon(LinearShooterMonster):
     projectile_config = "fly_projectile_demon"
     
 
+class StumpSpawn(Monster):
+    """Tracking minion that chases the player using BFS"""
+    def __init__(self, q, r, damage, level):
+        json_path = os.path.join("assets", "definitions", "monsters", "stump_spawn.json")
+        with open(json_path, "r") as f:
+            data = json.load(f)
+            
+        data["id"] = f"stump_spawn_{id(self)}"
+        data["current_q"] = q
+        data["current_r"] = r
+        data["damage"] = damage
+        data["level"] = level
+
+        super().__init__(data)
+        self.move_speed = 0.3 # Slightly slower than a projectile for 'chase' feel
+        self.lifetime = 8    # Max steps before it expires
+        self.steps_taken = 0
+        self.is_targetable = True
+        
+        self._cached_world = None
+        self._cached_player = None
+        self.pending_impact = False
+        self.anim_speeds["die"] = 0.6
+        self.has_dealt_damage = False # Make sure only damage once
+
+    def take_damage(self, amount):
+        """One-hit kill: any damage triggers the global death sequence"""
+        if self.dead: return 0
+        
+        self.hp = 0
+        self.dead = True
+        self.set_anim_state("die", reset_frame=True)
+        return amount
+
+    def _get_next_tracking_step(self):
+        """Use BFS to find the next tile toward the player"""
+        if not self.is_alive() or self.dead: return
+        
+        world = getattr(self, "_cached_world", None)
+        player = getattr(self, "_cached_player", None)
+        if not world or not player: return
+
+        self.steps_taken += 1
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+
+        # Impact condition: Adjacent to player or lifetime ends
+        if dist <= 1:
+            self.pending_impact = True
+            self.start_move(player.q, player.r)
+            return
+
+        if self.steps_taken >= self.lifetime:
+            self.take_damage(999)
+            return
+
+        # Use BFS to find the smart path around obstacles
+        next_step = self._find_path_next_step(player.q, player.r, world.is_passable)
+        
+        if next_step and next_step != (player.q, player.r):
+            self.start_move(next_step[0], next_step[1])
+        else:
+            # If no path found, just blow up
+            self.take_damage(999)
+
+    def update_animation(self, asset_manager):
+        # --- Death / Explosion Logic ---
+        if self.anim_state == "die":
+            if self.pending_impact and not self.has_dealt_damage:
+                player = getattr(self, "_cached_player", None)
+                if player: 
+                    player.take_damage(self.base_damage)
+                self.has_dealt_damage = True 
+                
+            self.anim_progress += self.anim_speeds.get("die", 0.5)
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.death_finished = True
+                self.remove_after_death = True
+            return
+        
+        if self.anim_state == "move":
+            if getattr(self, "is_moving", False):
+                self.move_progress += self.move_speed
+                if self.move_progress >= 1.0:
+                    self.move_progress = 1.0
+                    self.is_moving = False
+                    
+                    if self.pending_impact:
+                        self.take_damage(999)
+                    else:
+                        self._get_next_tracking_step()
+            
+            # Standard animation frame update
+            self.anim_progress += self.anim_speeds.get("move", 0.2)
+            self.anim_tick = int(self.anim_progress)
+            
+        else:
+            super().update_animation(asset_manager)
+
+    
+class StumpMonster(Monster):
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        self.ai.attack_cooldown_turns = 6 # Spawning takes longer
+        self.has_spawned_this_anim = True
+
+    def attack_player(self, player):
+        return False # No melee
+
+    def decide_and_act(self, world, player):
+        if not self.is_alive(): return super().decide_and_act(world, player)
+        
+        self._cached_world = world
+        self._cached_player = player
+
+        if self._attack_cd_remaining > 0:
+            self._attack_cd_remaining -= 1
+
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        
+        # Summon if player is in range (don't need line of sight!)
+        if dist <= self.ai.vision_range and self._attack_cd_remaining <= 0:
+            self._attack_cd_remaining = self.ai.attack_cooldown_turns
+            self.set_anim_state("attack", reset_frame=True)
+            self.has_spawned_this_anim = False
+            return {"action": "summoning"}
+
+        return super().decide_and_act(world, player)
+
+    def update_animation(self, asset_manager):
+        super().update_animation(asset_manager)
+
+        if self.anim_state == "attack" and not getattr(self, "has_spawned_this_anim", True):
+            if self.anim_tick >= self.attack_hit_frame:
+                self.has_spawned_this_anim = True
+                
+                world = getattr(self, "_cached_world", None)
+                player = getattr(self, "_cached_player", None)
+                if world and player:
+                    # Create the tracking minion
+                    spawn = StumpSpawn(self.q, self.r, self.damage, self.level)
+                    spawn._cached_world = world
+                    spawn._cached_player = player
+                    world.monsters.append(spawn)
+                    
+                    # Start the tracking loop
+                    spawn._get_next_tracking_step()
+
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
@@ -1122,6 +1273,7 @@ class MonsterFactory:
         "bush_monster": BushMonster,
         "forest_fly_monster": ForestFlyMonster, 
         "flying_demon": FlyingDemon,
+        "stump_monster": StumpMonster,
     }
 
     @classmethod
