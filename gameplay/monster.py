@@ -889,10 +889,11 @@ class BushMonster(Monster):
                 print(f"[Combat] {self.name} applied poison to the player!")
 
 
-class ForestFlyProjectile(Monster):
-    """ForestFly's linear projectile (special entity)"""
-    def __init__(self, q, r, direction, damage, level):
-        json_path = os.path.join("assets", "definitions", "monsters", "fly_projectile.json")
+class LinearProjectile(Monster):
+    """Generic continuous linear projectile"""
+    def __init__(self, q, r, direction, damage, level, config_name):
+        # Load the JSON dynamically based on the config_name passed in
+        json_path = os.path.join("assets", "definitions", "monsters", f"{config_name}.json")
         with open(json_path, "r") as f:
             data = json.load(f)
         
@@ -1004,7 +1005,11 @@ class ForestFlyProjectile(Monster):
             self.take_damage(999)
 
 
-class ForestFlyMonster(Monster):
+class LinearShooterMonster(Monster):
+    """Generic base class for monsters that shoot linear projectiles"""
+    # This will be overridden by the specific subclasses
+    projectile_config = "fly_projectile"
+
     def __init__(self, data, ai=None):
         super().__init__(data, ai)
         self.ai.attack_cooldown_turns = 4    # Cooldown
@@ -1080,9 +1085,11 @@ class ForestFlyMonster(Monster):
                 if world and player:
                     dir = self.pending_projectile_dir
                     
-                    projectile = ForestFlyProjectile(
+                    # Spawn the projectile dynamically based on the subclass config
+                    projectile = LinearProjectile(
                         self.q, self.r, 
-                        dir, self.damage, self.level
+                        dir, self.damage, self.level,
+                        self.projectile_config 
                     )
                     projectile.flip_x = self.flip_x
                     
@@ -1093,6 +1100,16 @@ class ForestFlyMonster(Monster):
                     world.monsters.append(projectile)
                     
                     projectile._continue_fly()
+
+
+class ForestFlyMonster(LinearShooterMonster):
+    """Shoots 'fly_projectile'"""
+    projectile_config = "fly_projectile"
+
+
+class FlyingDemon(LinearShooterMonster):
+    """Shoots 'demon_projectile'"""
+    projectile_config = "fly_projectile_demon"
     
 
 class MonsterFactory:
@@ -1104,7 +1121,7 @@ class MonsterFactory:
         "blue_slime": SlimeMonster,
         "bush_monster": BushMonster,
         "forest_fly_monster": ForestFlyMonster, 
-        "fly_projectile": ForestFlyProjectile,
+        "flying_demon": FlyingDemon,
     }
 
     @classmethod

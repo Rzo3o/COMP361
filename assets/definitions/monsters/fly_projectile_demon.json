@@ -1,0 +1,23 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "projectile.png",
+            "fw": 45,
+            "fh": 32,
+            "count": 1
+        },
+        "move": {
+            "texture": "projectile.png",
+            "fw": 45,
+            "fh": 32,
+            "count": 1
+        }
+    },
+    "scale": 1.0,
+    "x_shift": 0,
+    "y_shift": -12,
+    "category": "monster",
+    "name": "fly_projectile_demon.json",
+    "default_health": 50,
+    "default_damage": 10
+}
