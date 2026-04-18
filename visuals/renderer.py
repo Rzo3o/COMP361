@@ -288,6 +288,10 @@ class GameRenderer:
             # Change the texture direction with player and monsters direction
             is_flipped = getattr(entity, "flip_x", False)
 
+            # If the monster has the "invert_flip" label, reverse the flipped state
+            if getattr(entity, "invert_flip", False):
+                is_flipped = not is_flipped
+
             # special scale mark for small stone monster
             mini_override = getattr(entity, "mini_scale_override", 1.0)
 

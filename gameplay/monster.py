@@ -64,6 +64,9 @@ class Monster(Entity):
         self.mini_scale_override = 1.0
         self.y_shift_override = None
 
+        # By default, the flipping logic of all monsters is normal (default facing left)
+        self.invert_flip = False
+
         # Equipment slots (same system as Player)
         self.equipment = {
             "weapon": None,
@@ -1278,7 +1281,10 @@ class StoneMonster(Monster):
         self.move_speed = 0.05    
         self.anim_speeds["move"] = 0.5
         self.anim_speeds["attack"] = 0.3
-            
+        
+        # Flip the logic, as the StoneMonster's png facing right
+        self.invert_flip = True
+
         # Automatically determine if it's a blue or yellow stone based on the JSON name field
         name_lower = data.get("name", "").lower()
         self.color = "blue" if "blue" in name_lower else "yellow"
@@ -1366,6 +1372,7 @@ class StoneMonster(Monster):
             # Forcefully reduce the texture scale and y-offset
             small_rock.mini_scale_override = 0.5
             small_rock.y_shift_override = -16 # type: ignore
+            small_rock.invert_flip = True
 
             world.monsters.append(small_rock)
 
