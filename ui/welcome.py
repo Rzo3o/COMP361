@@ -1,3 +1,6 @@
+from multiprocessing.util import info
+
+from PIL import __main__
 import pygame
 import sys
 import os
@@ -5,24 +8,34 @@ from pygame.draw import rect
 
 from ui.base_screen import Screen
 
+
+
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
+
+# screen resolution of original computer for relative image placement
+SCREEN_W = 1536
+SCREEN_H = 1024
 
 class Welcome(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-    
-        # (image name, x, y , anngle, scale)
+
+        # make images relative (verses absolute) to be positioned properly on all screen sizes
+        # on original laptop screen (1536x1024) correct immage place
+
+
+        # (image name, x (percentage), y (percentage) , anngle, scale)
         self.decoration_images = [
-            ('Water_Duck.png', 98, 68, 30, 4.7),
-            ('Dirt_Pumpkins.png', 166, 372, 25, 3.7),
-            ('Grass_Plants.png', 94, 247, 60, 2.8),
-            ('Snow_Trees.png', 1270, 587, 25, 4.1),
-            ('Magic_Crystals.png', 1421, 614, 40, 2.8),
-            ('FrosenWater_Lilypads.png', 1297, 732, 20, 2.9),
-            ('Magic.png', 265, 152, 20, 2.5),
-            ('Snow.png', 286, 273, 35, 4.0),
-            ('Grass_Plants2.png', 1452, 776, 30, 4.3)
+            ('Water_Duck.png', 98/SCREEN_W, 68/SCREEN_H, 30, 4.7),
+            ('Dirt_Pumpkins.png', 166/SCREEN_W, 372/SCREEN_H, 25, 3.7),
+            ('Grass_Plants.png', 94/SCREEN_W, 247/SCREEN_H, 60, 2.8),
+            ('Snow_Trees.png', 1270/SCREEN_W, 587/SCREEN_H, 25, 4.1),
+            ('Magic_Crystals.png', 1421/SCREEN_W, 614/SCREEN_H, 40, 2.8),
+            ('FrosenWater_Lilypads.png', 1297/SCREEN_W, 732/SCREEN_H, 20, 2.9),
+            ('Magic.png', 265/SCREEN_W, 152/SCREEN_H, 20, 2.5),
+            ('Snow.png', 286/SCREEN_W, 273/SCREEN_H, 35, 4.0),
+            ('Grass_Plants2.png', 1452/SCREEN_W, 776/SCREEN_H, 30, 4.3)
         ]
 
         self.texts = [
@@ -42,10 +55,13 @@ class Welcome(Screen):
         self.manager.screen.fill(self.manager.bg_color) # fill backgroud 
 
         self.draw_title()
+
+        
         
         # images
         for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+            # convert relative x and y to absolute position based on current screen size
+            self.draw_image(image_name, int(x * self.manager.width), int(y * self.manager.height), angle, scale)
 
 
         # timing logic
@@ -113,5 +129,5 @@ class Welcome(Screen):
         rect = rotated_image.get_rect(center=(x, y))
         self.manager.screen.blit(rotated_image, rect)
 
-   
+    
   
