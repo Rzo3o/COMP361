@@ -6,6 +6,7 @@ import random
 import os
 import json
 import math
+import copy
 
 from gameplay.models import Entity
 from gameplay.item import Item
@@ -59,6 +60,13 @@ class Monster(Entity):
         self.hp = data.get("health", self.max_hp)
         self.base_damage = data.get("damage", 5)
         self.base_defense = 0
+
+        # special marker for small stone
+        self.mini_scale_override = 1.0
+        self.y_shift_override = None
+
+        # By default, the flipping logic of all monsters is normal (default facing left)
+        self.invert_flip = False
 
         # Equipment slots (same system as Player)
         self.equipment = {
@@ -217,16 +225,12 @@ class Monster(Entity):
 
         self.hp -= reduced
 
-        # Interept is_moving state once take damage
-        if getattr(self, "is_moving", False):
-            self.is_moving = False
-            self.move_progress = 1.0 
-
         # Fatal hit: enter death animation
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
 
+            self.is_moving = False
             self.pending_attack_target = None
             self.pending_attack_damage = 0
             self.attack_damage_applied = False
@@ -465,17 +469,20 @@ class Monster(Entity):
             if self.anim_state.endswith(base_state):
                 current_anim_speed = speed
                 break
+        
+        # move animation: advance tile-to-tile interpolation
+        if getattr(self, "is_moving", False):
+            self.move_progress += self.move_speed
 
-        # move animation: advance interpolation + animate frames
+            if self.move_progress >= 1.0:
+                self.move_progress = 1.0
+                self.is_moving = False
+
+                if self.anim_state not in ("hit", "die"):
+                    self.set_anim_state("idle", reset_frame=True)
+
+        # move animation: animate frames
         if self.anim_state == "move":
-            # advance tile-to-tile interpolation
-            if getattr(self, "is_moving", False):
-                self.move_progress += self.move_speed
-
-                if self.move_progress >= 1.0:
-                    self.move_progress = 1.0
-                    self.is_moving = False
-
             # animate move frames
             self.anim_progress += current_anim_speed
             self.anim_tick = int(self.anim_progress)
@@ -484,10 +491,6 @@ class Monster(Entity):
             if self.anim_tick >= frame_count:
                 self.anim_tick = 0
                 self.anim_progress = 0.0
-
-            # once movement finishes, return to idle
-            if not getattr(self, "is_moving", False):
-                self.set_anim_state("idle", reset_frame=True)
 
             return
 
@@ -1113,6 +1116,263 @@ class FlyingDemon(LinearShooterMonster):
     projectile_config = "fly_projectile_demon"
     
 
+class StumpSpawn(Monster):
+    """Tracking minion that chases the player using BFS"""
+    def __init__(self, q, r, damage, level):
+        json_path = os.path.join("assets", "definitions", "monsters", "stump_spawn.json")
+        with open(json_path, "r") as f:
+            data = json.load(f)
+            
+        data["id"] = f"stump_spawn_{id(self)}"
+        data["current_q"] = q
+        data["current_r"] = r
+        data["damage"] = damage
+        data["level"] = level
+
+        super().__init__(data)
+        self.move_speed = 0.3 # Slightly slower than a projectile for 'chase' feel
+        self.lifetime = 8    # Max steps before it expires
+        self.steps_taken = 0
+        self.is_targetable = True
+        
+        self._cached_world = None
+        self._cached_player = None
+        self.pending_impact = False
+        self.anim_speeds["die"] = 0.6
+        self.has_dealt_damage = False # Make sure only damage once
+
+    def take_damage(self, amount):
+        """One-hit kill: any damage triggers the global death sequence"""
+        if self.dead: return 0
+        
+        self.hp = 0
+        self.dead = True
+        self.set_anim_state("die", reset_frame=True)
+        return amount
+
+    def _get_next_tracking_step(self):
+        """Use BFS to find the next tile toward the player"""
+        if not self.is_alive() or self.dead: return
+        
+        world = getattr(self, "_cached_world", None)
+        player = getattr(self, "_cached_player", None)
+        if not world or not player: return
+
+        self.steps_taken += 1
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+
+        # Impact condition: Adjacent to player or lifetime ends
+        if dist <= 1:
+            self.pending_impact = True
+            self.start_move(player.q, player.r)
+            return
+
+        if self.steps_taken >= self.lifetime:
+            self.take_damage(999)
+            return
+
+        # Use BFS to find the smart path around obstacles
+        next_step = self._find_path_next_step(player.q, player.r, world.is_passable)
+        
+        if next_step and next_step != (player.q, player.r):
+            self.start_move(next_step[0], next_step[1])
+        else:
+            # If no path found, just blow up
+            self.take_damage(999)
+
+    def update_animation(self, asset_manager):
+        # --- Death / Explosion Logic ---
+        if self.anim_state == "die":
+            if self.pending_impact and not self.has_dealt_damage:
+                player = getattr(self, "_cached_player", None)
+                if player: 
+                    player.take_damage(self.base_damage)
+                self.has_dealt_damage = True 
+                
+            self.anim_progress += self.anim_speeds.get("die", 0.5)
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.death_finished = True
+                self.remove_after_death = True
+            return
+        
+        if self.anim_state == "move":
+            if getattr(self, "is_moving", False):
+                self.move_progress += self.move_speed
+                if self.move_progress >= 1.0:
+                    self.move_progress = 1.0
+                    self.is_moving = False
+                    
+                    if self.pending_impact:
+                        self.take_damage(999)
+                    else:
+                        self._get_next_tracking_step()
+            
+            # Standard animation frame update
+            self.anim_progress += self.anim_speeds.get("move", 0.2)
+            self.anim_tick = int(self.anim_progress)
+            
+        else:
+            super().update_animation(asset_manager)
+
+    
+class StumpMonster(Monster):
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        self.ai.attack_cooldown_turns = 6 # Spawning takes longer
+        self.has_spawned_this_anim = True
+
+    def attack_player(self, player):
+        return False # No melee
+
+    def decide_and_act(self, world, player):
+        if not self.is_alive(): return super().decide_and_act(world, player)
+        
+        self._cached_world = world
+        self._cached_player = player
+
+        if self._attack_cd_remaining > 0:
+            self._attack_cd_remaining -= 1
+
+        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        
+        # Summon if player is in range (don't need line of sight!)
+        if dist <= self.ai.vision_range and self._attack_cd_remaining <= 0:
+            self._attack_cd_remaining = self.ai.attack_cooldown_turns
+            self.set_anim_state("attack", reset_frame=True)
+            self.has_spawned_this_anim = False
+            return {"action": "summoning"}
+
+        return super().decide_and_act(world, player)
+
+    def update_animation(self, asset_manager):
+        super().update_animation(asset_manager)
+
+        if self.anim_state == "attack" and not getattr(self, "has_spawned_this_anim", True):
+            if self.anim_tick >= self.attack_hit_frame:
+                self.has_spawned_this_anim = True
+                
+                world = getattr(self, "_cached_world", None)
+                player = getattr(self, "_cached_player", None)
+                if world and player:
+                    # Create the tracking minion
+                    spawn = StumpSpawn(self.q, self.r, self.damage, self.level)
+                    spawn._cached_world = world
+                    spawn._cached_player = player
+                    world.monsters.append(spawn)
+                    
+                    # Start the tracking loop
+                    spawn._get_next_tracking_step()
+
+
+class StoneMonster(Monster):
+    """Giant stone monster, After death, it split into two small stone figures"""
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        
+        # Save a clean copy of the original JSON data before anything else touches it
+        self.original_data = copy.deepcopy(data)
+        self.move_speed = 0.05    
+        self.anim_speeds["move"] = 0.5
+        self.anim_speeds["attack"] = 0.3
+        
+        # Flip the logic, as the StoneMonster's png facing right
+        self.invert_flip = True
+
+        # Automatically determine if it's a blue or yellow stone based on the JSON name field
+        name_lower = data.get("name", "").lower()
+        self.color = "blue" if "blue" in name_lower else "yellow"
+        
+        self._cached_world = None
+        self.has_split = False
+
+    def decide_and_act(self, world, player):
+        # Cache world to find empty spots during death split
+        self._cached_world = world
+        return super().decide_and_act(world, player)
+
+    def update_animation(self, asset_manager):
+        # Death and split interception logic
+        if self.anim_state == "die":
+            self.anim_progress += self.anim_speeds.get("die", 0.2)
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.death_finished = True
+                self.remove_after_death = True
+                
+                # Trigger split the exact moment the animation finishes playing
+                if not self.has_split and self._cached_world:
+                    self.has_split = True
+                    self._spawn_small_stones(self._cached_world)
+            return 
+
+        super().update_animation(asset_manager)
+
+    def _spawn_small_stones(self, world):
+        """Find suitable hex tiles and generate two small stone monsters"""
+        spots_to_use = []
+        
+        # Check Radius 1 first 
+        valid_radius_1 = []
+        for dq in range(-1, 2):
+            for dr in range(-1, 2):
+                if (abs(dq) + abs(dr) + abs(dq + dr)) // 2 == 1:
+                    nq, nr = self.q + dq, self.r + dr
+                    is_empty = world.is_passable(nq, nr) and not any(m.q == nq and m.r == nr for m in world.monsters)
+                    if is_empty:
+                        valid_radius_1.append((nq, nr))
+                        
+        random.shuffle(valid_radius_1)
+        spots_to_use.extend(valid_radius_1[:2])
+        
+        # Check Radius 2 only if Radius 1 didn't have enough space ---
+        if len(spots_to_use) < 2:
+            valid_radius_2 = []
+            for dq in range(-2, 3):
+                for dr in range(-2, 3):
+                    if (abs(dq) + abs(dr) + abs(dq + dr)) // 2 == 2:
+                        nq, nr = self.q + dq, self.r + dr
+                        is_empty = world.is_passable(nq, nr) and not any(m.q == nq and m.r == nr for m in world.monsters)
+                        if is_empty:
+                            valid_radius_2.append((nq, nr))
+                            
+            random.shuffle(valid_radius_2)
+            needed_spots = 2 - len(spots_to_use)
+            spots_to_use.extend(valid_radius_2[:needed_spots])
+
+        # If completely cornered and no spots found at all
+        if not spots_to_use:
+            return 
+
+        # Directly reuse the main entity's data
+        for i, spot in enumerate(spots_to_use):
+            q, r = spot
+
+            # Use the original data template of the big stone monster
+            baby_data = copy.deepcopy(self.original_data)
+            baby_data["id"] = f"small_{self.color}_stone_{id(self)}_{i}"
+            baby_data["current_q"] = q
+            baby_data["current_r"] = r
+
+            # Instantiate the small stone monster
+            small_rock = Monster(baby_data)
+    
+            small_rock.max_hp = max(1, self.max_hp // 2)
+            small_rock.hp = small_rock.max_hp
+            small_rock.base_damage = max(1, getattr(self, 'base_damage', 10) // 2)
+            
+            # Forcefully reduce the texture scale and y-offset
+            small_rock.mini_scale_override = 0.5
+            small_rock.y_shift_override = -16 # type: ignore
+            small_rock.invert_flip = True
+
+            world.monsters.append(small_rock)
+
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
@@ -1123,6 +1383,9 @@ class MonsterFactory:
         "bush_monster": BushMonster,
         "forest_fly_monster": ForestFlyMonster, 
         "flying_demon": FlyingDemon,
+        "stump_monster": StumpMonster,
+        "blue_stone_monster": StoneMonster,
+        "yellow_stone_monster": StoneMonster,
     }
 
     @classmethod

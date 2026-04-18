@@ -1,0 +1,29 @@
+{
+    "animations": {
+        "die": {
+            "texture": "Enemy3-SpawnFly-Die.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 10
+        },
+        "idle": {
+            "texture": "Enemy3-SpawnFly-Fly.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 5
+        },
+        "move": {
+            "texture": "Enemy3-SpawnFly-Fly.png",
+            "fw": 32,
+            "fh": 32,
+            "count": 5
+        }
+    },
+    "scale": 1.9778688524590167,
+    "x_shift": 0,
+    "y_shift": -17,
+    "category": "monster",
+    "name": "stump_spawn.json",
+    "default_health": 50,
+    "default_damage": 10
+}

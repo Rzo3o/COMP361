@@ -19,28 +19,13 @@ class GameRenderer:
         # render cache pool, to reduce lagging
         self.image_cache = {}
 
-        self.cloud_images = [
-        pygame.image.load("assets/assetBank/clouds/cloud 1.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 2.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 3.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 4.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 5.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 6.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 7.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 8.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 9.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 10.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 11.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 12.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 13.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 14.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 15.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 16.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 17.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 18.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 19.png").convert_alpha(),
-        pygame.image.load("assets/assetBank/clouds/cloud 20.png").convert_alpha()
-        ]
+
+        # load cloud images into list
+        self.cloud_images = []
+
+        for image_number in range(1, 21):
+            image = pygame.image.load(f"assets/assetBank/clouds/cloud {image_number}.png").convert_alpha()
+            self.cloud_images.append(image)
         
 
     def render(self, screen, world, frame_index=0):
@@ -337,7 +322,14 @@ class GameRenderer:
             # Change the texture direction with player and monsters direction
             is_flipped = getattr(entity, "flip_x", False)
 
-            cache_key = (id(base_img), flash_color, is_flipped)
+            # If the monster has the "invert_flip" label, reverse the flipped state
+            if getattr(entity, "invert_flip", False):
+                is_flipped = not is_flipped
+
+            # special scale mark for small stone monster
+            mini_override = getattr(entity, "mini_scale_override", 1.0)
+
+            cache_key = (id(base_img), flash_color, is_flipped, mini_override)
 
             # First look in cache, if not found, generate new one and cache it
             if cache_key in self.image_cache:
@@ -353,13 +345,23 @@ class GameRenderer:
                 if is_flipped:
                     img = pygame.transform.flip(img, True, False)
 
+                # Get the size after scaling
+                if mini_override != 1.0:
+                    new_w = int(img.get_width() * mini_override)
+                    new_h = int(img.get_height() * mini_override)
+                    img = pygame.transform.smoothscale(img, (new_w, new_h)) 
+
                 # cache it
                 self.image_cache[cache_key] = img
 
             scale, x_shift, y_shift, _ = self.assets.get_layout(entity.texture)
+            override_y = getattr(entity, "y_shift_override", None)
+
+            final_y_shift = override_y if override_y is not None else y_shift
+
             rect = img.get_rect(
                 centerx=x + x_shift,
-                centery=y - Config.CALIB_OFFSET_Y - y_shift
+                centery=y - Config.CALIB_OFFSET_Y - final_y_shift
             )
             screen.blit(img, rect)
         else:
