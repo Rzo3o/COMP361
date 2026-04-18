@@ -197,6 +197,19 @@ class GameWindow(Screen):
                 if monster in self.engine.world.monsters:
                     self.engine.world.monsters.remove(monster)
 
+            # Update all assistant's sprite frames and handle death cleanup
+            assistants_to_remove = []
+
+            for assistant in getattr(self.engine.world, "assistants", []):
+                assistant.update_animation(self.assets)
+
+                if getattr(assistant, "remove_after_death", False):
+                    assistants_to_remove.append(assistant)
+
+            for assistant in assistants_to_remove:
+                if assistant in self.engine.world.assistants:
+                    self.engine.world.assistants.remove(assistant)
+
             # Chest animations + despawn after opening
             chests_to_remove = []
             for chest in self.engine.world.chests:
@@ -275,6 +288,31 @@ class GameWindow(Screen):
 
                     monster.decide_and_act(self.engine.world, player)
                     monster.rt_action_timer = random.randint(30, 40)
+            
+            # Independent Assistant AI Handling
+            for assistant in getattr(self.engine.world, "assistants", []):
+                if not assistant.is_alive():
+                    continue
+
+                # Skip if the assistant is currently performing an action
+                is_busy = getattr(assistant, "is_moving", False) or assistant.anim_state in ("move", "attack", "hit")
+                if is_busy:
+                    continue
+
+                # Initialize or decrement the real-time action timer
+                if not hasattr(assistant, "rt_action_timer"):
+                    # Slightly different interval than monsters to prevent synchronized movement
+                    assistant.rt_action_timer = random.randint(25, 35) 
+                
+                assistant.rt_action_timer -= 1
+
+                # Execute AI decision-making when timer hits zero
+                if assistant.rt_action_timer <= 0:
+                    # Assistant AI logic: Follow player or attack nearby monsters
+                    assistant.decide_and_act(self.engine.world, player)
+                    
+                    # Reset timer for the next action cycle
+                    assistant.rt_action_timer = random.randint(25, 35)
 
     def _update_loot_notifications(self, dt_ms):
         """Advance the active notification and pull the next one off the queue."""

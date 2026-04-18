@@ -122,6 +122,40 @@ class GameRenderer:
                     {"depth": mdy, "type": "entity", "entity": monster, "x": mdx, "y": mdy}
                 )
 
+        # Add Assistants
+        for assistant in getattr(world, "assistants", []):
+            tile = world.get_tile(assistant.q, assistant.r)
+            # Only render if the tile is discovered by the player
+            if not tile or not tile.discovered:
+                continue
+
+            # Handle smooth tile-to-tile movement interpolation
+            if getattr(assistant, "is_moving", False):
+                from_px, from_py = HexMath.hex_to_pixel(assistant.move_from_q, assistant.move_from_r)
+                to_px, to_py = HexMath.hex_to_pixel(assistant.move_to_q, assistant.move_to_r)
+                t = assistant.move_progress
+
+                aqx = from_px + (to_px - from_px) * t
+                aqy = from_py + (to_py - from_py) * t
+            else:
+                # Stand still if not moving
+                aqx, aqy = HexMath.hex_to_pixel(assistant.q, assistant.r)
+                
+            # Convert world hex coordinates to screen pixel coordinates
+            adx = cx + (aqx - ppx)
+            ady = cy + (aqy - ppy)
+            
+            # Culling: Only add to the render list if it's within the screen bounds
+            if (
+                -100 < adx < Config.WINDOW_WIDTH + 100
+                and -100 < ady < Config.WINDOW_HEIGHT + 100
+            ):
+                # Add to the depth-sorted object layer
+                # We use "type": "entity" so it reuses the monster/player drawing logic
+                object_layer.append(
+                    {"depth": ady, "type": "entity", "entity": assistant, "x": adx, "y": ady}
+                )
+                
         # Add Chests
         for chest in world.chests:
             cqx, cqy = HexMath.hex_to_pixel(chest.q, chest.r)
