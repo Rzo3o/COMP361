@@ -66,7 +66,8 @@ class GameRenderer:
             ppx, ppy = HexMath.hex_to_pixel(player.q, player.r)
 
         terrain_layer = []
-        object_layer = []
+        object_layer = []   # Scenery: Monsters, Player, Items, Chests
+        castle_layer = []   # Castles: Large structures rendered on top for visual clarity
 
         # Iterate tiles around player
         for q in range(player.q - render_range, player.q + render_range):
@@ -90,15 +91,18 @@ class GameRenderer:
                 ):
                     terrain_layer.append((tile, draw_x, draw_y))
                     if tile.discovered and tile.prop_texture:
-                        object_layer.append(
-                            {
+                        # NEW: Separate castles from standard objects
+                        obj_data = {
                                 "depth": draw_y,
                                 "type": "prop",
                                 "tile": tile,
                                 "x": draw_x,
                                 "y": draw_y,
                             }
-                        )
+                        if self.assets.is_castle(tile.prop_texture):
+                            castle_layer.append(obj_data)
+                        else:
+                            object_layer.append(obj_data)
         
         # Add Player
         object_layer.append(
@@ -145,6 +149,27 @@ class GameRenderer:
                 object_layer.append(
                     {"depth": cdyp, "type": "chest", "chest": chest, "x": cdxp, "y": cdyp}
                 )
+
+        # Add Castle Stars
+        if hasattr(world, "castles"):
+            for castle in world.castles:
+                if castle.is_conquered and castle.level <= world.current_level:
+                    cqx, cqy = HexMath.hex_to_pixel(castle.q, castle.r)
+                    cdxp = cx + (cqx - ppx)
+                    cdyp = cy + (cqy - ppy)
+                    if (
+                        -100 < cdxp < Config.WINDOW_WIDTH + 100
+                        and -100 < cdyp < Config.WINDOW_HEIGHT + 100
+                    ):
+                        tile = world.get_tile(castle.q, castle.r)
+                        star_y = 50.0
+                        if tile and tile.prop_texture:
+                            _, _, _, star_y = self.assets.get_layout(tile.prop_texture)
+
+                        # NEW: Stars are handled in a separate pass to ensure they sit on top of massive castles
+                        castle_layer.append(
+                            {"depth": cdyp, "type": "castle_star", "x": cdxp, "y": cdyp, "star_y": star_y}
+                        )
 
         # Add Ground Items
         for item in world.ground_items:
@@ -197,6 +222,15 @@ class GameRenderer:
                 self._draw_item(screen, obj["item"], obj["x"], obj["y"], frame_index)
             elif obj["type"] == "chest":
                 self._draw_chest(screen, obj["chest"], obj["x"], obj["y"])
+
+        # Drawin castles sorted by depth Y ensuring they render over props etc while respecting their own relative depth
+        castle_layer.sort(key=lambda obj: obj["depth"])
+        for obj in castle_layer:
+            if obj["type"] == "prop":
+                self._draw_prop(screen, obj["tile"], obj["x"], obj["y"])
+            elif obj["type"] == "castle_star":
+                # Render star on top of the castle center
+                self._draw_castle_star(screen, obj["x"], obj["y"], frame_index, star_y_offset=obj.get("star_y", 50))
 
         if hasattr(world, "effects"):
             for effect in world.effects:
@@ -257,7 +291,7 @@ class GameRenderer:
         pygame.draw.polygon(screen, self.COLOR_OUTLINE, poly_points, 1)
 
         if tile.texture:
-            scale, x_shift, y_shift = self.assets.get_layout(tile.texture)
+            scale, x_shift, y_shift, _ = self.assets.get_layout(tile.texture)
             img = self.assets.get_image(tile.texture, scale=scale)
             if img:
                 # Center horizontally, shift vertically or horizontally
@@ -322,7 +356,7 @@ class GameRenderer:
                 # cache it
                 self.image_cache[cache_key] = img
 
-            scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
+            scale, x_shift, y_shift, _ = self.assets.get_layout(entity.texture)
             rect = img.get_rect(
                 centerx=x + x_shift,
                 centery=y - Config.CALIB_OFFSET_Y - y_shift
@@ -339,7 +373,7 @@ class GameRenderer:
         )
         if not img:
             return
-        scale, x_shift, y_shift = self.assets.get_layout(chest.texture)
+        scale, x_shift, y_shift, _ = self.assets.get_layout(chest.texture)
         rect = img.get_rect(
             centerx=x + x_shift,
             centery=y - Config.CALIB_OFFSET_Y - y_shift,
@@ -352,7 +386,7 @@ class GameRenderer:
             
         # Check if it's animated (keys) or static
         img = self.assets.get_anim_frame(item.texture, frame_index)
-        scale, x_shift, y_shift = self.assets.get_layout(item.texture)
+        scale, x_shift, y_shift, _ = self.assets.get_layout(item.texture)
         
         if img:
             rect = img.get_rect(
@@ -360,6 +394,53 @@ class GameRenderer:
                 centery=y - Config.CALIB_OFFSET_Y - y_shift
             )
             screen.blit(img, rect)
+
+    def _draw_castle_star(self, screen, x, y, frame_index, star_y_offset=50):   
+        # We use scale_to_tile=False to get the raw high-res asset
+        img_sheet = self.assets.get_image("star.png", scale_to_tile=False)
+
+        if img_sheet:
+            width = img_sheet.get_width()
+            height = img_sheet.get_height()
+            
+            # Since there are 13 frames side-by-side
+            count = 13
+            fw = width // count
+            fh = height 
+            
+            # Slow down the animation works by skipping every 4 frames
+            anim_slowdown = 4
+            safe_idx = (frame_index // anim_slowdown) % count
+            
+            try:
+                # Extract correct frame
+                crop = (safe_idx * fw, 0, fw, fh)
+                frame_surf = img_sheet.subsurface(crop)
+                
+                target_size = 48
+                star_scale = target_size / fw
+                
+                sw, sh = frame_surf.get_size()
+                frame_surf = pygame.transform.smoothscale(frame_surf, (int(sw*star_scale), int(sh*star_scale)))
+                
+                # Draw the specific frame, offset upwards to sit on the castle
+                rect = frame_surf.get_rect(centerx=x, centery=y - Config.CALIB_OFFSET_Y - star_y_offset)
+                screen.blit(frame_surf, rect)
+                return
+            except ValueError:
+                pass 
+                
+        # Fallback star if asset is missing (auto generated)
+        points = []
+        outer_rad = 24
+        inner_rad = 10
+        for i in range(10):
+            angle = i * math.pi / 5 - math.pi / 2
+            rad = outer_rad if i % 2 == 0 else inner_rad
+            points.append((x + math.cos(angle)*rad, y - Config.CALIB_OFFSET_Y - star_y_offset + math.sin(angle)*rad))
+        pygame.draw.polygon(screen, (255, 215, 0), points)
+        pygame.draw.polygon(screen, (255, 255, 255), points, 2)
+
 
     # cloud helper function
     def _draw_cloud_overlay(self, screen, img, x, y, scale=1.3):

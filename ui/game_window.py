@@ -1,5 +1,6 @@
 import pygame
 from core.config import Config
+from core.hexmath import HexMath
 from database.db_manager import DatabaseManager
 from gameplay.engine import GameEngine
 from visuals.asset_manager import AssetManager
@@ -723,8 +724,37 @@ class GameWindow(Screen):
 
         # Center text
         text_rect = level_text.get_rect(center=badge_rect.center)
-
         self.manager.screen.blit(level_text, text_rect)
+
+        # Castle Progress HUD
+        nearby_unconquered_castles = []
+        for c in self.engine.world.castles:
+            if c.level == self.engine.world.current_level and c.is_spawned and not c.is_conquered:
+                if HexMath.distance(p.q, p.r, c.q, c.r) <= 8:
+                    nearby_unconquered_castles.append(c)
+        
+        if nearby_unconquered_castles:
+            # Show progress for the first nearby castle
+            target_castle = nearby_unconquered_castles[0]
+            
+            total_monsters = len(target_castle.spawn_points)
+            alive_monsters = len([m for m in self.engine.world.monsters if m.castle_id == target_castle.id and m.is_alive()])
+            defeated_monsters = max(0, total_monsters - alive_monsters)
+            
+            progress_text = self.font.render(f"Castle: {defeated_monsters}/{total_monsters} Monsters Defeated", True, (255, 236, 140))
+            
+            bar_w = max(300, progress_text.get_width() + 40)
+            bar_h = 40
+            bar_x = (Config.WINDOW_WIDTH - bar_w) // 2
+            bar_y = 60
+            
+            s = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
+            s.fill((0, 0, 0, 150))
+            self.manager.screen.blit(s, (bar_x, bar_y))
+            pygame.draw.rect(self.manager.screen, (212, 175, 55), (bar_x, bar_y, bar_w, bar_h), 2, border_radius=4)
+            
+            t_rect = progress_text.get_rect(center=(bar_x + bar_w//2, bar_y + bar_h//2))
+            self.manager.screen.blit(progress_text, t_rect)
 
     # Inventory screen with 3 sections
     def _draw_inventory(self):

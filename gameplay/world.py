@@ -9,7 +9,7 @@ and engine read from each frame.
 
 from core.config import Config
 from core.hexmath import HexMath
-from gameplay.models import Tile
+from gameplay.models import Tile, Castle
 from gameplay.player import Player
 from gameplay.monster import MonsterFactory
 from gameplay.item import Item
@@ -42,6 +42,7 @@ class World:
         self.monsters = []
         self.ground_items = []
         self.chests = []
+        self.castles = []
         self.player = None
         self.current_level = 1
         self.resource_locks = ResourceLockManager()
@@ -54,6 +55,70 @@ class World:
         self.load_monsters()
         self.load_ground_items()
         self.load_chests()
+        self.load_castles()
+
+    def load_castles(self):
+        """Load templates and session state for castles."""
+        self.castles = []
+        map_castles = self.db.get_map_castles()
+        session_castles = self.db.get_session_castles(self.session_id)
+        
+        # Build dictionary from session state
+        sess_dict = {sc["castle_id"]: sc for sc in session_castles}
+        
+        for cdata in map_castles:
+            cid = cdata["id"]
+            if cid in sess_dict:
+                cdata["is_spawned"] = sess_dict[cid]["is_spawned"]
+                cdata["is_conquered"] = sess_dict[cid]["is_conquered"]
+            else:
+                cdata["is_spawned"] = 0
+                cdata["is_conquered"] = 0
+
+            castle = Castle(cdata)
+            
+            # Load spawns into castle object
+            spawns = self.db.get_castle_spawns(cid)
+            castle.spawn_points = spawns
+            self.castles.append(castle)
+
+    def check_castle_proximity(self):
+        """Check if player is near any unspawned castles."""
+        if not self.player or self.player.dead:
+            return
+            
+        spawn_radius = 6  # Distance to trigger spawning of monsters
+        pq, pr = self.player.q, self.player.r
+        
+        for castle in self.castles:
+            if not castle.is_spawned:
+                dist = HexMath.distance(pq, pr, castle.q, castle.r)
+                if dist <= spawn_radius:
+                    self._spawn_castle_monsters(castle)
+
+    def _spawn_castle_monsters(self, castle):
+        castle.is_spawned = True
+        self.db.update_session_castle(self.session_id, castle.id, is_spawned=1)
+        
+        for sp in castle.spawn_points:
+            # Add to db
+            tile = self.get_tile(sp["q"], sp["r"])
+            lvl = tile.level if tile else castle.level
+            
+            self.db.add_monster(
+                sp["monster_name"], 
+                sp["q"], sp["r"], 
+                sp["health"], sp["damage"], 
+                lvl
+            )
+            
+            # Add monster doesnt take the castle ID so we have tp manually get it and set it
+            last_id = self.db.cursor.lastrowid
+            self.db.cursor.execute("UPDATE monsters SET castle_id=? WHERE id=?", (castle.id, last_id))
+            self.db.conn.commit()
+
+        # Reload to make sure they are taken into consideration    
+        self.load_monsters()
 
     def load_world(self):
         # Use DB abstraction

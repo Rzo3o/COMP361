@@ -61,3 +61,16 @@ class CircleExplosion:
         
         if self.current_radius >= self.max_pixel_radius:
             self.dead = True
+
+class Castle:
+    def __init__(self, data):
+        self.id = data.get("id")
+        self.q = data.get("q", 0)
+        self.r = data.get("r", 0)
+        self.level = data.get("level", 1)
+        
+        self.is_spawned = bool(data.get("is_spawned", 0))
+        self.is_conquered = bool(data.get("is_conquered", 0))
+        
+        # Additional data injected later
+        self.spawn_points = []

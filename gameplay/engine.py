@@ -416,6 +416,20 @@ class GameEngine:
         if not self._safe_save_player(player):
             return "SAVE_ERROR"
 
+        # Castle check
+        self.world.check_castle_proximity()
+        
+        # Check if spawned castles are conquered
+        for castle in self.world.castles:
+            if castle.level == self.world.current_level and castle.is_spawned and not castle.is_conquered:
+                # Find all monsters for this castle
+                alive_castle_monsters = [m for m in self.world.monsters if m.castle_id == castle.id and m.is_alive()]
+                if not alive_castle_monsters:
+                    # All dead = conquered
+                    castle.is_conquered = True
+                    self.db.update_session_castle(self.session_id, castle.id, is_conquered=1)
+                    print(f"Castle {castle.id} Conquered!")
+
         return "UPDATED"
 
     def process_monster_turns(self):
@@ -492,11 +506,22 @@ class GameEngine:
             self._safe_save_monster(monster)
 
     def check_level_completed(self):
-        current_level_monsters = [
-            m
-            for m in self.world.monsters
-            if m.level == self.world.current_level and m.is_alive()
+        current_level_castles = [
+            c for c in self.world.castles if c.level == self.world.current_level
         ]
-        return len(current_level_monsters) == 0
+        
+        if current_level_castles:
+            # Level is completed only if all castles on this level are conquered
+            # this is canceled by the fact the editor only allows you one castle per level
+            # TO BE TALKED ABOUT WITH THE TEAM
+            return all(c.is_conquered for c in current_level_castles)
+        else:
+            # Fallback for levels without castles: kill all wandering monsters (OG way)
+            current_level_monsters = [
+                m
+                for m in self.world.monsters
+                if m.level == self.world.current_level and m.is_alive()
+            ]
+            return len(current_level_monsters) == 0
 
         # return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())

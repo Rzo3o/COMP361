@@ -52,6 +52,7 @@ class Monster(Entity):
         self.name = data.get("name", "Unknown")
         self.data = data
         self.level = data.get("level", 1)
+        self.castle_id = data.get("castle_id")
 
         # Combat stats (base values, before equipment)
         self.max_hp = data.get("max_health", data.get("health", 50))
