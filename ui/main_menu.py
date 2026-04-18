@@ -7,6 +7,11 @@ from ui.base_screen import Screen
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
 
+#screen resolution px for relative image 
+SCREEN_W = 1512
+SCREEN_H = 982
+
+
 class MainMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
@@ -16,12 +21,12 @@ class MainMenu(Screen):
 
         # (image name, x, y, angle, scale)
         self.decoration_images = [
-        ('Water_Duck.png', 405, 75, 5, 2.3999999999999995),
-        ('Grass.png', 360, 175, 20, 1.5999999999999996),
-        ('Grass_Pine.png', 1089, 201, -15, 2.1),
-        ('Magic_Crystals.png', 480, 200, -15, 2.8),
-        ('Snow_Trees.png', 1073, 76, 10, 2.4999999999999996),
-        ('Grass_Plants2.png', 1170, 145, 25, 1.5999999999999996)
+        ('Water_Duck.png', 405/SCREEN_W, 75/SCREEN_H, 5, 2.3999999999999995),
+        ('Grass.png', 360/SCREEN_W, 175/SCREEN_H, 20, 1.5999999999999996),
+        ('Grass_Pine.png', 1089/SCREEN_W, 201/SCREEN_H, -15, 2.1),
+        ('Magic_Crystals.png', 480/SCREEN_W, 200/SCREEN_H, -15, 2.8),
+        ('Snow_Trees.png', 1073/SCREEN_W, 76/SCREEN_H, 10, 2.4999999999999996),
+        ('Grass_Plants2.png', 1170/SCREEN_W, 145/SCREEN_H, 25, 1.5999999999999996)
         ]
 
          # text and font
@@ -109,7 +114,9 @@ class MainMenu(Screen):
 
         # Draw decorative images
         for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+            self.draw_image(image_name, int(x * self.manager.width), int(y * self.manager.height), angle, scale)
+
+
 
         # Main menu title
         title = self.title_font.render("MAIN MENU", True, self.manager.text_color_green)
