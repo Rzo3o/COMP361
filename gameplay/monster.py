@@ -224,16 +224,12 @@ class Monster(Entity):
 
         self.hp -= reduced
 
-        # Interept is_moving state once take damage
-        if getattr(self, "is_moving", False):
-            self.is_moving = False
-            self.move_progress = 1.0 
-
         # Fatal hit: enter death animation
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
 
+            self.is_moving = False
             self.pending_attack_target = None
             self.pending_attack_damage = 0
             self.attack_damage_applied = False
@@ -472,17 +468,20 @@ class Monster(Entity):
             if self.anim_state.endswith(base_state):
                 current_anim_speed = speed
                 break
+        
+        # move animation: advance tile-to-tile interpolation
+        if getattr(self, "is_moving", False):
+            self.move_progress += self.move_speed
 
-        # move animation: advance interpolation + animate frames
+            if self.move_progress >= 1.0:
+                self.move_progress = 1.0
+                self.is_moving = False
+
+                if self.anim_state not in ("hit", "die"):
+                    self.set_anim_state("idle", reset_frame=True)
+
+        # move animation: animate frames
         if self.anim_state == "move":
-            # advance tile-to-tile interpolation
-            if getattr(self, "is_moving", False):
-                self.move_progress += self.move_speed
-
-                if self.move_progress >= 1.0:
-                    self.move_progress = 1.0
-                    self.is_moving = False
-
             # animate move frames
             self.anim_progress += current_anim_speed
             self.anim_tick = int(self.anim_progress)
@@ -491,10 +490,6 @@ class Monster(Entity):
             if self.anim_tick >= frame_count:
                 self.anim_tick = 0
                 self.anim_progress = 0.0
-
-            # once movement finishes, return to idle
-            if not getattr(self, "is_moving", False):
-                self.set_anim_state("idle", reset_frame=True)
 
             return
 
