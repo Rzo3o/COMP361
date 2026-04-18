@@ -33,7 +33,7 @@
     },
     "scale": 1.223155737704918,
     "x_shift": 0,
-    "y_shift": -18,
+    "y_shift": -25,
     "category": "monster",
     "name": "stump_monster.json",
     "default_health": 50,

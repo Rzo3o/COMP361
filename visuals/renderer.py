@@ -330,6 +330,31 @@ class GameRenderer:
                 centery=y - Config.CALIB_OFFSET_Y - final_y_shift
             )
             screen.blit(img, rect)
+
+            if hasattr(entity, "hp") and hasattr(entity, "max_hp"):
+                if entity.hp < entity.max_hp and entity.hp > 0: 
+                    
+                    max_hp = max(1, entity.max_hp) 
+                    ratio = max(0.0, min(1.0, entity.hp / max_hp))
+                    
+                    bar_w = 40  
+                    bar_h = 6   
+                    
+                    bar_x = x - (bar_w // 2)
+                    bar_y = y - Config.CALIB_OFFSET_Y 
+                    
+                    if ratio > 0.5:
+                        fill_color = (50, 205, 50)  # green
+                    elif ratio > 0.2:
+                        fill_color = (255, 215, 0)  # yellow
+                    else:
+                        fill_color = (220, 20, 60)  # red
+                        
+                    pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, bar_w, bar_h))
+                    fill_w = int(bar_w * ratio)
+                    if fill_w > 0:
+                        pygame.draw.rect(screen, fill_color, (bar_x, bar_y, fill_w, bar_h))
+                    pygame.draw.rect(screen, (20, 20, 20), (bar_x, bar_y, bar_w, bar_h), 1)
         else:
             pygame.draw.circle(screen, (255, 0, 0), (int(x), int(y)), 10)
 

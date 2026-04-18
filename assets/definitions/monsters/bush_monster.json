@@ -33,7 +33,7 @@
     },
     "scale": 1.5084016393442623,
     "x_shift": 0,
-    "y_shift": 0,
+    "y_shift": -17,
     "category": "monster",
     "name": "bush_monster.json",
     "default_health": 50,
