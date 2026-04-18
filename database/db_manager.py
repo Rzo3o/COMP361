@@ -66,6 +66,54 @@ class DatabaseManager:
         )
         self.conn.commit()
 
+        # Castle system tables
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS map_castles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                q INTEGER NOT NULL,
+                r INTEGER NOT NULL,
+                level INTEGER DEFAULT 1,
+                asset_file TEXT
+            )"""
+        )
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS map_castle_spawns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                castle_id INTEGER REFERENCES map_castles(id) ON DELETE CASCADE,
+                q INTEGER NOT NULL,
+                r INTEGER NOT NULL,
+                monster_name TEXT NOT NULL,
+                health INTEGER,
+                damage INTEGER
+            )"""
+        )
+        self.cursor.execute(
+            """CREATE TABLE IF NOT EXISTS session_castles (
+                session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+                castle_id INTEGER REFERENCES map_castles(id) ON DELETE CASCADE,
+                is_spawned BOOLEAN DEFAULT 0,
+                is_conquered BOOLEAN DEFAULT 0,
+                PRIMARY KEY (session_id, castle_id)
+            )"""
+        )
+        self.conn.commit()
+
+        # These are for database.db that are missging these fields (old saves)
+
+        # Add castle_id to monsters if missing
+        try:
+            self.cursor.execute("ALTER TABLE monsters ADD COLUMN castle_id INTEGER DEFAULT NULL")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+        # Add asset_file to map_castles if missing
+        try:
+            self.cursor.execute("ALTER TABLE map_castles ADD COLUMN asset_file TEXT")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
 
     def close(self):
         self.conn.close()
@@ -740,4 +788,70 @@ class DatabaseManager:
 
     def delete_tile(self, q, r):
         self.cursor.execute("DELETE FROM map_tiles WHERE q=? AND r=?", (q, r))
+        self.conn.commit()
+
+    # =========================
+    # Castle Management
+    # =========================
+
+    def get_map_castles(self):
+        self.cursor.execute("SELECT * FROM map_castles")
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def get_castle_spawns(self, castle_id=None):
+        if castle_id is not None:
+            self.cursor.execute("SELECT * FROM map_castle_spawns WHERE castle_id=?", (castle_id,))
+        else:
+            self.cursor.execute("SELECT * FROM map_castle_spawns")
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def add_map_castle(self, q, r, level, asset_file=None):
+        self.cursor.execute(
+            "INSERT INTO map_castles (q, r, level, asset_file) VALUES (?, ?, ?, ?)",
+            (q, r, level, asset_file)
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def add_castle_spawn(self, castle_id, q, r, monster_name, health, damage):
+        self.cursor.execute(
+            """INSERT INTO map_castle_spawns (castle_id, q, r, monster_name, health, damage)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (castle_id, q, r, monster_name, health, damage)
+        )
+        self.conn.commit()
+
+    def delete_map_castle(self, q, r):
+        # We find the castle by q, r and delete it. CASCADE will delete its spawns.
+        self.cursor.execute("DELETE FROM map_castles WHERE q=? AND r=?", (q, r))
+        self.conn.commit()
+
+    def delete_castle_spawn(self, q, r):
+        self.cursor.execute("DELETE FROM map_castle_spawns WHERE q=? AND r=?", (q, r))
+        self.conn.commit()
+
+    def get_session_castles(self, session_id):
+        self.cursor.execute("SELECT * FROM session_castles WHERE session_id=?", (session_id,))
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def update_session_castle(self, session_id, castle_id, is_spawned=None, is_conquered=None):
+        # Fetch existing or create new
+        self.cursor.execute("SELECT * FROM session_castles WHERE session_id=? AND castle_id=?", (session_id, castle_id))
+        row = self.cursor.fetchone()
+        
+        if not row:
+            # Insert first
+            self.cursor.execute(
+                "INSERT INTO session_castles (session_id, castle_id, is_spawned, is_conquered) VALUES (?, ?, ?, ?)",
+                (session_id, castle_id, 0, 0)
+            )
+            row = {"is_spawned": 0, "is_conquered": 0}
+        
+        upd_spawned = is_spawned if is_spawned is not None else row["is_spawned"]
+        upd_conquered = is_conquered if is_conquered is not None else row["is_conquered"]
+        
+        self.cursor.execute(
+            "UPDATE session_castles SET is_spawned=?, is_conquered=? WHERE session_id=? AND castle_id=?",
+            (int(upd_spawned), int(upd_conquered), session_id, castle_id)
+        )
         self.conn.commit()

@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS monsters (
     weapon_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
     head_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
     chest_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
-    legs_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL
+    legs_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    castle_id INTEGER DEFAULT NULL
 );
 
 -- ==========================================
@@ -135,3 +136,32 @@ BEGIN
     SET last_saved = CURRENT_TIMESTAMP 
     WHERE id = NEW.session_id;
 END;
+
+-- ==========================================
+-- 7. CASTLE SYSTEM
+-- ==========================================
+CREATE TABLE IF NOT EXISTS map_castles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    q INTEGER NOT NULL,
+    r INTEGER NOT NULL,
+    level INTEGER DEFAULT 1,
+    asset_file TEXT
+);
+
+CREATE TABLE IF NOT EXISTS map_castle_spawns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    castle_id INTEGER REFERENCES map_castles(id) ON DELETE CASCADE,
+    q INTEGER NOT NULL,
+    r INTEGER NOT NULL,
+    monster_name TEXT NOT NULL,
+    health INTEGER,
+    damage INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS session_castles (
+    session_id INTEGER REFERENCES game_sessions(id) ON DELETE CASCADE,
+    castle_id INTEGER REFERENCES map_castles(id) ON DELETE CASCADE,
+    is_spawned BOOLEAN DEFAULT 0,
+    is_conquered BOOLEAN DEFAULT 0,
+    PRIMARY KEY (session_id, castle_id)
+);

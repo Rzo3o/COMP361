@@ -8,6 +8,7 @@ class AssetManager:
         self.cache = {}
         self.layouts = {}  # Map: texture_filename -> (scale, y_shift)
         self.anim_metadata = {}  # Map: texture_filename -> {fw, fh, count}
+        self.castle_assets = set()
         self._load_layouts()
 
     def _load_layouts(self):
@@ -49,6 +50,7 @@ class AssetManager:
                                             float(data.get("scale", 1.0)),
                                             int(data.get("x_shift", 0)),
                                             int(data.get("y_shift", 0)),
+                                            50.0  # Default star_y_offset for non-castle entities
                                         )
                             
                             tex = data.get("texture_file")
@@ -58,14 +60,22 @@ class AssetManager:
                             if tex:
                                 s = data.get("prop_scale") or data.get("scale", 1.0)
                                 x = data.get("prop_x_shift") or data.get("x_shift", 0)
-                                y = data.get("prop_y_shift") or data.get("y_shift", 0)
-                                self.layouts[tex] = (float(s), int(x), int(y))
+                                y = data.get("prop_y_shift") or data.get("prop_shift") or data.get("y_shift", 0)
+                                star_y = data.get("star_y_offset", 50.0)
+                                self.layouts[tex] = (float(s), int(x), int(y), float(star_y))
+                                
+                                # Detect castles for separate rendering pass
+                                if data.get("is_castle") or "castle" in f.lower():
+                                    self.castle_assets.add(tex)
                     except Exception as e:
                         print(f"Error loading layout {f}: {e}")
 
     def get_layout(self, filename):
-        """Returns (scale, x_shift, y_shift) for a given texture file."""
-        return self.layouts.get(filename, (1.0, 0, 0))
+        """Returns (scale, x_shift, y_shift, star_y_offset) for a given texture file."""
+        return self.layouts.get(filename, (1.0, 0, 0, 50.0))
+
+    def is_castle(self, filename):
+        return filename in self.castle_assets
 
     def get_anim_frame(self, filename, frame_index=0, row=0):
         """Extracts and scales a specific frame from a sprite sheet.
@@ -128,7 +138,7 @@ class AssetManager:
             print(f"Anim Error {filename}: {e}")
             return None
 
-    def get_image(self, filename, scale=None):
+    def get_image(self, filename, scale=None, scale_to_tile=True):
         if not filename:
             return None
         
@@ -137,9 +147,9 @@ class AssetManager:
             return self.get_anim_frame(filename, 0)
         
         if scale is None:
-            scale, _, _ = self.get_layout(filename)
+            scale, _, _, _ = self.get_layout(filename)
             
-        key = (filename, scale)
+        key = (filename, scale, scale_to_tile)
         if key in self.cache:
             return self.cache[key]
 
@@ -150,16 +160,23 @@ class AssetManager:
         try:
             raw_img = pygame.image.load(path).convert_alpha()
             
-            # Scale
-            target_w = max(1, int(Config.HEX_SIZE * scale))
-            w, h = raw_img.get_size()
-            ratio = target_w / w
-            target_h = int(h * ratio)
+            if scale_to_tile:
+                # Scale relative to hex size
+                target_w = max(1, int(Config.HEX_SIZE * scale))
+                w, h = raw_img.get_size()
+                ratio = target_w / w
+                target_h = int(h * ratio)
+                img = pygame.transform.scale(raw_img, (target_w, target_h))
+            else:
+                # Use raw size or simple scale multiply if scale != 1.0
+                if scale != 1.0:
+                    w, h = raw_img.get_size()
+                    img = pygame.transform.scale(raw_img, (int(w*scale), int(h*scale)))
+                else:
+                    img = raw_img
             
-            scaled_img = pygame.transform.scale(raw_img, (target_w, target_h))
-            
-            self.cache[key] = scaled_img
-            return scaled_img
+            self.cache[key] = img
+            return img
         except Exception as e:
             print(f"Failed to load {filename}: {e}")
             return None

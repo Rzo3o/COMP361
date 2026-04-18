@@ -47,8 +47,16 @@ class Item:
         self.defense = data.get("defense", 0)
         self.healing_amount = data.get("healing_amount", 0)
         self.hunger_restore = data.get("hunger_restore", 0)
-        self.durability = data.get("durability", 100)
-        self.max_durability = data.get("max_durability", 100)
+        
+        # Some items have weird stats so we just make sure 
+        self.max_durability = data.get("max_durability")
+        if self.max_durability is None:
+            self.max_durability = 100
+        
+        self.durability = data.get("durability")
+        if self.durability is None:
+            self.durability = self.max_durability
+            
         self.power_bonus = data.get("power_bonus", 0)
         self.texture = data.get("texture_file")
         self.equipped = bool(data.get("is_equipped", False))

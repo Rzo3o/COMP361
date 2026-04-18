@@ -13,7 +13,7 @@
     "base_damage": 0,
     "range": 0,
     "defense": 0,
-    "max_durability": 100,
+    "max_durability": 1,
     "healing_amount": 0,
     "hunger_restore": 10,
     "power_bonus": 0

@@ -87,6 +87,7 @@ class DatabaseManager:
         self.conn = sqlite3.connect(db_file)
         self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()
+        self.cursor.execute("PRAGMA foreign_keys = ON")
         self._init_schema()
 
     def _init_schema(self):
@@ -98,6 +99,13 @@ class DatabaseManager:
                 self.conn.commit()
             except sqlite3.Error as e:
                 print(f"Error initializing database from sql: {e}")
+                
+        # Migration: Ensure asset_file exists in map_castles
+        try:
+            self.cursor.execute("ALTER TABLE map_castles ADD COLUMN asset_file TEXT")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass # Already exists
 
     def get_tile(self, q, r):
         self.cursor.execute("SELECT * FROM map_tiles WHERE q=? AND r=?", (q, r))
@@ -215,6 +223,60 @@ class DatabaseManager:
         )
         self.conn.commit()
 
+    # =========================
+    # Castle Management
+    # =========================
+
+    def get_map_castles(self):
+        self.cursor.execute("SELECT * FROM map_castles")
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def get_castle_spawns(self, castle_id=None):
+        if castle_id is not None:
+            self.cursor.execute("SELECT * FROM map_castle_spawns WHERE castle_id=?", (castle_id,))
+        else:
+            self.cursor.execute("SELECT * FROM map_castle_spawns")
+        return [dict(row) for row in self.cursor.fetchall()]
+
+    def add_map_castle(self, q, r, level, asset_file=None):
+        self.cursor.execute(
+            "INSERT INTO map_castles (q, r, level, asset_file) VALUES (?, ?, ?, ?)",
+            (q, r, level, asset_file)
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def add_castle_spawn(self, castle_id, q, r, monster_name, health, damage):
+        self.cursor.execute(
+            """INSERT INTO map_castle_spawns (castle_id, q, r, monster_name, health, damage)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (castle_id, q, r, monster_name, health, damage)
+        )
+        self.conn.commit()
+
+    def delete_map_castle(self, q, r):
+        self.cursor.execute("DELETE FROM map_castles WHERE q=? AND r=?", (q, r))
+        self.conn.commit()
+
+    def update_castle_level(self, q, r, level):
+        self.cursor.execute("UPDATE map_castles SET level=? WHERE q=? AND r=?", (level, q, r))
+        self.conn.commit()
+
+    def get_missing_castle_levels(self):
+        # All non-zero levels on map
+        self.cursor.execute("SELECT DISTINCT level FROM map_tiles WHERE level > 0")
+        map_lvls = {row["level"] for row in self.cursor.fetchall()}
+        
+        # All levels with castles
+        self.cursor.execute("SELECT DISTINCT level FROM map_castles")
+        castle_lvls = {row["level"] for row in self.cursor.fetchall()}
+        
+        return sorted(list(map_lvls - castle_lvls))
+
+    def delete_castle_spawn(self, q, r):
+        self.cursor.execute("DELETE FROM map_castle_spawns WHERE q=? AND r=?", (q, r))
+        self.conn.commit()
+
     def close(self):
         self.conn.close()
 
@@ -224,6 +286,7 @@ class AssetManager:
         self.image_cache = {}
         self.anim_frame_cache = {}
         self.texture_layout_map = {}
+        self.castle_assets = set()
         self.refresh_layouts()
 
     def refresh_layouts(self):
@@ -245,17 +308,20 @@ class AssetManager:
                         if tex:
                             s = data.get("prop_scale") or data.get("scale", 1.0)
                             x = data.get("prop_x_shift") or data.get("x_shift", 0)
-                            y = data.get("prop_y_shift") or data.get("y_shift", 0)
-                            self.texture_layout_map[tex] = (float(s), int(x), int(y))
+                            y = data.get("prop_y_shift") or data.get("prop_shift") or data.get("y_shift", 0)
+                            star_y = data.get("star_y_offset", 50.0)
+                            self.texture_layout_map[tex] = (float(s), int(x), int(y), float(star_y))
+                            if data.get("is_castle") or "castle" in fname.lower():
+                                self.castle_assets.add(tex)
                 except Exception as e:
                     print(f"Error reading {fname}: {e}")
 
     def get_asset_layout(self, texture_file):
         if not texture_file:
-            return 1.0, 0, 0
+            return 1.0, 0, 0, 50.0
         if texture_file in self.texture_layout_map:
             return self.texture_layout_map[texture_file]
-        return 1.0, 0, 0
+        return 1.0, 0, 0, 50.0
 
     def get_tk_image(self, filename, scale=1.0):
         if not filename:
@@ -334,9 +400,25 @@ class AssetManager:
 
     def list_assets(self, category):
         folder = Config.DIRS.get(category)
-        if not os.path.exists(folder):
-            return []
-        return sorted([f for f in os.listdir(folder) if f.endswith(".json") and f != "item_categories.json"])
+        if not os.path.exists(folder): return []
+        return sorted([f for f in os.listdir(folder) if f.endswith(".json")])
+
+    def list_castles(self):
+        folder = Config.DIRS.get("prop")
+        if not os.path.exists(folder): return []
+        results = []
+        for f in os.listdir(folder):
+            if not f.endswith(".json"): continue
+            if "castle" in f.lower():
+                results.append(f)
+                continue
+            try:
+                with open(os.path.join(folder, f), "r") as jf:
+                    if json.load(jf).get("is_castle"):
+                        results.append(f)
+            except: pass
+        return sorted(list(set(results)))
+
 
     def load_item_categories(self):
         path = os.path.join(Config.DIRS["item"], "item_categories.json")
@@ -383,7 +465,7 @@ class Renderer:
     def __init__(self, asset_mgr):
         self.am = asset_mgr
 
-    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False, view_mode="Standard", zoom=1.0):
+    def render_hex_at_pixel(self, canvas, cx, cy, tile_data, selected=False, view_mode="Standard", zoom=1.0, skip_castles=False):
         poly = HexEngine.get_hex_polygon(cx, cy)
         fill = ""
         t_type = tile_data.get("tile_type")
@@ -402,7 +484,7 @@ class Renderer:
             t_x_shift = tile_data.get("tile_x_shift")
             t_y_shift = tile_data.get("tile_y_shift")
             if t_scale is None:
-                t_scale, t_x_shift, t_y_shift = self.am.get_asset_layout(tex)
+                t_scale, t_x_shift, t_y_shift, _ = self.am.get_asset_layout(tex)
             
             # Scale shifts by zoom
             s_x = (t_x_shift or 0) * zoom
@@ -415,19 +497,23 @@ class Renderer:
                 )
         p_tex = tile_data.get("prop_texture_file")
         if p_tex:
-            p_scale = tile_data.get("prop_scale", 1.0)
-            p_x_shift = tile_data.get("prop_x_shift", 0)
-            p_y_shift = tile_data.get("prop_y_shift", 0)
-            
-            # Scale shifts by zoom
-            ps_x = (p_x_shift or 0) * zoom
-            ps_y = (p_y_shift or 0) * zoom
-            
-            img = self.am.get_tk_image(p_tex, scale=p_scale)
-            if img:
-                canvas.create_image(
-                    cx + ps_x, cy - Config.CALIB_OFFSET_Y - ps_y, image=img, tags="hex_prop"
-                )
+            if skip_castles and p_tex in self.am.castle_assets:
+                # We skip rendering it now as it will be rendered in a second pass
+                pass
+            else:
+                p_scale = tile_data.get("prop_scale", 1.0)
+                p_x_shift = tile_data.get("prop_x_shift", 0)
+                p_y_shift = tile_data.get("prop_y_shift", 0)
+                
+                # Scale shifts by zoom
+                ps_x = (p_x_shift or 0) * zoom
+                ps_y = (p_y_shift or 0) * zoom
+                
+                img = self.am.get_tk_image(p_tex, scale=p_scale)
+                if img:
+                    canvas.create_image(
+                        cx + ps_x, cy - Config.CALIB_OFFSET_Y - ps_y, image=img, tags="hex_prop"
+                    )
         outline = "red" if selected else "#555"
         width = 2 if selected else 1
         if tile_data.get("is_spawn") and view_mode != "Spawns":
@@ -461,6 +547,9 @@ class MapTab(ttk.Frame):
         self.tile_cache = {}
         self.monster_cache = []
         self.item_cache = []
+        self.castle_cache = []
+        self.castle_spawn_cache = []
+        self.selected_castle_id = None
         self._setup_ui()
         self._bind_events()
         self.zoom_level = 1.0  # Base scale
@@ -483,6 +572,8 @@ class MapTab(ttk.Frame):
         self.tile_cache = {(t["q"], t["r"]): t for t in self.app.db.get_all_tiles()}
         self.monster_cache = self.app.db.get_all_monsters()
         self.item_cache = self.app.db.get_all_ground_items()
+        self.castle_cache = self.app.db.get_map_castles()
+        self.castle_spawn_cache = self.app.db.get_castle_spawns()
 
     def _center_view(self):
         self.update_idletasks()
@@ -529,7 +620,7 @@ class MapTab(ttk.Frame):
         # View Mode Selector
         view_frame = ttk.LabelFrame(self.sidebar, text="View Mode", padding=5)
         view_frame.pack(fill="x", pady=(0, 10))
-        modes = ["Standard", "Levels", "Collision", "Spawns", "Monsters", "Items"]
+        modes = ["Standard", "Levels", "Collision", "Spawns", "Monsters", "Items", "Castles"]
         for m in modes:
             ttk.Radiobutton(view_frame, text=m, variable=self.view_mode, value=m, command=self._on_view_mode_change).pack(anchor="w")
 
@@ -576,6 +667,8 @@ class MapTab(ttk.Frame):
             self._build_monster_inspector()
         elif mode == "Items":
             self._build_item_inspector()
+        elif mode == "Castles":
+            self._build_castle_inspector()
         
         self.render()
 
@@ -749,6 +842,75 @@ class MapTab(ttk.Frame):
         self.lbl_item_info = ttk.Label(frame, text="Select a tile to see its items", wraplength=180)
         self.lbl_item_info.pack(fill="x")
 
+    def _build_castle_inspector(self):
+        frame = self.inspector_area
+        ttk.Label(frame, text="Castle Designer", font=("Bold", 12)).pack(pady=10)
+        
+        self.var_castle_mode = tk.StringVar(value="select")
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill="x", pady=5)
+        ttk.Radiobutton(btn_frame, text="castle selector", variable=self.var_castle_mode, value="select", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True)
+        ttk.Radiobutton(btn_frame, text="Place/Delete Castle", variable=self.var_castle_mode, value="center", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True)
+        ttk.Radiobutton(btn_frame, text="Monster spawn Selector", variable=self.var_castle_mode, value="spawn", style="Toolbutton").pack(side=tk.LEFT, fill="x", expand=True)
+        
+        # 1. Select Mode Container
+        self.f_castle_id = ttk.Frame(frame)
+        ttk.Label(self_f_castle_id := self.f_castle_id, text="Selected Castle ID:").pack(anchor="w", pady=(10,0))
+        self.lbl_sel_castle = ttk.Label(self_f_castle_id, text="None")
+        self.lbl_sel_castle.pack(anchor="w")
+        
+        # 2. Center Mode Container
+        self.f_castle_asset = ttk.Frame(frame)
+        ttk.Label(self_f_castle_asset := self.f_castle_asset, text="Select Castle Asset:").pack(anchor="w", pady=(10,0))
+        self.cb_castle_assets = ttk.Combobox(self_f_castle_asset, state="readonly", values=self.app.asset_mgr.list_castles())
+        self.cb_castle_assets.pack(fill="x")
+        if self.cb_castle_assets["values"]:
+            self.cb_castle_assets.current(0)
+            
+        # 3. Spawn Mode Container
+        self.f_castle_spawn = ttk.Frame(frame)
+        ttk.Label(self_f_castle_spawn := self.f_castle_spawn, text="For Spawns: Select Monster").pack(anchor="w")
+        self.cb_castle_monsters = ttk.Combobox(self_f_castle_spawn, state="readonly", values=self.app.asset_mgr.list_assets("monster"))
+        self.cb_castle_monsters.pack(fill="x")
+        if self.cb_castle_monsters["values"]:
+            self.cb_castle_monsters.current(0)
+            
+        v_frame = ttk.Frame(self_f_castle_spawn)
+        v_frame.pack(fill="x", pady=5)
+        
+        self.var_castle_monster_hp = tk.IntVar(value=50)
+        self.var_castle_monster_dmg = tk.IntVar(value=10)
+        ttk.Label(v_frame, text="Health:").grid(row=0, column=0, sticky="w")
+        ttk.Entry(v_frame, textvariable=self.var_castle_monster_hp, width=8).grid(row=0, column=1, padx=5)
+        ttk.Label(v_frame, text="Damage:").grid(row=1, column=0, sticky="w")
+        ttk.Entry(v_frame, textvariable=self.var_castle_monster_dmg, width=8).grid(row=1, column=1, padx=5, pady=5)
+        
+        # Global Footer
+        self.lbl_castle_hint = ttk.Label(frame, text="Right Click: Delete Castle/Spawn", wraplength=180)
+        self.lbl_castle_hint.pack(pady=10)
+        
+        self.var_castle_mode.trace_add("write", lambda *a: self._refresh_castle_ui())
+        self._refresh_castle_ui()
+
+    def _refresh_castle_ui(self):
+        mode = self.var_castle_mode.get()
+        # Hide all
+        for f in [self.f_castle_id, self.f_castle_asset, self.f_castle_spawn]:
+            f.pack_forget()
+        
+        self.lbl_castle_hint.pack_forget()
+
+        # Show targeted
+        if mode == "select":
+            self.f_castle_id.pack(fill="x")
+        elif mode == "center":
+            self.f_castle_asset.pack(fill="x")
+        elif mode == "spawn":
+            self.f_castle_spawn.pack(fill="x")
+            
+        self.lbl_castle_hint.pack(pady=10)
+
     def _update_selected_monster_stats(self):
         hp = self.var_monster_health.get()
         dmg = self.var_monster_damage.get()
@@ -811,7 +973,10 @@ class MapTab(ttk.Frame):
         if hasattr(self, 'cb_tiles') and self.cb_tiles.winfo_exists():
             self.cb_tiles["values"] = self.app.asset_mgr.list_assets("tile")
         if hasattr(self, 'cb_props') and self.cb_props.winfo_exists():
-            self.cb_props["values"] = self.app.asset_mgr.list_assets("prop")
+            all_props = self.app.asset_mgr.list_assets("prop")
+            castles = self.app.asset_mgr.list_castles()
+            props_only = [p for p in all_props if p not in castles]
+            self.cb_props["values"] = props_only
 
     def render(self):
         self.canvas.delete("all")
@@ -890,8 +1055,8 @@ class MapTab(ttk.Frame):
         for q, r_idx, x, y, data in render_list:
             is_selected = q == self.selected_q and r_idx == self.selected_r
             
-            # Base Render
-            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected, mode, zoom=self.zoom_level)
+            # Base Render (Now skipping castles for second pass)
+            self.app.renderer.render_hex_at_pixel(self.canvas, x, y, data, is_selected, mode, zoom=self.zoom_level, skip_castles=True)
             
             poly = HexEngine.get_hex_polygon(x, y)
 
@@ -1025,6 +1190,75 @@ class MapTab(ttk.Frame):
                             if img:
                                 self.canvas.create_image(ix, iy - (Config.CALIB_OFFSET_Y * self.zoom_level) + 35, image=img, anchor="center")
 
+            # --- Final Castle Art Render (On top of tiles but under overlays) ---
+            for q, r_idx, x, y, data in render_list:
+                p_tex = data.get("prop_texture_file")
+                if p_tex and p_tex in self.app.asset_mgr.castle_assets:
+                    # Render the castle prop on its original anchor tile
+                    p_scale = data.get("prop_scale", 1.0)
+                    p_x_shift = data.get("prop_x_shift", 0)
+                    p_y_shift = data.get("prop_y_shift", 0)
+                    
+                    ps_x = (p_x_shift or 0) * self.zoom_level
+                    ps_y = (p_y_shift or 0) * self.zoom_level
+                    
+                    img = self.app.asset_mgr.get_tk_image(p_tex, scale=p_scale)
+                    if img:
+                        self.canvas.create_image(
+                            x + ps_x, y - Config.CALIB_OFFSET_Y - ps_y, image=img, tags="hex_prop_castle"
+                        )
+
+            # --- Castles Overlay Render (On top of EVERYTHING) ---
+            if mode == "Castles":
+                # Draw lines from spawns to their castles first so they're underneath
+                for s in self.castle_spawn_cache:
+                    cq, cr = None, None
+                    for c in self.castle_cache:
+                        if c["id"] == s["castle_id"]:
+                            cq, cr = c["q"], c["r"]
+                            break
+                    if cq is not None and cr is not None:
+                        spx, spy = HexEngine.hex_to_pixel(s["q"], s["r"])
+                        cpx, cpy = HexEngine.hex_to_pixel(cq, cr)
+                        self.canvas.create_line(
+                            cx + spx, cy + spy, cx + cpx, cy + cpy, 
+                            fill="cyan", dash=(4, 4), width=2
+                        )
+                
+                # Draw Castle Centers
+                for c in self.castle_cache:
+                    cq, cr = c["q"], c["r"]
+                    px, py = HexEngine.hex_to_pixel(cq, cr)
+                    x, y = cx + px, cy + py
+                    
+                    # Highlight the entire center hex
+                    poly = HexEngine.get_hex_polygon(x, y)
+                    is_selected = getattr(self, "selected_castle_id", None) == c["id"]
+                    fill_color = "gold" if is_selected else "yellow"
+                    outline_color = "white" if is_selected else "gold"
+                    line_width = 3 if is_selected else 1
+                    
+                    self.canvas.create_polygon(poly, fill=fill_color, stipple="gray25", outline=outline_color, width=line_width)
+                    
+                    rad = 12 * self.zoom_level
+                    fill_marker = "gold" if is_selected else "yellow"
+                    self.canvas.create_polygon(
+                        x, y-rad, x+rad, y, x, y+rad, x-rad, y,
+                        fill=fill_marker, outline="white", width=2
+                    )
+                    self.canvas.create_text(x, y-(15*self.zoom_level), text=f"Castle {c['id']}", fill="white", font=("Arial", int(8*self.zoom_level)))
+
+                # Draw Castle Spawns
+                for s in self.castle_spawn_cache:
+                    sq, sr = s["q"], s["r"]
+                    px, py = HexEngine.hex_to_pixel(sq, sr)
+                    x, y = cx + px, cy + py
+                    
+                    rad = 8 * self.zoom_level
+                    self.canvas.create_oval(x-rad, y-rad, x+rad, y+rad, fill="cyan", outline="white", width=1)
+                    self.canvas.create_text(x, y+(15*self.zoom_level), text=s["monster_name"], fill="white", font=("Arial", int(8*self.zoom_level)))
+
+
     def _on_click(self, event):
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
@@ -1136,6 +1370,101 @@ class MapTab(ttk.Frame):
                 self.var_monster_damage.set(0)
                 self.render()
 
+        elif mode == "Castles":
+            c_mode = getattr(self, "var_castle_mode", None) and self.var_castle_mode.get()
+            if c_mode == "center":
+                # Check if a castle already exists here (same tile)
+                for c in self.castle_cache:
+                    if c["q"] == q and c["r"] == r:
+                        self.app.show_toast("A castle already exists on this tile!")
+                        return
+
+                # NEW: Check if this level already has a castle center
+                tile = self.app.db.get_tile(q, r)
+                lvl = tile.get("level", 1) if tile else 1
+                
+                for c in self.castle_cache:
+                    if c["level"] == lvl:
+                        self.app.show_toast(f"Level {lvl} already has a castle center!")
+                        return
+
+                # Get the asset info first
+                castle_asset_fname = self.cb_castle_assets.get()
+                if not castle_asset_fname:
+                    self.app.show_toast("Select a castle asset from the list first!")
+                    return
+                    
+                prop_data = self.app.asset_mgr.load_json("prop", castle_asset_fname)
+                
+                # Update tile art
+                self._update_tile_safe(q, r, {
+                    "prop_texture_file": prop_data.get("texture_file", ""),
+                    "prop_scale": prop_data.get("prop_scale", 1.0),
+                    "prop_x_shift": prop_data.get("prop_x_shift", 0),
+                    "prop_y_shift": prop_data.get("prop_y_shift", 0)
+                })
+                
+                tile = self.app.db.get_tile(q, r)
+                lvl = tile.get("level", 1) if tile else 1
+                new_id = self.app.db.add_map_castle(q, r, lvl, asset_file=castle_asset_fname)
+                self.selected_castle_id = new_id
+                
+                # --- NEW: Apply Passability Footprint ---
+                pmap = prop_data.get("passability_map", {})
+                for k, v in pmap.items():
+                    try:
+                        dq, dr = eval(k) # k is string like "(0, 1)"
+                        if v == False: # Impassable in template
+                            self._update_tile_safe(q + dq, r + dr, {"is_permanently_passable": 0})
+                    except: pass
+                
+                if hasattr(self, "lbl_sel_castle"): self.lbl_sel_castle.config(text=str(new_id))
+                self.refresh_cache()
+                self.render()
+            elif c_mode == "select":
+                for c in self.castle_cache:
+                    if c["q"] == q and c["r"] == r:
+                        self.selected_castle_id = c["id"]
+                        if hasattr(self, "lbl_sel_castle"): self.lbl_sel_castle.config(text=str(c["id"]))
+                        self.render()
+                        break
+            elif c_mode == "spawn":
+                if not getattr(self, "selected_castle_id", None):
+                    self.app.show_toast("Select a castle first!")
+                    return
+
+                # NEW: Level Restriction check
+                # A spawn for a level X castle must be placed on a level X tile.
+                target_tile = self.app.db.get_tile(q, r)
+                target_lvl = target_tile.get("level", 1) if target_tile else 1
+                
+                c_data = next((c for c in self.castle_cache if c["id"] == self.selected_castle_id), None)
+                castle_lvl = c_data["level"] if c_data else 0
+                
+                if target_lvl != castle_lvl:
+                    self.app.show_toast(f"Spawns for Level {castle_lvl} must be on Level {castle_lvl} tiles!")
+                    return
+
+                # NEW: Block spawning on any castle center
+                for c in self.castle_cache:
+                    if c["q"] == q and c["r"] == r:
+                        self.app.show_toast("Cannot place a spawn on a castle center!")
+                        return
+
+                # Check if a spawn already exists here
+                for s in self.castle_spawn_cache:
+                    if s["q"] == q and s["r"] == r:
+                        self.app.show_toast("A castle spawn already exists on this tile!")
+                        return
+
+                m_name = self.cb_castle_monsters.get()
+                if m_name:
+                    def_hp = self.var_castle_monster_hp.get()
+                    def_dmg = self.var_castle_monster_dmg.get()
+                    self.app.db.add_castle_spawn(self.selected_castle_id, q, r, m_name, def_hp, def_dmg)
+                    self.refresh_cache()
+                    self.render()
+
     def _on_right_click(self, event):
         mode = self.view_mode.get()
         if mode == "Monsters":
@@ -1156,8 +1485,65 @@ class MapTab(ttk.Frame):
             self.app.db.delete_items_at(q, r)
             self.refresh_cache()
             self.render()
+        elif mode == "Castles":
+            cx = self.canvas.canvasx(event.x)
+            cy = self.canvas.canvasy(event.y)
+            q, r = HexEngine.pixel_to_hex(cx - Config.CENTER_X, cy - Config.CENTER_Y)
+            did_delete = False
+            for s in self.castle_spawn_cache:
+                if s["q"] == q and s["r"] == r:
+                    self.app.db.delete_castle_spawn(q, r)
+                    did_delete = True
+            if not did_delete:
+                for c in self.castle_cache:
+                    if c["q"] == q and c["r"] == r:
+                        # --- NEW: Reverse Passability Footprint ---
+                        asset_fname = c.get("asset_file")
+                        if asset_fname:
+                            try:
+                                prop_data = self.app.asset_mgr.load_json("prop", asset_fname)
+                                pmap = prop_data.get("passability_map", {})
+                                for k, v in pmap.items():
+                                    try:
+                                        dq, dr = eval(k)
+                                        if v == False: # Was blocked, restore to passable
+                                            self._update_tile_safe(q + dq, r + dr, {"is_permanently_passable": 1})
+                                    except: pass
+                            except: pass
+
+                        self.app.db.delete_map_castle(q, r)
+                        # Also clear the visual art associated with the castle center
+                        self._update_tile_safe(q, r, {
+                            "prop_texture_file": "",
+                            "prop_scale": 1.0,
+                            "prop_x_shift": 0,
+                            "prop_y_shift": 0
+                        })
+                        if getattr(self, "selected_castle_id", None) == c["id"]:
+                            self.selected_castle_id = None
+                            if hasattr(self, "lbl_sel_castle"): self.lbl_sel_castle.config(text="None")
+                        break
+            self.refresh_cache()
+            self.render()
 
     def _update_tile_safe(self, q, r, changes):
+        # LEVEL SYNC & COLLISION DETECTION
+        if "level" in changes:
+            new_lvl = changes["level"]
+            # Is there a castle anchor at this specific tile?
+            this_castle = next((c for c in self.castle_cache if c["q"] == q and c["r"] == r), None)
+            
+            if this_castle:
+                # Collision Check: Does ANOTHER castle already claim this new_lvl?
+                for c in self.castle_cache:
+                    if c["id"] != this_castle["id"] and c["level"] == new_lvl:
+                        self.app.show_toast(f"Level {new_lvl} already has a castle elsewhere!")
+                        return # Abort level update
+                
+                # Sync the castle logic record
+                self.app.db.update_castle_level(q, r, new_lvl)
+                self.refresh_cache()
+
         # Fetch existing or default
         data = self.app.db.get_tile(q, r)
         if not data:
@@ -1206,6 +1592,12 @@ class MapTab(ttk.Frame):
 
         tile_tex = self.var_tile.get()
         prop_tex = self.var_prop.get()
+
+        # Block castle assets in standard mode
+        if prop_tex and prop_tex in self.app.asset_mgr.castle_assets:
+            if self.view_mode.get() != "Castles":
+                self.app.show_toast("Please use Castle view mode to place castles.")
+                return
 
         existing = self.app.db.get_tile(self.selected_q, self.selected_r)
         
@@ -2054,6 +2446,11 @@ class LibraryTab(ttk.Frame):
             cat = self.var_cat.get()
             assets = self.app.asset_mgr.list_assets(cat)
             
+            # Filter out castles from standard prop list
+            if cat == "prop":
+                castles = self.app.asset_mgr.list_castles()
+                assets = [f for f in assets if f not in castles]
+
             # Filter out items of type 'key' if we are in the item category
             if cat == "item":
                 filtered_assets = []
@@ -2595,7 +2992,7 @@ class KeyTab(ttk.Frame):
         if self.default_tile:
             tile_tex = self.default_tile.get("texture_file")
             if tile_tex:
-                tile_s, tile_x, tile_y = self.app.asset_mgr.get_asset_layout(tile_tex)
+                tile_s, tile_x, tile_y, _ = self.app.asset_mgr.get_asset_layout(tile_tex)
                 tile_img = self.app.asset_mgr.get_tk_image(tile_tex, scale=tile_s)
                 if tile_img:
                     self.canvas.create_image(cw//2 + tile_x, ch//2 - Config.CALIB_OFFSET_Y - tile_y, image=tile_img)
@@ -2653,6 +3050,342 @@ class KeyTab(ttk.Frame):
                 self._refresh_list()
 
 
+class CastleEditorTab(ttk.Frame):
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.is_loading = False
+        
+        # Variables (Extended ranges)
+        self.var_name = tk.StringVar()
+        self.var_tex = tk.StringVar()
+        self.var_scale = tk.DoubleVar(value=1.0)
+        self.var_x_shift = tk.DoubleVar(value=0)
+        self.var_y_shift = tk.DoubleVar(value=0)
+        self.var_star_y_offset = tk.DoubleVar(value=50.0)
+        
+        # Linked precise inputs
+        self.str_scale = tk.StringVar(value="1.0")
+        self.str_x_shift = tk.StringVar(value="0")
+        self.str_y_shift = tk.StringVar(value="0")
+        self.str_star_y_offset = tk.StringVar(value="50.0")
+
+        self.var_action_mode = tk.StringVar(value="new")
+        
+        # Default tile data for preview
+        self.default_tile = self.app.asset_mgr.load_json("tile", "default.json")
+
+        # Sync logic (Slider -> Entry)
+        self.var_scale.trace_add("write", lambda *a: self._sync_val_to_str(self.var_scale, self.str_scale))
+        self.var_x_shift.trace_add("write", lambda *a: self._sync_val_to_str(self.var_x_shift, self.str_x_shift))
+        self.var_y_shift.trace_add("write", lambda *a: self._sync_val_to_str(self.var_y_shift, self.str_y_shift))
+        self.var_star_y_offset.trace_add("write", lambda *a: self._sync_val_to_str(self.var_star_y_offset, self.str_star_y_offset))
+        
+        # Sync logic (Entry -> Slider)
+        self.str_scale.trace_add("write", lambda *a: self._sync_str_to_val(self.str_scale, self.var_scale))
+        self.str_x_shift.trace_add("write", lambda *a: self._sync_str_to_val(self.str_x_shift, self.var_x_shift))
+        self.str_y_shift.trace_add("write", lambda *a: self._sync_str_to_val(self.str_y_shift, self.var_y_shift))
+        self.str_star_y_offset.trace_add("write", lambda *a: self._sync_str_to_val(self.str_star_y_offset, self.var_star_y_offset))
+        
+        # Passability Map {(q, r): bool} where False means impassable
+        self.passability_map = {}
+
+        # Preview update
+        for v in [self.var_tex, self.var_scale, self.var_x_shift, self.var_y_shift, self.var_star_y_offset]:
+            v.trace_add("write", lambda *a: self._on_change())
+
+        self.anim_tick = 0
+        self._setup_ui()
+        self._animate()
+
+    def _sync_val_to_str(self, var, svar):
+        if self.is_loading: return
+        try:
+            val = f"{var.get():.2f}"
+            if svar.get() != val:
+                svar.set(val)
+        except: pass
+
+    def _sync_str_to_val(self, svar, var):
+        if self.is_loading: return
+        try:
+            val = float(svar.get())
+            if var.get() != val:
+                var.set(val)
+        except: pass
+
+    def _animate(self):
+        self.anim_tick += 1
+        self.render()
+        # ~15 FPS matches the game's star animation speed
+        self.after(66, self._animate)
+
+    def _setup_ui(self):
+        paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        paned.pack(fill="both", expand=True)
+
+        # Sidebar
+        ctrl = ttk.Frame(paned, padding=10)
+        paned.add(ctrl, weight=1)
+
+        ttk.Label(ctrl, text="Castle Designer", font=("Bold", 14)).pack(pady=10)
+        
+        # Action selector
+        f_mode = ttk.Frame(ctrl)
+        f_mode.pack(fill="x", pady=5)
+        ttk.Radiobutton(f_mode, text="New Castle", variable=self.var_action_mode, value="new", command=self._on_mode_change).pack(side=tk.LEFT, expand=True)
+        ttk.Radiobutton(f_mode, text="Modify Existing", variable=self.var_action_mode, value="modify", command=self._on_mode_change).pack(side=tk.LEFT, expand=True)
+
+        self.lbl_name = ttk.Label(ctrl, text="Asset Name:", font=("Bold", 10))
+        self.lbl_name.pack(anchor="w", pady=(10, 0))
+        
+        self.ent_name = ttk.Entry(ctrl, textvariable=self.var_name)
+        self.ent_name.pack(fill="x", pady=5)
+        
+        self.cb_load = ttk.Combobox(ctrl, state="readonly")
+        self.cb_load.bind("<<ComboboxSelected>>", self._load_file)
+
+        ttk.Label(ctrl, text="Texture File:", font=("Bold", 10)).pack(anchor="w", pady=(10, 0))
+        f_tex = ttk.Frame(ctrl)
+        f_tex.pack(fill="x")
+        ttk.Entry(f_tex, textvariable=self.var_tex).pack(side=tk.LEFT, fill="x", expand=True)
+        ttk.Button(f_tex, text="...", width=3, command=self._browse).pack(side=tk.LEFT, padx=2)
+
+        props = ttk.LabelFrame(ctrl, text="Huge Prop Transformations", padding=10)
+        props.pack(fill="x", pady=20)
+
+        def add_precise_ctrl(parent, label, var, s_var, v_from, v_to):
+            ttk.Label(parent, text=label).pack(anchor="w")
+            row = ttk.Frame(parent)
+            row.pack(fill="x", pady=(0, 10))
+            ttk.Scale(row, from_=v_from, to=v_to, variable=var).pack(side=tk.LEFT, fill="x", expand=True)
+            ttk.Entry(row, textvariable=s_var, width=8).pack(side=tk.LEFT, padx=(5, 0))
+
+        add_precise_ctrl(props, "Scale (Full Castle Range):", self.var_scale, self.str_scale, 0.1, 10.0)
+        add_precise_ctrl(props, "X Offset (Center Alignment):", self.var_x_shift, self.str_x_shift, -500.0, 500.0)
+        add_precise_ctrl(props, "Y Offset (Center Alignment):", self.var_y_shift, self.str_y_shift, -500.0, 500.0)
+        add_precise_ctrl(props, "Star Y Offset (Conquer Anim):", self.var_star_y_offset, self.str_star_y_offset, -200.0, 200.0)
+
+        self.btn_save = ttk.Button(ctrl, text="SAVE PROOFS & DEFINITIONS", command=self._save)
+        self.btn_save.pack(fill="x", pady=10)
+        
+        # Right Canvas Preview
+        prev = ttk.Frame(paned, padding=10)
+        paned.add(prev, weight=3)
+        ttk.Label(prev, text="7-Tile Hex Cluster Preview", font=("Bold", 11)).pack()
+        self.canvas = tk.Canvas(prev, bg="#1a1a1a", highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Configure>", lambda e: self.render())
+        self.canvas.bind("<Button-1>", self._on_canvas_click)
+
+    def _on_mode_change(self):
+        mode = self.var_action_mode.get()
+        if mode == "new":
+            self.cb_load.pack_forget()
+            self.ent_name.pack(fill="x", pady=5, after=self.lbl_name)
+            self._clear()
+        else:
+            self.ent_name.pack_forget()
+            self.cb_load.pack(fill="x", pady=5, after=self.lbl_name)
+            self._refresh_list()
+
+    def _clear(self):
+        self.var_name.set("")
+        self.var_tex.set("")
+        self.var_scale.set(1.0)
+        self.var_x_shift.set(0.0)
+        self.var_y_shift.set(0.0)
+        self.var_star_y_offset.set(50.0)
+        self.passability_map = {(0, 0): False}
+
+    def _on_canvas_click(self, event):
+        cw = self.canvas.winfo_width() / 2
+        ch = self.canvas.winfo_height() / 2
+        if cw < 1: cw, ch = 300, 300
+        
+        # Convert click to relative hex coordinate
+        dq, dr = HexEngine.pixel_to_hex(event.x - cw, event.y - ch)
+        
+        # Limit to radius 2 (the shown cluster)
+        if abs(dq) <= 2 and abs(dr) <= 2 and abs(-dq-dr) <= 2:
+            current = self.passability_map.get((dq, dr), True)
+            self.passability_map[(dq, dr)] = not current
+            self.render()
+
+    def _refresh_list(self):
+        folder = Config.DIRS["prop"]
+        castle_files = []
+        for f in os.listdir(folder):
+            if f.endswith(".json"):
+                # Always include if 'castle' is in the name
+                if "castle" in f.lower():
+                    castle_files.append(f)
+                    continue
+                
+                # Otherwise, check metadata for 'is_castle' flag
+                try:
+                    path = os.path.join(folder, f)
+                    with open(path, "r") as jf:
+                        data = json.load(jf)
+                        if data.get("is_castle"):
+                            castle_files.append(f)
+                except:
+                    pass
+                    
+        self.cb_load["values"] = sorted(list(set(castle_files)))
+
+    def _load_file(self, e=None):
+        fname = self.cb_load.get()
+        if not fname: return
+        path = os.path.join(Config.DIRS["prop"], fname)
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+                self.is_loading = True
+                self.var_name.set(fname.replace(".json", ""))
+                self.var_tex.set(data.get("texture_file", ""))
+                self.var_scale.set(data.get("prop_scale", 1.0))
+                self.var_x_shift.set(data.get("prop_x_shift", 0.0))
+                self.var_y_shift.set(data.get("prop_y_shift", 0.0))
+                self.var_star_y_offset.set(data.get("star_y_offset", 50.0))
+                
+                # Load passability map
+                pmap_raw = data.get("passability_map", {})
+                self.passability_map = {}
+                for k, v in pmap_raw.items():
+                    # k is like "(0, 1)"
+                    try:
+                        coords = eval(k) # Safe here as it's our own format
+                        self.passability_map[coords] = v
+                    except: pass
+                    
+                self.is_loading = False
+                self.render()
+        except: pass
+
+    def _browse(self):
+        f = filedialog.askopenfilename(initialdir=Config.ASSET_DIR)
+        if f:
+            try:
+                rel = os.path.relpath(f, Config.ASSET_DIR)
+                self.var_tex.set(rel.replace("\\", "/"))
+            except:
+                self.var_tex.set(f)
+
+    def _on_change(self):
+        if self.is_loading: return
+        self.render()
+
+    def render(self):
+        if not hasattr(self, "canvas"): return
+        self.canvas.delete("all")
+        cw = self.canvas.winfo_width() / 2
+        ch = self.canvas.winfo_height() / 2
+        if cw < 1: cw, ch = 300, 300
+
+        # Collect all hexes in the cluster for Y-sorting
+        render_items = []
+        for q in range(-2, 3):
+            r1 = max(-2, -q - 2)
+            r2 = min(2, -q + 2)
+            for r in range(r1, r2 + 1):
+                px, py = HexEngine.hex_to_pixel(q, r)
+                render_items.append((q, r, cw + px, ch + py))
+        
+        # Sort by Y-coordinate (Top-down rendering)
+        render_items.sort(key=lambda x: x[3])
+
+        # Pass 1: Draw background tiles
+        for q, r, x, y in render_items:
+            if self.default_tile:
+                tile_tex = self.default_tile.get("texture_file")
+                if tile_tex:
+                    tile_s, tile_x, tile_y, _ = self.app.asset_mgr.get_asset_layout(tile_tex)
+                    tile_img = self.app.asset_mgr.get_tk_image(tile_tex, scale=tile_s)
+                    if tile_img:
+                        self.canvas.create_image(x + tile_x, y - Config.CALIB_OFFSET_Y - tile_y, image=tile_img)
+
+        # Pass 2: Main Asset
+        tex = self.var_tex.get()
+        if tex:
+            scale = self.var_scale.get()
+            img = self.app.asset_mgr.get_tk_image(tex, scale=scale)
+            if img:
+                ox = self.var_x_shift.get()
+                oy = self.var_y_shift.get()
+                # Apply same vertical calib offset as the game renderer
+                self.canvas.create_image(cw + ox, ch - Config.CALIB_OFFSET_Y - oy, image=img)
+                self.canvas.image = img # Keep reference
+                
+        # Pass 2.5: Conquer Star Preview
+        star_offset = self.var_star_y_offset.get()
+        # star.png is 416x32, with 13 frames of 32x32 each.
+        # In main game it scales to target_size=48, which is a 1.5x scale.
+        # Animation speed: self.after(66) matches the game's ~15 FPS (60 FPS / 4 slowdown)
+        star_img = self.app.asset_mgr.get_anim_frame("star.png", self.anim_tick, fw=32, fh=32, count=13, scale=1.5)
+        if star_img:
+            self.canvas.create_image(
+                cw, 
+                ch - Config.CALIB_OFFSET_Y - star_offset, 
+                image=star_img, 
+                tags="star_preview"
+            )
+            self.canvas.star_img = star_img # Keep reference
+
+        # Pass 3: Hex Overlays (Outlines, Passability X, Coordinates)
+        for q, r, x, y in render_items:
+            pts = HexEngine.get_hex_polygon(x, y)
+            
+            fill = ""
+            outline = "#555"
+            width = 1
+            if q == 0 and r == 0:
+                outline = "#ff4444"  # Stronger anchor highlight
+                width = 2
+            
+            self.canvas.create_polygon(pts, fill=fill, outline=outline, width=width)
+            
+            # --- Passability Indicator ---
+            if self.passability_map.get((q, r)) == False:
+                # Draw a red X or stipple
+                self.canvas.create_polygon(pts, fill="red", stipple="gray25", outline="red", width=1)
+                self.canvas.create_text(x, y, text="X", fill="white", font=("Arial", int(12)))
+            
+            self.canvas.create_text(x, y + 15, text=f"{q},{r}", fill="#555", font=("Arial", 8))
+
+        # Red Dot anchor point
+        self.canvas.create_oval(cw-3, ch-3, cw+3, ch+3, fill="#ff4444", outline="white")
+
+    def _save(self):
+        name = self.var_name.get().strip()
+        tex = self.var_tex.get().strip()
+        if not name or not tex:
+            messagebox.showwarning("Incomplete", "Please provide name and texture.")
+            return
+
+        # Convert tuple keys to strings for JSON
+        pmap_json = {str(k): v for k, v in self.passability_map.items()}
+        
+        data = {
+            "texture_file": tex,
+            "prop_scale": self.var_scale.get(),
+            "prop_x_shift": int(self.var_x_shift.get()),
+            "prop_y_shift": int(self.var_y_shift.get()),
+            "star_y_offset": float(self.var_star_y_offset.get()),
+            "is_castle": True,
+            "passability_map": pmap_json
+        }
+        
+        path = os.path.join(Config.DIRS["prop"], f"{name}.json")
+        with open(path, "w") as f:
+            json.dump(data, f, indent=4)
+        
+        self.app.show_toast(f"Saved: {name}")
+        self.app.asset_mgr.refresh_layouts()
+        if self.var_action_mode.get() == "modify":
+            self._refresh_list()
+
+
 class MainApp:
     def __init__(self, root, db_file="game_data.db"):
         self.root = root
@@ -2665,14 +3398,28 @@ class MainApp:
         self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
         self.map_tab = MapTab(self.notebook, self)
         self.lib_tab = LibraryTab(self.notebook, self)
+        self.castle_tab = CastleEditorTab(self.notebook, self)
         self.key_tab = KeyTab(self.notebook, self)
         self.notebook.add(self.map_tab, text="Map Designer")
         self.notebook.add(self.lib_tab, text="Asset Library")
+        self.notebook.add(self.castle_tab, text="Castle Designer")
         self.notebook.add(self.key_tab, text="Key Designer")
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        
         self.map_tab.refresh_libraries()
         self.map_tab.render()
+
+    def _on_closing(self):
+        missing = self.db.get_missing_castle_levels()
+        if missing:
+            msg = f"Warning: The following levels are missing castles:\n\n"
+            msg += ", ".join([f"Level {l}" for l in missing])
+            msg += "\n\nAre you sure you want to exit?"
+            if not messagebox.askyesno("Map Integrity Check", msg):
+                return
+        self.root.destroy()
 
     def _on_tab_changed(self, event):
         # Determine which tab is selected
@@ -2687,6 +3434,8 @@ class MainApp:
             self.map_tab.render()
         elif tab_name == "Key Designer":
             self.key_tab._refresh_list()
+        elif tab_name == "Castle Designer":
+            self.castle_tab._refresh_list()
 
     def show_toast(self, message):
         toast = tk.Toplevel(self.root)
