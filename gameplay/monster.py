@@ -6,6 +6,7 @@ import random
 import os
 import json
 import math
+import copy
 
 from gameplay.models import Entity
 from gameplay.item import Item
@@ -58,6 +59,10 @@ class Monster(Entity):
         self.hp = data.get("health", self.max_hp)
         self.base_damage = data.get("damage", 5)
         self.base_defense = 0
+
+        # special marker for small stone
+        self.mini_scale_override = 1.0
+        self.y_shift_override = None
 
         # Equipment slots (same system as Player)
         self.equipment = {
@@ -1263,6 +1268,108 @@ class StumpMonster(Monster):
                     spawn._get_next_tracking_step()
 
 
+class StoneMonster(Monster):
+    """Giant stone monster, After death, it split into two small stone figures"""
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        
+        # Save a clean copy of the original JSON data before anything else touches it
+        self.original_data = copy.deepcopy(data)
+        self.move_speed = 0.05    
+        self.anim_speeds["move"] = 0.5
+        self.anim_speeds["attack"] = 0.3
+            
+        # Automatically determine if it's a blue or yellow stone based on the JSON name field
+        name_lower = data.get("name", "").lower()
+        self.color = "blue" if "blue" in name_lower else "yellow"
+        
+        self._cached_world = None
+        self.has_split = False
+
+    def decide_and_act(self, world, player):
+        # Cache world to find empty spots during death split
+        self._cached_world = world
+        return super().decide_and_act(world, player)
+
+    def update_animation(self, asset_manager):
+        # Death and split interception logic
+        if self.anim_state == "die":
+            self.anim_progress += self.anim_speeds.get("die", 0.2)
+            self.anim_tick = int(self.anim_progress)
+            
+            meta = asset_manager.anim_metadata.get(self.texture)
+            if meta and self.anim_tick >= meta.get("count", 1):
+                self.death_finished = True
+                self.remove_after_death = True
+                
+                # Trigger split the exact moment the animation finishes playing
+                if not self.has_split and self._cached_world:
+                    self.has_split = True
+                    self._spawn_small_stones(self._cached_world)
+            return 
+
+        super().update_animation(asset_manager)
+
+    def _spawn_small_stones(self, world):
+        """Find suitable hex tiles and generate two small stone monsters"""
+        spots_to_use = []
+        
+        # Check Radius 1 first 
+        valid_radius_1 = []
+        for dq in range(-1, 2):
+            for dr in range(-1, 2):
+                if (abs(dq) + abs(dr) + abs(dq + dr)) // 2 == 1:
+                    nq, nr = self.q + dq, self.r + dr
+                    is_empty = world.is_passable(nq, nr) and not any(m.q == nq and m.r == nr for m in world.monsters)
+                    if is_empty:
+                        valid_radius_1.append((nq, nr))
+                        
+        random.shuffle(valid_radius_1)
+        spots_to_use.extend(valid_radius_1[:2])
+        
+        # Check Radius 2 only if Radius 1 didn't have enough space ---
+        if len(spots_to_use) < 2:
+            valid_radius_2 = []
+            for dq in range(-2, 3):
+                for dr in range(-2, 3):
+                    if (abs(dq) + abs(dr) + abs(dq + dr)) // 2 == 2:
+                        nq, nr = self.q + dq, self.r + dr
+                        is_empty = world.is_passable(nq, nr) and not any(m.q == nq and m.r == nr for m in world.monsters)
+                        if is_empty:
+                            valid_radius_2.append((nq, nr))
+                            
+            random.shuffle(valid_radius_2)
+            needed_spots = 2 - len(spots_to_use)
+            spots_to_use.extend(valid_radius_2[:needed_spots])
+
+        # If completely cornered and no spots found at all
+        if not spots_to_use:
+            return 
+
+        # Directly reuse the main entity's data
+        for i, spot in enumerate(spots_to_use):
+            q, r = spot
+
+            # Use the original data template of the big stone monster
+            baby_data = copy.deepcopy(self.original_data)
+            baby_data["id"] = f"small_{self.color}_stone_{id(self)}_{i}"
+            baby_data["current_q"] = q
+            baby_data["current_r"] = r
+
+            # Instantiate the small stone monster
+            small_rock = Monster(baby_data)
+    
+            small_rock.max_hp = max(1, self.max_hp // 2)
+            small_rock.hp = small_rock.max_hp
+            small_rock.base_damage = max(1, getattr(self, 'base_damage', 10) // 2)
+            
+            # Forcefully reduce the texture scale and y-offset
+            small_rock.mini_scale_override = 0.5
+            small_rock.y_shift_override = -16 # type: ignore
+
+            world.monsters.append(small_rock)
+
+
 class MonsterFactory:
     _registry = {
         "flying_monster": DashMonster,
@@ -1274,6 +1381,8 @@ class MonsterFactory:
         "forest_fly_monster": ForestFlyMonster, 
         "flying_demon": FlyingDemon,
         "stump_monster": StumpMonster,
+        "blue_stone_monster": StoneMonster,
+        "yellow_stone_monster": StoneMonster,
     }
 
     @classmethod

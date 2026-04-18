@@ -1,0 +1,41 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Golem_1_idle_y.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 8
+        },
+        "move": {
+            "texture": "Golem_1_walk_y.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 10
+        },
+        "attack": {
+            "texture": "Golem_1_attack_yellow.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 11
+        },
+        "hit": {
+            "texture": "Golem_1_hurt_y.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 4
+        },
+        "die": {
+            "texture": "Golem_1_die_y.png",
+            "fw": 90,
+            "fh": 64,
+            "count": 12
+        }
+    },
+    "scale": 3.0,
+    "x_shift": 0,
+    "y_shift": 21,
+    "category": "monster",
+    "name": "yellow_stone_monster.json",
+    "default_health": 100,
+    "default_damage": 20
+}

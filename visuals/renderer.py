@@ -288,7 +288,10 @@ class GameRenderer:
             # Change the texture direction with player and monsters direction
             is_flipped = getattr(entity, "flip_x", False)
 
-            cache_key = (id(base_img), flash_color, is_flipped)
+            # special scale mark for small stone monster
+            mini_override = getattr(entity, "mini_scale_override", 1.0)
+
+            cache_key = (id(base_img), flash_color, is_flipped, mini_override)
 
             # First look in cache, if not found, generate new one and cache it
             if cache_key in self.image_cache:
@@ -304,13 +307,23 @@ class GameRenderer:
                 if is_flipped:
                     img = pygame.transform.flip(img, True, False)
 
+                # Get the size after scaling
+                if mini_override != 1.0:
+                    new_w = int(img.get_width() * mini_override)
+                    new_h = int(img.get_height() * mini_override)
+                    img = pygame.transform.smoothscale(img, (new_w, new_h)) 
+
                 # cache it
                 self.image_cache[cache_key] = img
 
             scale, x_shift, y_shift = self.assets.get_layout(entity.texture)
+            override_y = getattr(entity, "y_shift_override", None)
+
+            final_y_shift = override_y if override_y is not None else y_shift
+
             rect = img.get_rect(
                 centerx=x + x_shift,
-                centery=y - Config.CALIB_OFFSET_Y - y_shift
+                centery=y - Config.CALIB_OFFSET_Y - final_y_shift
             )
             screen.blit(img, rect)
         else:
