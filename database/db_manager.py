@@ -114,6 +114,13 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             pass  # column already exists
 
+        #add hearts if not present
+        try:
+            self.cursor.execute("ALTER TABLE player_state ADD COLUMN hearts INTEGER DEFAULT 3")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
 
     def close(self):
         self.conn.close()
@@ -175,8 +182,8 @@ class DatabaseManager:
                     except Exception as e:
                         print(f"Error reading player def {f}: {e}")
 
-        # Fetch the designated spawn tile from the map
-        self.cursor.execute("SELECT q, r FROM map_tiles WHERE is_spawn = 1 LIMIT 1")
+        # Fetch the designated spawn tile from the map + make sure initial spawn is at level 1
+        self.cursor.execute("SELECT q, r FROM map_tiles WHERE is_spawn = 1 AND level = 1 LIMIT 1")
         spawn_tile = self.cursor.fetchone()
         if spawn_tile:
             start_q, start_r = spawn_tile["q"], spawn_tile["r"]
@@ -264,7 +271,7 @@ class DatabaseManager:
     def save_player(self, session_id, player_data):
         """
         player_data expected to be a dict or object with:
-        q, r, hp, hunger, xp
+        q, r, hp, hunger, xp, hearts
         """
         # If it's an object, convert to dict-like access or usage
         q = getattr(player_data, "q", 0)
@@ -272,14 +279,15 @@ class DatabaseManager:
         hp = getattr(player_data, "hp", 100)
         hunger = getattr(player_data, "hunger", 100)
         xp = getattr(player_data, "xp", 0)
+        hearts = getattr(player_data, "hearts", 3)
 
         self.cursor.execute(
             """
             UPDATE player_state 
-            SET current_q=?, current_r=?, health=?, hunger=?, experience=?
+            SET current_q=?, current_r=?, health=?, hunger=?, experience=?, hearts=?
             WHERE session_id=?
             """,
-            (q, r, hp, hunger, xp, session_id),
+            (q, r, hp, hunger, xp, hearts, session_id),
         )
         self.conn.commit()
 
@@ -329,6 +337,12 @@ class DatabaseManager:
                 print(f"Warning: Could not find definition {def_path} or fallback.")
 
         return {**player_def, **p_data}
+    
+    #get spawn tile for when player dies
+    def get_spawn_for_level(self, level):
+        self.cursor.execute("SELECT q, r FROM map_tiles WHERE is_spawn=1 AND level=?", (level,))
+        row = self.cursor.fetchone()
+        return (row["q"], row["r"]) if row else None
 
     """
     Inventory

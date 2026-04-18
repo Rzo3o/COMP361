@@ -259,10 +259,27 @@ class GameWindow(Screen):
                         self.manager.switch_screen("winner")
                         return
                     elif result == "GAME_OVER":
-                        # Deleted the part for deleting the save file
-                        # when the player dies, it will just go back to the main menu
+                        
+                        slot = self.manager.selected_slot
+                        filename = f"game_data_{slot}.db"
+                        # close the db properly 
+                        if hasattr(self, "db") and self.db:
+                            self.db.close()
+                        
+                        # making sure windows releases the db file so it doesnt crash
+                        import time
+                        time.sleep(1)
+
+                        # force delete the file
+                        if os.path.exists(filename):
+                            try:
+                                os.remove(filename)
+                            except Exception as e:
+                                print(f"deletion failed: {e}")
                         self.manager.selected_slot = None
                         self.manager.switch_screen("game_over")
+                        
+                        return
 
             # Independent Monster AI Handling
             for monster in self.engine.world.monsters:
@@ -736,6 +753,9 @@ class GameWindow(Screen):
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
+        #Draw Hearts
+        self.draw_hearts(3, getattr(p, "hearts", 0), Config.WINDOW_WIDTH - 200, 17)
+
         #Adding level box 
         level = self.engine.world.current_level
 
@@ -793,6 +813,28 @@ class GameWindow(Screen):
             
             t_rect = progress_text.get_rect(center=(bar_x + bar_w//2, bar_y + bar_h//2))
             self.manager.screen.blit(progress_text, t_rect)
+    
+    def draw_hearts(self, max_hearts, current_hearts, start_x, y):
+        spacing = 35
+
+        for i in range(max_hearts):
+            color = (220, 40, 40) if i < current_hearts else (80, 80, 80)
+            x = start_x + i * spacing
+            self.draw_heart(x, y, color)
+    
+    def draw_heart(self, x, y, color):
+        r = 8
+
+        # top circles
+        pygame.draw.circle(self.manager.screen, color, (x - r, y), r)
+        pygame.draw.circle(self.manager.screen, color, (x + r, y), r)
+
+        # bottom triangle
+        points = [
+            (x - 2 * r, y + 2),
+            (x + 2 * r, y + 2),
+            (x, y + 22),]
+        pygame.draw.polygon(self.manager.screen, color, points)
 
     # Inventory screen with 3 sections
     def _draw_inventory(self):

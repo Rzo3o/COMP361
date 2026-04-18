@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS player_state (
     max_hunger INTEGER DEFAULT 100,
     experience INTEGER DEFAULT 0,
     power_level INTEGER DEFAULT 1, -- Your conquest rank/strength
-    death_count INTEGER DEFAULT 0,
+    hearts INTEGER DEFAULT 3,
     texture_file TEXT,
     FOREIGN KEY (current_q, current_r) REFERENCES map_tiles(q, r)
 );
