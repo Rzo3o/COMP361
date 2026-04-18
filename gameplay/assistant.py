@@ -76,16 +76,13 @@ class Assistant(Monster):
                 self._smart_move_towards(target_monster.q, target_monster.r, world)
                 return
 
-        # 3. 没事干，跟随玩家
         if dist_to_player > self.follow_dist:
             self._smart_move_towards(player.q, player.r, world)
 
     def _smart_move_towards(self, tq, tr, world):
-        """调用基类的 BFS 寻路，比简单的邻居查找聪明得多"""
         if getattr(self, "is_moving", False):
             return
 
-        # 直接调用 Monster 基类里的寻路算法
         next_step = self._find_path_next_step(tq, tr, world.is_passable)
         
         if next_step and next_step != (tq, tr):
@@ -95,9 +92,7 @@ class Assistant(Monster):
     
 
     def attack(self, target):
-        """触发攻击逻辑（如果 Monster 基类已经写好了，这里甚至可以删除）"""
         self.set_anim_state("attack", reset_frame=True)
         self.pending_attack_target = target
-        # 使用 JSON 里配置的伤害，如果没有默认 10
         self.pending_attack_damage = getattr(self, "damage", 10) 
         self.attack_damage_applied = False
