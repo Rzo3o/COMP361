@@ -1,0 +1,16 @@
+{
+    "texture_file": "assetBank/Castles/sprite1.png",
+    "prop_scale": 4.9,
+    "prop_x_shift": -1,
+    "prop_y_shift": 11,
+    "star_y_offset": 144.55,
+    "is_castle": true,
+    "passability_map": {
+        "(0, 0)": false,
+        "(-1, 0)": false,
+        "(-1, 1)": false,
+        "(0, 1)": false,
+        "(1, 0)": false,
+        "(1, -1)": false
+    }
+}
