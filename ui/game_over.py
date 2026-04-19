@@ -18,7 +18,8 @@ class GameOver(Screen):
     
         self.decoration_images = [
             # upsidedown castle
-            ('sprite1.png', 1295, 450, 180, 8),
+            # offsets relative to center (960, 540)
+            ('sprite1.png', 335, -90, 180, 8),
             
         ]
 
@@ -29,7 +30,7 @@ class GameOver(Screen):
         button_height = 50
         button_width = 150
         button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30)
-        x = ((self.manager.width / 3) + 50) - (button_width / 2)
+        x = (self.manager.width / 2) - 270 - (button_width / 2)
         y = (self.manager.height / 2) - (button_height/ 2)
     
         # create the button
@@ -76,12 +77,15 @@ class GameOver(Screen):
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
 
         text = font.render("Game Over!", True, self.manager.text_color_green)
-        rect = text.get_rect(midtop=(1/4 * self.manager.width + 200, self.manager.height // 4)) # middle
+        rect = text.get_rect(midtop=(self.manager.width // 2 - 280, self.manager.height // 4)) # middle
         self.manager.screen.blit(source=text, dest=rect) 
         
+        center_x = self.manager.width // 2
+        center_y = self.manager.height // 2
+
         # images
-        for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+        for image_name, dx, dy, angle, scale in self.decoration_images:
+            self.draw_image(image_name, center_x + dx, center_y + dy, angle, scale)
 
         for button in self.buttons:
             button.draw(self.manager.screen)

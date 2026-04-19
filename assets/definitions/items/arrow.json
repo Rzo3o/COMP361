@@ -1,0 +1,20 @@
+{
+    "category": "item",
+    "name": "arrow.json",
+    "texture_file": "arrow.png",
+    "crop_x": 0,
+    "crop_y": 0,
+    "crop_size": 15,
+    "description": "For shooting from bows",
+    "item_type": "ammo",
+    "item_slot": "general",
+    "slot": "general",
+    "weight": 0,
+    "base_damage": 1,
+    "range": 0,
+    "defense": 0,
+    "max_durability": 100,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 0
+}

@@ -48,12 +48,13 @@ class GameRules(Screen):
         ]
 
         self.decoration_images = [
-        ('Grass.png', 1102, 69, 15, 2.5999999999999996),
-        ('Grass.png', 385, 163, 20, 1.5999999999999996),
-        ('Grass_Pine.png', 1076, 179, -30, 1.4999999999999991),
-        ('Magic.png', 1142, 160, 10, 1.7999999999999994),
-        ('Magic.png', 480, 170, -20, 2.3999999999999995),
-        ('Snow_Snowman.png', 400, 75, -20, 2.2999999999999994),
+            # offsets relative to top center (960, y)
+            ('Grass.png', 142, 69, 15, 2.5999999999999996),
+            ('Grass.png', -575, 163, 20, 1.5999999999999996),
+            ('Grass_Pine.png', 116, 179, -30, 1.4999999999999991),
+            ('Magic.png', 182, 160, 10, 1.7999999999999994),
+            ('Magic.png', -480, 170, -20, 2.3999999999999995),
+            ('Snow_Snowman.png', -560, 75, -20, 2.2999999999999994),
         ]
 
         #button size
@@ -85,8 +86,9 @@ class GameRules(Screen):
         self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
 
         # Draw decorative images
-        for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+        center_x = self.manager.width // 2
+        for image_name, dx, dy, angle, scale in self.decoration_images:
+            self.draw_image(image_name, center_x + dx, dy, angle, scale)
 
         # Title
         title = self.title_font.render("GAME RULES", True, self.manager.text_color_white)

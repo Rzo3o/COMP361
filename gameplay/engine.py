@@ -54,8 +54,10 @@ class GameEngine:
         # Queue of (name, count) tuples to show as floating pickup text.
         # The UI layer drains this and renders them with a fade.
         self.loot_notifications_queue = []
-        
-        self.level_up_sound = pygame.mixer.Sound(os.path.join("assets", "music", "level_up.mp3"))
+
+        self.level_up_sound = pygame.mixer.Sound(
+            os.path.join("assets", "music", "level_up.mp3")
+        )
         self.level_up_sound.set_volume(0.6)
 
     def handle_input(self, action):
@@ -117,6 +119,16 @@ class GameEngine:
                 # Do not trigger attack for projectile
                 if monster is not None and getattr(monster, "is_targetable", True):
                     damage = player.attack_monster(monster)
+
+                    if player.equipment.get("weapon").type == "ranged":
+                        arrows = [
+                            item for item in player.inventory if item.type == "ammo"
+                        ]
+                        if len(arrows) > 0:
+                            arrow = arrows[0]
+                            damage += arrow.damage_bonus
+                            player.inventory.remove(arrow)
+                            self.db.remove_item(self.session_id, arrow.id, quantity=1)
 
                     if not self._safe_save_monster(monster):
                         return "SAVE_ERROR"
@@ -185,7 +197,7 @@ class GameEngine:
         player.drop_item(self.selected_index, self.db, self.session_id)
         if self.selected_index >= len(player.inventory):
             self.selected_index = max(0, len(player.inventory) - 1)
-        
+
         # Refresh world state so item appears on ground
         self.world.load_ground_items()
         self.world.sync_inventory_resource_locks()
@@ -240,7 +252,7 @@ class GameEngine:
         # Persistent state by removing the chest from DB
         if hasattr(self.db, "delete_chest"):
             self.db.delete_chest(self.session_id, chest.q, chest.r)
-        
+
         # Refresh the player's inventory
         player.load_inventory(self.db, self.session_id)
         self.world.sync_inventory_resource_locks()
@@ -257,7 +269,7 @@ class GameEngine:
 
         picked_up_any = False
         counts = {}  # For notifications: {item_name: count}
-        
+
         # if any item is successfully picked up add to inventory and remove from ground.
         for item in ground_items:
             resource_id = item.resource_id
@@ -273,7 +285,7 @@ class GameEngine:
                 self.db.add_item(self.session_id, item.id)
                 self.db.remove_ground_item(item.id)
                 self.world.resource_locks.consume(resource_id)
-                
+
                 # Track for notification
                 counts[item.name] = counts.get(item.name, 0) + 1
                 picked_up_any = True
@@ -377,11 +389,13 @@ class GameEngine:
         # Spawn a chest at the monster's tile holding the loot.
         loot_chest = Chest(monster.q, monster.r, "brown_chest", items=drops)
         self.world.chests.append(loot_chest)
-        
+
         # Persistent state by saving the chest to DB
         if hasattr(self.db, "save_chest"):
-            self.db.save_chest(self.session_id, monster.q, monster.r, "brown_chest", drops)
-            
+            self.db.save_chest(
+                self.session_id, monster.q, monster.r, "brown_chest", drops
+            )
+
         monster.death_loot_dropped = True
 
     def update(self):
@@ -418,16 +432,26 @@ class GameEngine:
 
         # Castle check
         self.world.check_castle_proximity()
-        
+
         # Check if spawned castles are conquered
         for castle in self.world.castles:
-            if castle.level == self.world.current_level and castle.is_spawned and not castle.is_conquered:
+            if (
+                castle.level == self.world.current_level
+                and castle.is_spawned
+                and not castle.is_conquered
+            ):
                 # Find all monsters for this castle
-                alive_castle_monsters = [m for m in self.world.monsters if m.castle_id == castle.id and m.is_alive()]
+                alive_castle_monsters = [
+                    m
+                    for m in self.world.monsters
+                    if m.castle_id == castle.id and m.is_alive()
+                ]
                 if not alive_castle_monsters:
                     # All dead = conquered
                     castle.is_conquered = True
-                    self.db.update_session_castle(self.session_id, castle.id, is_conquered=1)
+                    self.db.update_session_castle(
+                        self.session_id, castle.id, is_conquered=1
+                    )
                     print(f"Castle {castle.id} Conquered!")
 
         return "UPDATED"
@@ -484,7 +508,6 @@ class GameEngine:
             return "GAME_OVER"
 
         if self.check_level_completed():
-
             if self.world.current_level == self.world.get_max_level():
                 return "WIN"
 
@@ -509,7 +532,7 @@ class GameEngine:
         current_level_castles = [
             c for c in self.world.castles if c.level == self.world.current_level
         ]
-        
+
         if current_level_castles:
             # Level is completed only if all castles on this level are conquered
             # this is canceled by the fact the editor only allows you one castle per level
@@ -525,3 +548,4 @@ class GameEngine:
             return len(current_level_monsters) == 0
 
         # return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
+

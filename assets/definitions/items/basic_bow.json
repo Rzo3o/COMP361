@@ -10,7 +10,7 @@
     "item_slot": "weapon",
     "slot": "weapon",
     "weight": 4,
-    "base_damage": 8,
+    "base_damage": 7,
     "range": 3,
     "defense": 0,
     "max_durability": 100,

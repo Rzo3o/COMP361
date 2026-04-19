@@ -37,11 +37,7 @@ class Player(Entity):
 
         # Float progress timer and speed config for animations
         self.anim_progress = 0.0
-        self.anim_speeds = {
-            "idle": 0.25,
-            "move": 0.5,
-            "attack": 0.8
-        }
+        self.anim_speeds = {"idle": 0.25, "move": 0.5, "attack": 0.8}
 
         self.texture = animations.get("archer_idle", {}).get("texture")
         if not self.texture:
@@ -65,12 +61,11 @@ class Player(Entity):
         self.pending_attack_target = None
         self.pending_attack_damage = 0
         self.attack_damage_applied = False
-        self.attack_hit_frame = 4 
+        self.attack_hit_frame = 4
 
         # Damage flash timer
         self.damage_flash_timer = 0
         self.poison_flash_timer = 0
-
 
         self.flip_x = False
 
@@ -137,7 +132,7 @@ class Player(Entity):
         # Clear existing equipment slots before reapplying
         for slot in self.equipment.keys():
             self.equipment[slot] = None
-            
+
         # Apply equipped items
         for item in self.inventory:
             if item.equipped and item.is_equippable:
@@ -167,10 +162,10 @@ class Player(Entity):
         if not self.inventory or index >= len(self.inventory):
             return False
         item = self.inventory[index]
-        
+
         # Place it on the ground at current position
         db.add_ground_item(item.id, self.q, self.r)
-        
+
         # Remove from inventory
         db.remove_item(session_id, item.id, quantity=1)
         self.load_inventory(db, session_id)
@@ -227,7 +222,7 @@ class Player(Entity):
         self.attack_damage_applied = False
 
         return damage
-        
+
     def get_texture_for_state(self, state):
         animations = self.data.get("animations", {})
         state_anim = animations.get(state, {})
@@ -239,17 +234,21 @@ class Player(Entity):
             return idle_anim["texture"]
 
         return self.texture
-    
+
     def set_anim_state(self, state, reset_frame=True):
         weapon = self.equipment.get("weapon")
         armor = self.equipment.get("armor")
         weapon_type = weapon.type if weapon and not weapon.is_broken() else "unarmed"
         defense = armor.defense if armor and not armor.is_broken() else 0
-        
+
         # Strip any existing prefix to get the clean base state
-        # To prevent prefixes from stacking (like "infantry_archer_idle") when swapping weapons, 
+        # To prevent prefixes from stacking (like "infantry_archer_idle") when swapping weapons,
         # which would break the animation logic and freeze the player again.
-        base_state = state.split("_")[-1]  # Get the part after the first underscore, or the whole state if no underscore
+        base_state = state.split(
+            "_"
+        )[
+            -1
+        ]  # Get the part after the first underscore, or the whole state if no underscore
 
         # Re-apply the correct prefix based on the currently equipped weapon
         if weapon_type == "ranged":
@@ -262,7 +261,7 @@ class Player(Entity):
             state = "armored_" + state
 
         print(f"[Player] set_anim_state: {state} (weapon_type: {weapon_type})")
-                
+
         """Change animation state"""
         if self.anim_state == state and not reset_frame:
             return
@@ -276,7 +275,7 @@ class Player(Entity):
 
     def is_alive(self) -> bool:
         return (not self.dead) and self.hp > 0
-    
+
     def update_animation(self, asset_manager):
         """
         Update player animation state.
@@ -297,18 +296,22 @@ class Player(Entity):
             # Initialize the timer if it doesn't exist
             if not hasattr(self, "poison_tick_timer"):
                 self.poison_tick_timer = 0
-                
+
             self.poison_tick_timer += 1
-            
+
             # Since update_animation is called every 50ms (from game_window),
             if self.poison_tick_timer >= 20:
                 self.take_poison_damage(self.poison_damage_per_turn)
                 self.poison_turns_remaining -= 1
-                
+
                 # Reset the timer for the next second's tick
                 self.poison_tick_timer = 0
 
-        animations = getattr(self, "data", {}).get("animations", {}) if hasattr(self, "data") else {}
+        animations = (
+            getattr(self, "data", {}).get("animations", {})
+            if hasattr(self, "data")
+            else {}
+        )
         anim_cfg = animations.get(self.anim_state) or animations.get("idle")
 
         if not anim_cfg:
@@ -331,7 +334,7 @@ class Player(Entity):
             if self.anim_state.endswith(base_state):
                 current_anim_speed = speed
                 break
-        
+
         # MOVE animation
         if "move" in self.anim_state:
             if self.is_moving:
@@ -355,10 +358,11 @@ class Player(Entity):
 
         # Apply damage at specific hit frame
         if "attack" in self.anim_state:
-            if (not self.attack_damage_applied 
-                and self.pending_attack_target is not None 
-                and self.anim_tick >= self.attack_hit_frame):
-                
+            if (
+                not self.attack_damage_applied
+                and self.pending_attack_target is not None
+                and self.anim_tick >= self.attack_hit_frame
+            ):
                 # Apply the saved damage to the monster
                 if hasattr(self.pending_attack_target, "take_damage"):
                     self.pending_attack_target.take_damage(self.pending_attack_damage)
@@ -366,7 +370,7 @@ class Player(Entity):
                     self.pending_attack_target.hp -= self.pending_attack_damage
                     if self.pending_attack_target.hp <= 0:
                         self.pending_attack_target.hp = 0
-                        
+
                 # Mark as applied so it doesn't hit multiple times
                 self.attack_damage_applied = True
 
@@ -376,7 +380,6 @@ class Player(Entity):
 
         if self.anim_tick >= frame_count:
             if "attack" in self.anim_state:
-                
                 self.is_attacking = False
                 # Reset attack variables when animation ends
                 self.pending_attack_target = None
@@ -396,15 +399,16 @@ class Player(Entity):
     def take_poison_damage(self, amount: int):
         """Take damage and trigger the purple poison hit animation"""
         self.hp -= amount
-        
+
         self.poison_flash_timer = 3
 
         if self.hp <= 0:
             self.hp = 0
             self.dead = True
-            
+
         return amount
-    
+
     def increase_player_hp(self, amount: int):
         self.hp += amount
         self.hp = min(self.hp, self.max_hp)  # cap it
+

@@ -19,7 +19,6 @@ class GameWindow(Screen):
         selected_skin = manager.selected_skin
 
         pygame.display.set_caption(f"Hex RPG - Slot {slot_id}")
-      
 
         db_file = f"game_data_{slot_id}.db"
         self.db = DatabaseManager(db_file)
@@ -27,26 +26,36 @@ class GameWindow(Screen):
         if not self.db.get_session(1):
             char_type = getattr(manager, "selected_character", "warrior")
             sid = self.db.create_session(1, char_type=char_type)
-            
+
             # Add and equip starting weapon
-            weapon_name = "test_bow" if char_type == "archer" else "wooden_sword"
+            weapon_name = "basic_bow" if char_type == "archer" else "basic_sword"
             weapon_id = self.db.get_or_create_item(weapon_name)
+            if char_type == "archer":
+                # Give the archer some starting arrows
+                arrow_id = self.db.get_or_create_item("arrow")
+                self.db.add_item(sid, arrow_id, quantity=99)
             if weapon_id:
                 self.db.add_item(sid, weapon_id, quantity=1)
                 self.db.toggle_equip(sid, weapon_id)
 
         if selected_skin:
-            self.db.cursor.execute("UPDATE player_state SET texture_file=? WHERE session_id=1", (selected_skin,))
+            self.db.cursor.execute(
+                "UPDATE player_state SET texture_file=? WHERE session_id=1",
+                (selected_skin,),
+            )
             self.db.conn.commit()
 
         self.engine = GameEngine(self.db, 1)
-        
+
         # Ensure inventory is loaded so we can check if this is a fresh session
         self.engine.world.player.load_inventory(self.db, 1)
 
         # Demo: spawn a visible chest next to the player only if it's a fresh game
         # (check if inventory only has the starting weapon or less)
-        if not self.engine.world.chests and len(self.engine.world.player.inventory) <= 1:
+        if (
+            not self.engine.world.chests
+            and len(self.engine.world.player.inventory) <= 1
+        ):
             self.engine.world.spawn_chest()
         self.assets = AssetManager()
         self.renderer = GameRenderer(self.assets)
@@ -55,20 +64,22 @@ class GameWindow(Screen):
         self.loot_font = pygame.font.SysFont("Arial", 22, bold=True)
         self.frame_index = 0
         self.anim_timer = 0
-        self.inventory_scroll_offset = 0 # tracks how far the inventory list is scrolled
+        self.inventory_scroll_offset = (
+            0  # tracks how far the inventory list is scrolled
+        )
         self.inventory_last_selected_index = self.engine.selected_index
-        
+
         # Timing and state for mouse inventory interactions
-        self.last_click_time = 0 # timestamp of the previous click to detect double-clicks
-        self.last_clicked_index = -1 # index of the item previously clicked
+        self.last_click_time = (
+            0  # timestamp of the previous click to detect double-clicks
+        )
+        self.last_clicked_index = -1  # index of the item previously clicked
 
         # Active floating loot notification (only one shown at a time).
         # Each entry: {"text": str, "age_ms": int}
         # Items in engine.loot_notifications_queue drip in one-by-one.
         self.active_loot_notification = None
         self.loot_notification_duration_ms = 1000  # 1 second fade
-
-    
 
     def handle_event(self, event):
         if event.type == pygame.QUIT:
@@ -88,10 +99,11 @@ class GameWindow(Screen):
             if event.button == 1:  # Left click
                 # Re-calculate the list panel dimensions to find if the click is inside the item list area.
                 # These variables must match the layout logic in _draw_inventory so change both if needed
-                panel_x, panel_y = 200, 80
                 panel_w = Config.WINDOW_WIDTH - 400
                 panel_h = Config.WINDOW_HEIGHT - 160
-                
+                panel_x = Config.WINDOW_WIDTH // 2 - panel_w // 2
+                panel_y = Config.WINDOW_HEIGHT // 2 - panel_h // 2
+
                 body_top = panel_y + 116
                 body_height = panel_h - 140
                 left_width = int(panel_w * 0.62)
@@ -103,10 +115,10 @@ class GameWindow(Screen):
                     top = list_rect.y + 42
                     row_height = 52
                     row_gap = 8
-                    
+
                     mouse_y = event.pos[1]
                     relative_y = mouse_y - top
-                    
+
                     # Ensure the click isn't in the header area of the list
                     if relative_y >= 0:
                         # Convert vertical pixel distance to a row index
@@ -114,18 +126,22 @@ class GameWindow(Screen):
 
                         # Offset the row by the current scroll position to get the actual item index
                         clicked_index = self.inventory_scroll_offset + clicked_row
-                        
+
                         items = self.engine.world.player.inventory
                         # Check if the calculated index matches an existing item
                         if 0 <= clicked_index < len(items):
                             # Double-Click Detection:
                             # If the same item was clicked twice within 500ms, trigger the "INTERACT" action.
                             now = pygame.time.get_ticks()
-                            if (clicked_index == self.last_clicked_index and 
-                                now - self.last_click_time < 500):
+                            if (
+                                clicked_index == self.last_clicked_index
+                                and now - self.last_click_time < 500
+                            ):
                                 self.engine.selected_index = clicked_index
-                                self.engine.run_turn("INTERACT") # Executes 'Use' or 'Equip/Unequip'
-                                self.last_click_time = 0 # Reset timer to prevent triple-click triggering twice
+                                self.engine.run_turn(
+                                    "INTERACT"
+                                )  # Executes 'Use' or 'Equip/Unequip'
+                                self.last_click_time = 0  # Reset timer to prevent triple-click triggering twice
                             else:
                                 # First click: simply select and highlight the item
                                 self.engine.selected_index = clicked_index
@@ -151,13 +167,13 @@ class GameWindow(Screen):
                 action = None
 
                 if event.key == pygame.K_w:
-                    action = "MOVE_NORTH"       
+                    action = "MOVE_NORTH"
                 elif event.key == pygame.K_s:
-                    action = "MOVE_SOUTH"       
+                    action = "MOVE_SOUTH"
                 elif event.key == pygame.K_a:
-                    action = "MOVE_SW"        
+                    action = "MOVE_SW"
                 elif event.key == pygame.K_f or event.key == pygame.K_SPACE:
-                    action = "INTERACT"         
+                    action = "INTERACT"
 
                 if action:
                     self.engine.run_turn(action)
@@ -165,7 +181,7 @@ class GameWindow(Screen):
     def cleanup(self):
         if hasattr(self, "db") and self.db:
             self.db.close()
-                    
+
     def update(self):
         # Loot notifications: per-frame (not tied to 50ms anim tick) so fade is smooth
         self._update_loot_notifications(self.manager.clock.get_time())
@@ -209,37 +225,45 @@ class GameWindow(Screen):
             if hasattr(self.engine.world, "update_vfx"):
                 self.engine.world.update_vfx()
 
-        # Implement real-time ARPG 
+        # Implement real-time ARPG
         player = self.engine.world.player
         if not player:
             return
-        
+
         # Check current status
-        is_player_animating = getattr(player, "is_moving", False) or getattr(player, "is_attacking", False)
+        is_player_animating = getattr(player, "is_moving", False) or getattr(
+            player, "is_attacking", False
+        )
         is_inventory_open = getattr(self.engine, "show_inventory", False)
 
         # Only process game actions if the inventory is closed
         if not is_inventory_open:
-
             # Only accept new commands if the player has finished their current action
             if not is_player_animating:
                 keys = pygame.key.get_pressed()
                 action = None
-            
-                if keys[pygame.K_w]: action = "MOVE_NORTH"
-                elif keys[pygame.K_s]: action = "MOVE_SOUTH"
-                elif keys[pygame.K_a]: action = "MOVE_SW"
-                elif keys[pygame.K_d]: action = "MOVE_EAST"
-                elif keys[pygame.K_q]: action = "MOVE_WEST"
-                elif keys[pygame.K_e]: action = "MOVE_NE"
-                elif keys[pygame.K_f] or keys[pygame.K_SPACE]: action = "INTERACT"
+
+                if keys[pygame.K_w]:
+                    action = "MOVE_NORTH"
+                elif keys[pygame.K_s]:
+                    action = "MOVE_SOUTH"
+                elif keys[pygame.K_a]:
+                    action = "MOVE_SW"
+                elif keys[pygame.K_d]:
+                    action = "MOVE_EAST"
+                elif keys[pygame.K_q]:
+                    action = "MOVE_WEST"
+                elif keys[pygame.K_e]:
+                    action = "MOVE_NE"
+                elif keys[pygame.K_f] or keys[pygame.K_SPACE]:
+                    action = "INTERACT"
 
                 if action:
-                    if action in ("MOVE_WEST", "MOVE_SW"): # q, a
+                    if action in ("MOVE_WEST", "MOVE_SW"):  # q, a
                         player.flip_x = True
-                    elif action in ("MOVE_EAST", "MOVE_NE"): # e, d
+                    elif action in ("MOVE_EAST", "MOVE_NE"):  # e, d
                         player.flip_x = False
-                    
+
                     result = self.engine.run_turn(action)
 
                     if result == "WIN":
@@ -256,14 +280,16 @@ class GameWindow(Screen):
                 if not monster.is_alive():
                     continue
 
-                is_monster_animating = getattr(monster, "is_moving", False) or monster.anim_state in ("move", "attack", "hit")
+                is_monster_animating = getattr(
+                    monster, "is_moving", False
+                ) or monster.anim_state in ("move", "attack", "hit")
                 if is_monster_animating:
                     continue
 
-                # Initialize real-time action timer 
+                # Initialize real-time action timer
                 if not hasattr(monster, "rt_action_timer"):
-                    monster.rt_action_timer = random.randint(30, 40) 
-                
+                    monster.rt_action_timer = random.randint(30, 40)
+
                 monster.rt_action_timer -= 1
 
                 # Trigger monster AI decision if timer reaches zero
@@ -290,7 +316,10 @@ class GameWindow(Screen):
 
         # Age the active one
         self.active_loot_notification["age_ms"] += dt_ms
-        if self.active_loot_notification["age_ms"] >= self.loot_notification_duration_ms:
+        if (
+            self.active_loot_notification["age_ms"]
+            >= self.loot_notification_duration_ms
+        ):
             self.active_loot_notification = None
 
     def _draw_loot_notification(self):
@@ -306,9 +335,7 @@ class GameWindow(Screen):
         # Rise a little as it fades (10px over the full duration)
         y_offset = int(progress * 10)
 
-        text_surf = self.loot_font.render(
-            notif["text"], True, (255, 236, 140)
-        )
+        text_surf = self.loot_font.render(notif["text"], True, (255, 236, 140))
         # Per-pixel alpha requires a scratch surface
         faded = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
         faded.blit(text_surf, (0, 0))
@@ -384,7 +411,9 @@ class GameWindow(Screen):
             self.inventory_scroll_offset = 0
             self.inventory_last_selected_index = self.engine.selected_index
             empty = self.font.render("Your inventory is empty.", True, (145, 150, 158))
-            hint = self.font.render("Pick up items to see them here.", True, (105, 112, 121))
+            hint = self.font.render(
+                "Pick up items to see them here.", True, (105, 112, 121)
+            )
             self.manager.screen.blit(empty, (rect.x + 16, rect.y + 52))
             self.manager.screen.blit(hint, (rect.x + 16, rect.y + 78))
             return
@@ -430,7 +459,7 @@ class GameWindow(Screen):
 
         # Loop through items and display them
         visible_items = items[
-            self.inventory_scroll_offset:self.inventory_scroll_offset + visible_count
+            self.inventory_scroll_offset : self.inventory_scroll_offset + visible_count
         ]
         for display_index, item in enumerate(visible_items):
             # If the row goes beyond the bottom of the panel, stop drawing more items
@@ -458,19 +487,25 @@ class GameWindow(Screen):
             item_icon = None
             if item.texture:
                 # Scale calculation because get_image uses Config.HEX_SIZE
-                raw_icon = self.assets.get_image(item.texture, scale=1.0) # get base scale
+                raw_icon = self.assets.get_image(
+                    item.texture, scale=1.0
+                )  # get base scale
                 if raw_icon:
                     # Resize to fit the inventory row exactly
                     item_icon = pygame.transform.scale(raw_icon, (icon_size, icon_size))
-            
+
             if item_icon:
                 self.manager.screen.blit(item_icon, icon_rect)
             else:
                 # Placeholder: A simple rounded box for items with no texture
                 placeholder_color = (60, 65, 75)
-                pygame.draw.rect(self.manager.screen, placeholder_color, icon_rect, border_radius=6)
-                pygame.draw.rect(self.manager.screen, row_border, icon_rect, 1, border_radius=6)
-                
+                pygame.draw.rect(
+                    self.manager.screen, placeholder_color, icon_rect, border_radius=6
+                )
+                pygame.draw.rect(
+                    self.manager.screen, row_border, icon_rect, 1, border_radius=6
+                )
+
                 letter = item.name[0].upper()
 
                 # Draw the letter in the center of the icon
@@ -481,11 +516,11 @@ class GameWindow(Screen):
             # Display item name, quantity, type, slot and equipped status
             # Offset text to the right of the icon
             text_x_offset = 60
-            
+
             # Hide quantity for equipment or for single items
             show_quantity = item.quantity > 1 and not item.is_equippable
             qty_text = f" x{item.quantity}" if show_quantity else ""
-            
+
             name = self.font.render(f"{item.name}{qty_text}", True, name_color)
             meta_bits = [item.type.title()]
             if item.is_equippable and item.slot:
@@ -494,8 +529,12 @@ class GameWindow(Screen):
                 meta_bits.append("Equipped")
             meta = self.font.render("  |  ".join(meta_bits), True, meta_color)
 
-            self.manager.screen.blit(name, (row_rect.x + text_x_offset, row_rect.y + 10))
-            self.manager.screen.blit(meta, (row_rect.x + text_x_offset, row_rect.y + 28))
+            self.manager.screen.blit(
+                name, (row_rect.x + text_x_offset, row_rect.y + 10)
+            )
+            self.manager.screen.blit(
+                meta, (row_rect.x + text_x_offset, row_rect.y + 28)
+            )
 
     # Right top of inventory page
     def _draw_equipment_summary(self, rect, player):
@@ -514,17 +553,17 @@ class GameWindow(Screen):
         # Loop through each equipment slot and display the equipped item or "--" if empty
         for slot_name in ("weapon", "armor"):
             equipped = player.equipment.get(slot_name)
-            
+
             label = "--"
             color = (120, 127, 135)
-            
+
             if equipped:
                 label = equipped.name
                 color = (186, 220, 198)
             elif slot_name == "weapon":
                 label = "(No Weapon Equipped)"
-                color = (255, 120, 120) # Red warning
-            
+                color = (255, 120, 120)  # Red warning
+
             slot_surf = self.font.render(
                 f"{slot_labels[slot_name]}: {label}",
                 True,
@@ -550,14 +589,20 @@ class GameWindow(Screen):
                 (
                     f"Durability {item.durability}/{item.max_durability}",
                     (169, 214, 205),
-                    None
+                    None,
                 )
             )
         if item.type == "food":
             if item.healing_amount > 0:
                 lines.append((f"{item.healing_amount}", (169, 214, 205), "Heart.png"))
             if item.hunger_restore > 0:
-                lines.append((f"{item.hunger_restore}", (169, 214, 205), "Food_Restaurant_Eating_Utensils_Plate_Fork_Knife.png"))
+                lines.append(
+                    (
+                        f"{item.hunger_restore}",
+                        (169, 214, 205),
+                        "Food_Restaurant_Eating_Utensils_Plate_Fork_Knife.png",
+                    )
+                )
         if item.weight > 1:
             lines.append((f"Weight {item.weight}", (169, 214, 205), None))
         if not lines:
@@ -640,12 +685,12 @@ class GameWindow(Screen):
         bottom_padding = 16
         line_height = 24
         icon_size = 20
-        
+
         for line, color, icon_file in self._selected_item_detail_lines(item):
             # If there's an icon we need to offset the text and draw the icon
             icon_img = None
             text_x = rect.x + 16
-            
+
             if icon_file:
                 # Load and scale icon
                 raw_img = self.assets.get_image(icon_file, scale=1.0)
@@ -653,21 +698,22 @@ class GameWindow(Screen):
                     icon_img = pygame.transform.scale(raw_img, (icon_size, icon_size))
                     text_x += icon_size + 6
 
-            for wrapped_line in self._wrap_text(line, self.font, max_text_width - (icon_size + 6 if icon_img else 0)):
+            for wrapped_line in self._wrap_text(
+                line, self.font, max_text_width - (icon_size + 6 if icon_img else 0)
+            ):
                 # If the next line would go beyond the bottom of the panel, stop drawing more lines
                 if line_y + line_height > rect.bottom - bottom_padding:
                     return
-                
+
                 # Draw icon on the first line of the wrapped text if applicable
                 if icon_img:
                     icon_y = line_y + (line_height - icon_size) // 2
                     self.manager.screen.blit(icon_img, (rect.x + 16, icon_y))
-                    icon_img = None # Only draw icon once per logical line
-                
+                    icon_img = None  # Only draw icon once per logical line
+
                 surf = self.font.render(wrapped_line, True, color)
                 self.manager.screen.blit(surf, (text_x, line_y))
                 line_y += line_height
-
 
     def _draw_ui(self):
         p = self.engine.world.player
@@ -675,7 +721,9 @@ class GameWindow(Screen):
             return
 
         # Simple Stat Bar
-        pygame.draw.rect(self.manager.screen, (30, 30, 30), (0, 0, Config.WINDOW_WIDTH, 40))
+        pygame.draw.rect(
+            self.manager.screen, (30, 30, 30), (0, 0, Config.WINDOW_WIDTH, 40)
+        )
 
         hp_text = self.font.render(f"HP: {p.hp}/{p.max_hp}", True, (255, 80, 80))
         hunger_text = self.font.render(
@@ -694,22 +742,24 @@ class GameWindow(Screen):
         self.manager.screen.blit(hunger_text, (150, 10))
         self.manager.screen.blit(dmg_text, (320, 10))
         if unarmed_warning:
-            self.manager.screen.blit(unarmed_warning, (320 + dmg_text.get_width() + 5, 10))
+            self.manager.screen.blit(
+                unarmed_warning, (320 + dmg_text.get_width() + 5, 10)
+            )
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
-        #Adding level box 
+        # Adding level box
         level = self.engine.world.current_level
 
         # Colors
         bg_color = (20, 20, 30)
-        border_color = (212, 175, 55)   # gold
+        border_color = (212, 175, 55)  # gold
         text_color = (255, 236, 140)
 
         # Box
         badge_rect = pygame.Rect(Config.WINDOW_WIDTH - 260, 45, 200, 50)
 
-        # Shadow 
+        # Shadow
         shadow_rect = badge_rect.move(3, 3)
         pygame.draw.rect(self.manager.screen, (0, 0, 0), shadow_rect, border_radius=12)
 
@@ -717,7 +767,9 @@ class GameWindow(Screen):
         pygame.draw.rect(self.manager.screen, bg_color, badge_rect, border_radius=12)
 
         # Border
-        pygame.draw.rect(self.manager.screen, border_color, badge_rect, 3, border_radius=12)
+        pygame.draw.rect(
+            self.manager.screen, border_color, badge_rect, 3, border_radius=12
+        )
 
         # Text
         level_text = self.font.render(f"LEVEL {level}", True, text_color)
@@ -729,31 +781,53 @@ class GameWindow(Screen):
         # Castle Progress HUD
         nearby_unconquered_castles = []
         for c in self.engine.world.castles:
-            if c.level == self.engine.world.current_level and c.is_spawned and not c.is_conquered:
+            if (
+                c.level == self.engine.world.current_level
+                and c.is_spawned
+                and not c.is_conquered
+            ):
                 if HexMath.distance(p.q, p.r, c.q, c.r) <= 8:
                     nearby_unconquered_castles.append(c)
-        
+
         if nearby_unconquered_castles:
             # Show progress for the first nearby castle
             target_castle = nearby_unconquered_castles[0]
-            
+
             total_monsters = len(target_castle.spawn_points)
-            alive_monsters = len([m for m in self.engine.world.monsters if m.castle_id == target_castle.id and m.is_alive()])
+            alive_monsters = len(
+                [
+                    m
+                    for m in self.engine.world.monsters
+                    if m.castle_id == target_castle.id and m.is_alive()
+                ]
+            )
             defeated_monsters = max(0, total_monsters - alive_monsters)
-            
-            progress_text = self.font.render(f"Castle: {defeated_monsters}/{total_monsters} Monsters Defeated", True, (255, 236, 140))
-            
+
+            progress_text = self.font.render(
+                f"Castle: {defeated_monsters}/{total_monsters} Monsters Defeated",
+                True,
+                (255, 236, 140),
+            )
+
             bar_w = max(300, progress_text.get_width() + 40)
             bar_h = 40
             bar_x = (Config.WINDOW_WIDTH - bar_w) // 2
             bar_y = 60
-            
+
             s = pygame.Surface((bar_w, bar_h), pygame.SRCALPHA)
             s.fill((0, 0, 0, 150))
             self.manager.screen.blit(s, (bar_x, bar_y))
-            pygame.draw.rect(self.manager.screen, (212, 175, 55), (bar_x, bar_y, bar_w, bar_h), 2, border_radius=4)
-            
-            t_rect = progress_text.get_rect(center=(bar_x + bar_w//2, bar_y + bar_h//2))
+            pygame.draw.rect(
+                self.manager.screen,
+                (212, 175, 55),
+                (bar_x, bar_y, bar_w, bar_h),
+                2,
+                border_radius=4,
+            )
+
+            t_rect = progress_text.get_rect(
+                center=(bar_x + bar_w // 2, bar_y + bar_h // 2)
+            )
             self.manager.screen.blit(progress_text, t_rect)
 
     # Inventory screen with 3 sections
@@ -767,8 +841,9 @@ class GameWindow(Screen):
 
         # Main panel
         p = self.engine.world.player
-        panel_x, panel_y = 200, 80
         panel_w, panel_h = Config.WINDOW_WIDTH - 400, Config.WINDOW_HEIGHT - 160
+        panel_x = Config.WINDOW_WIDTH // 2 - panel_w // 2
+        panel_y = Config.WINDOW_HEIGHT // 2 - panel_h // 2
         panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
         self._draw_panel_box(panel_rect, (22, 24, 29), (176, 182, 188), 3)
 

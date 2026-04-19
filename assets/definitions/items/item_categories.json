@@ -54,5 +54,12 @@
             "x_offset",
             "y_offset"
         ]
+    },
+    "ammo": {
+        "slot": "general",
+        "props": [
+            "weight",
+            "base_damage"
+        ]
     }
 }

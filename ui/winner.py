@@ -17,13 +17,14 @@ class Winner(Screen):
         super().__init__(manager)
     
         self.decoration_images = [
-            ('sprite1.png', 1295, 550, 0, 8),
-            ('Grass.png', 942, 491, -15, 2.6),
-            ('Grass_Pine.png', 200, 350, -15, 3.4),
-            ('Magic_Crystals.png', 270, 448, 20, 3.2),
-            ('FrosenWater_Lilypads.png', 140, 460, 10, 2.2),
-            ('Magic.png', 849, 474, -20, 1.9),
-            ('Snow_Trees.png', 913, 378, 15, 3.0)
+            # offsets relative to center (960, 540)
+            ('sprite1.png', 335, 10, 0, 8),
+            ('Grass.png', -18, -49, -15, 2.6),
+            ('Grass_Pine.png', -760, -190, -15, 3.4),
+            ('Magic_Crystals.png', -690, -92, 20, 3.2),
+            ('FrosenWater_Lilypads.png', -820, -80, 10, 2.2),
+            ('Magic.png', -111, -66, -20, 1.9),
+            ('Snow_Trees.png', -47, -162, 15, 3.0)
         ]
 
         self.buttons = self.create_buttons()
@@ -33,7 +34,7 @@ class Winner(Screen):
         button_height = 50
         button_width = 150
         button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30)
-        x = ((self.manager.width / 3) + 50) - (button_width / 2)
+        x = (self.manager.width / 2) - 270 - (button_width / 2)
         y = (self.manager.height / 2) - (button_height/ 2)
     
         # create the button
@@ -80,12 +81,15 @@ class Winner(Screen):
         font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
 
         text = font.render("Winner!", True, self.manager.text_color_green)
-        rect = text.get_rect(midtop=(1/4 * self.manager.width + 200, self.manager.height // 4)) # middle
+        rect = text.get_rect(midtop=(self.manager.width // 2 - 280, self.manager.height // 4)) # middle
         self.manager.screen.blit(source=text, dest=rect) 
         
+        center_x = self.manager.width // 2
+        center_y = self.manager.height // 2
+
         # images
-        for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+        for image_name, dx, dy, angle, scale in self.decoration_images:
+            self.draw_image(image_name, center_x + dx, center_y + dy, angle, scale)
 
         for button in self.buttons:
             button.draw(self.manager.screen)

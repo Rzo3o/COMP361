@@ -8,28 +8,27 @@ import ui.button
 from ui.base_screen import Screen
 
 # Constants
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # directory of this script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
+
 
 class Characters(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-     
-        self.decoration_images = [
-            # right
-            ('Snow_Trees.png', 1150, 49, -10, 2.8),
-            ('Grass_Pine.png', 1110, 183, 10, 2), 
-            ('Grass_Plants2.png',1210, 130, 0, 2.0),
 
-            # left
-            ('Grass.png', 328, 167, 15, 1.9),
-            ('Water_Duck.png', 437, 190, -10, 3.0),
-            ('Magic_Crystals.png', 400, 60, -10, 3.0),
+        self.decoration_images = [
+            ("Water_Duck.png", -365, 75, 5, 2.3999999999999995),
+            ("Grass.png", -410, 175, 20, 1.5999999999999996),
+            ("Grass_Pine.png", 309, 201, -15, 2.1),
+            ("Magic_Crystals.png", -290, 200, -15, 2.8),
+            ("Snow_Trees.png", 373, 76, 10, 2.4999999999999996),
+            ("Grass_Plants2.png", 470, 145, 25, 1.5999999999999996),
         ]
 
-        self.character_images = [ os.path.join("Archer", "Archer_Attack_1.png"),
-                                    os.path.join("Infantry", "Infantry_Attack_1.png"),
-                                    ]
-        
+        self.character_images = [
+            os.path.join("Archer", "Archer_Attack_1.png"),
+            os.path.join("Infantry", "Infantry_Attack_1.png"),
+        ]
+
         self.button_names = ["character_1", "character_2"]
         self.buttons = self.create_buttons()
 
@@ -46,14 +45,14 @@ class Characters(Screen):
             if action and action.startswith("character"):
                 print(f"Button action: {action}")
                 selected_character = int(action.split("_")[1])
-                # character selection 
+                # character selection
                 print(f"Selected character: {selected_character}")
-                
+
                 if selected_character == 1:
                     self.manager.selected_character = "archer"
                 else:
                     self.manager.selected_character = "warrior"
-                    
+
                 self.manager.switch_screen("game_window")
 
     def create_buttons(self):
@@ -62,20 +61,20 @@ class Characters(Screen):
         button_height = 45
         button_width = 250
         button_font = pygame.font.Font(
-            os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'),
-            size=30
+            os.path.join(BASE_DIR, "..", "assets", "fonts", "Jersey10-Regular.ttf"),
+            size=30,
         )
 
         # GRID SETTINGS
-        cols = 2      # Balanced for 2 characters
-        rows = 1      # Only one row needed
-        gap_x = 400   # slightly wider spacing
-        gap_y = 300   # vertical spacing
+        cols = 2  # Balanced for 2 characters
+        rows = 1  # Only one row needed
+        gap_x = 400  # slightly wider spacing
+        gap_y = 300  # vertical spacing
 
         # Starting point (center the whole grid)
         grid_width = (cols - 1) * gap_x
         start_x = self.manager.width // 2 - grid_width // 2
-        start_y = int(self.manager.height * 0.65)   # moved grid lower on the screen
+        start_y = int(self.manager.height * 0.65)  # moved grid lower on the screen
 
         for index, button_name in enumerate(self.button_names):
             row = index // cols
@@ -108,22 +107,28 @@ class Characters(Screen):
         Input: None
         Output: None
         """
-        self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
+        self.manager.screen.fill(
+            self.manager.bg_color
+        )  # fill covers the previous screen
 
         # text
         pygame.font.init()
-        font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=150)
+        font = pygame.font.Font(
+            os.path.join(BASE_DIR, "..", "assets", "fonts", "Jersey10-Regular.ttf"),
+            size=150,
+        )
 
         text = font.render("CHARACTERS", True, self.manager.text_color_green)
         position = self.manager.width // 2, 130
-        rect = text.get_rect(center=position) 
-        self.manager.screen.blit(source=text, dest=rect) 
-        
-        # title images
-        for image_name, x, y, angle, scale in self.decoration_images:
-            self.draw_image(image_name, x, y, angle, scale)
+        rect = text.get_rect(center=position)
+        self.manager.screen.blit(source=text, dest=rect)
 
-        #character images
+        # title images
+        center_x = self.manager.width // 2
+        for image_name, dx, dy, angle, scale in self.decoration_images:
+            self.draw_image(image_name, center_x + dx, dy, angle, scale)
+
+        # character images
         # character images directly above buttons
         vertical_offset = 90  # perfect for 150px characters + 45px buttons
 
@@ -140,7 +145,7 @@ class Characters(Screen):
         """
         draw image on the screen
         Inputs:
-            image_name(str): name of the image file 
+            image_name(str): name of the image file
             x(int): x position
             y(int): y position
             angle(int): rotation angle in degrees
@@ -148,18 +153,29 @@ class Characters(Screen):
         Output: None
         """
         # path
-        hex_image_path = os. path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)
+        hex_image_path = os.path.join(
+            BASE_DIR, "..", "assets", "assetBank", "Hex Tiles", image_name
+        )
         image = pygame.image.load(hex_image_path)
-        
+
         # adjust image
         original_w, original_h = image.get_size()
-        scaled_image = pygame.transform.scale(image, (int(original_w * scale), int(original_h * scale)))
+        scaled_image = pygame.transform.scale(
+            image, (int(original_w * scale), int(original_h * scale))
+        )
         rotated_image = pygame.transform.rotate(scaled_image, angle)
         rect = rotated_image.get_rect(center=(x, y))
         self.manager.screen.blit(rotated_image, rect)
 
     def draw_character(self, image_name, x, y):
-        path = os.path.join(BASE_DIR, "..", "assets", "assetBank", "Classic China Characters", image_name)
+        path = os.path.join(
+            BASE_DIR,
+            "..",
+            "assets",
+            "assetBank",
+            "Classic China Characters",
+            image_name,
+        )
         image = pygame.image.load(path).convert_alpha()
 
         # Find the actual sprite content to ignore transparent padding at the bottom/sides
@@ -169,7 +185,7 @@ class Characters(Screen):
             # Crop to the active area
             image = image.subsurface(content_rect)
 
-        # Scale to a consistent height (200px) so both characters 
+        # Scale to a consistent height (200px) so both characters
         # look the same size regardless of the orginal sprite
         target_height = 200
         aspect_ratio = image.get_width() / image.get_height()
@@ -180,5 +196,3 @@ class Characters(Screen):
         rect = image.get_rect(midbottom=(x, y - 15))
 
         self.manager.screen.blit(image, rect)
-
-                
