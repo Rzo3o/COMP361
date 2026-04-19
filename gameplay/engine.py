@@ -65,8 +65,13 @@ class GameEngine:
 
         if player is None:
             return "NO_PLAYER"
+        
         if player.dead:
-            return "GAME_OVER"
+            if player.hearts <= 0:
+                return "GAME_OVER"
+            
+            else:
+                return "TURN_TAKEN"
 
         # --- Inventory screen controls ---
         if self.show_inventory:
@@ -404,7 +409,7 @@ class GameEngine:
         if player is None:
             return "NO_PLAYER"
 
-        if player.dead:
+        if player.dead and player.hearts <= 0:
             return "GAME_OVER"
 
         if player.hunger > 0:
@@ -418,14 +423,25 @@ class GameEngine:
         if player.hp <= 0:
             player.hp = 0
             player.dead = True
+            player.hearts -= 1
 
-            if hasattr(player, "death_count"):
-                player.death_count += 1
+            if player.hearts <= 0:
+                player.hearts = 0
+                if not self._safe_save_player(player):
+                    return "SAVE_ERROR"
+                return "GAME_OVER"
+            
+            #If still has hearts left
+            spawn = self.db.get_spawn_for_level(self.world.current_level)
+            if spawn:
+                player.q, player.r = spawn
+                player.hp = player.max_hp
+                player.dead = False
+                
+                if not self._safe_save_player(player):
+                    return "SAVE_ERROR"
 
-            if not self._safe_save_player(player):
-                return "SAVE_ERROR"
-
-            return "GAME_OVER"
+                return "RESPAWN"
 
         if not self._safe_save_player(player):
             return "SAVE_ERROR"
@@ -497,6 +513,10 @@ class GameEngine:
 
         if result == "GAME_OVER":
             return "GAME_OVER"
+        
+        if result == "SAVE_ERROR":
+            print("Can't save the player state")
+            return "SAVE_ERROR"
 
         if result != "TURN_TAKEN":
             return "NO_ACTION"
@@ -506,17 +526,23 @@ class GameEngine:
         game_state = self.update()
         if game_state == "GAME_OVER":
             return "GAME_OVER"
+        
+        if game_state == "RESPAWN":
+            return "RESPAWN"
+        
+        if game_state == "SAVE_ERROR":
+            print("Can't save the player state")
+            return "SAVE_ERROR"
 
         if self.check_level_completed():
             if self.world.current_level == self.world.get_max_level():
                 return "WIN"
-
+            
             unlocked = self.world.unlock_next_level()
-            self.level_up_sound.play()
-            self.world.player.increase_player_hp(50)
-            # print("current level:", self.world.current_level, "max level:", self.world.get_max_level())
-            # if unlocked:
-            #    self.start_time = time.time()
+            
+            if unlocked:
+                self.level_up_sound.play()
+                self.world.player.increase_player_hp(50)
 
         self._save_all_monsters()
         return "TURN_DONE"
@@ -546,6 +572,4 @@ class GameEngine:
                 if m.level == self.world.current_level and m.is_alive()
             ]
             return len(current_level_monsters) == 0
-
-        # return (time.time() - self.start_time > 10 and self.world.current_level < self.world.get_max_level())
 

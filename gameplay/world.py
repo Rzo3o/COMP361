@@ -19,6 +19,7 @@ from gameplay.resource_lock import (
     ground_resource_id,
     inventory_resource_id,
 )
+from gameplay.assistant import Assistant
 
 
 class World:
@@ -40,6 +41,7 @@ class World:
         self.session_id = session_id
         self.tiles = {}  # {(q,r): Tile}
         self.monsters = []
+        self.assistants = []
         self.ground_items = []
         self.chests = []
         self.castles = []
@@ -145,16 +147,23 @@ class World:
     def load_monsters(self):
         """Load all alive monsters from DB and equip their saved gear."""
         self.monsters = []
+        self.assistants = []
         rows = self.db.load_monsters()
+
+        FRIENDLY_NAMES = [
+            "warrior_assistant.json",
+            "warrior_assistant"
+        ]
+        
         for data in rows:
-            monster = MonsterFactory.create_monster(data)
-            # Equip saved items for each slot
-            for slot_name in ("weapon", "armor"):
-                item_data = data.get(f"{slot_name}_item")
-                if item_data:
-                    item = Item(item_data)
-                    monster.equip(item)
-            self.monsters.append(monster)
+            name = data.get("name", "")
+            
+            if name in FRIENDLY_NAMES:
+                entity = Assistant(data)
+                self.assistants.append(entity)
+            else:
+                entity = MonsterFactory.create_monster(data)
+                self.monsters.append(entity)
 
     def load_ground_items(self):
         """Load all items placed on the ground."""
@@ -322,6 +331,11 @@ class World:
             if m.is_alive() and m.q == q and m.r == r:
                 return False
 
+        # check if there is a assistant in the tile
+        for a in getattr(self, "assistants", []):
+            if a.is_alive() and a.q == q and a.r == r:
+                return False
+            
         # chests block movement (players and monsters)
         for chest in self.chests:
             if chest.q == q and chest.r == r:

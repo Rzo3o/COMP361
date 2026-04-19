@@ -1,0 +1,35 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Warrior_Idle.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 8
+        },
+        "move": {
+            "texture": "Warrior_Run.png",
+            "fw": 192,
+            "fh": 168,
+            "count": 6
+        },
+        "attack": {
+            "texture": "Warrior_Attack1.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 4
+        },
+        "die": {
+            "texture": "Dust_02.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        }
+    },
+    "scale": 0.6348360655737705,
+    "x_shift": 0,
+    "y_shift": -33,
+    "category": "monster",
+    "name": "warrior_assistant.json",
+    "default_health": 50,
+    "default_damage": 10
+}

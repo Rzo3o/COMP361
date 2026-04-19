@@ -397,12 +397,19 @@ class Monster(Entity):
         if not self.is_alive():
             return {"id": self.id, "action": "dead"}
 
+        target = self._get_best_target(world, player)
+        if not target:
+            # If no one is around to fight, just wander or stay idle
+            if random.random() < self.ai.wander_chance:
+                self.wander(world.is_passable)
+            return {"id": self.id, "action": "idle_no_target"}
+        
         # Tick cooldowns
         if self._attack_cd_remaining > 0:
             self._attack_cd_remaining -= 1
 
-        # Detect player
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        # Detect both player and assistants
+        dist = super().hex_distance(self.q, self.r, target.q, target.r)
         seen = dist <= self.ai.vision_range
 
         if seen:
@@ -417,10 +424,10 @@ class Monster(Entity):
         # If aggro: attack if in range, else move closer
         if self.aggro:
             if dist <= self.ai.attack_range and self.can_attack():
-                did = self.attack_player(player)
+                did = self.attack_player(target)
                 return {"id": self.id, "action": "attack", "did": did, "dist": dist}
 
-            moved = self.move_towards_player(player, world.is_passable)
+            moved = self.move_towards_player(target, world.is_passable)
             if moved:
                 return {"id": self.id, "action": "chase_move", "dist": dist}
 
@@ -445,6 +452,11 @@ class Monster(Entity):
         - hit: plays once, then optionally chains into queued attack
         - die: plays once, then stays on last frame and marks monster removable
         """
+        if getattr(self, "damage_flash_timer", 0) > 0:
+            self.damage_flash_timer -= 1
+        if getattr(self, "poison_flash_timer", 0) > 0:
+            self.poison_flash_timer -= 1
+
         animations = self.data.get("animations", {})
         anim_cfg = animations.get(self.anim_state) or animations.get("idle")
 
@@ -570,6 +582,25 @@ class Monster(Entity):
             self.anim_tick = 0
             self.anim_progress = 0.0
 
+    def _get_best_target(self, world, player):
+        """Find the closest alive enemy (Player or Assistant)."""
+        # Start with the player as the default potential target
+        potential_targets = []
+        if player and not getattr(player, 'dead', False):
+            potential_targets.append(player)
+            
+        # Add all alive assistants from the world
+        if hasattr(world, "assistants"):
+            for assistant in world.assistants:
+                if assistant.is_alive():
+                    potential_targets.append(assistant)
+        
+        if not potential_targets:
+            return None
+            
+        # Return the target with the minimum hex distance
+        return min(potential_targets, key=lambda t: self.hex_distance(self.q, self.r, t.q, t.r))
+
 class DashMonster(Monster):
     """
     Extended Monster class for entities with Dash and Stun mechanics 
@@ -608,6 +639,10 @@ class DashMonster(Monster):
         self._cached_world = world
         self._cached_player = player
 
+        target = self._get_best_target(world, player)
+        if not target:
+            return {"action": "idle"}
+        
         # Intercept if stunned
         if self.is_stunned:
             return {"id": self.id, "action": "stunned"}
@@ -628,11 +663,11 @@ class DashMonster(Monster):
         if self.dash_cd_remaining > 0:
             self.dash_cd_remaining -= 1
 
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, target.q, target.r)
         
         # Check for dash opportunity
         if (dist <= self.ai.vision_range or self.aggro) and self.dash_cd_remaining <= 0 and 2 <= dist <= 6:
-            dash_dir = self._get_dash_axis(player)
+            dash_dir = self._get_dash_axis(target)
             
             if dash_dir:
                 # Raycast to ensure the initial path is clear of walls
@@ -687,7 +722,6 @@ class DashMonster(Monster):
             if self.anim_tick >= frame_count:
                 self.is_charging = False
                 self.is_dashing = True
-                
                 
                 self._continue_dash() 
             return 
@@ -745,12 +779,22 @@ class DashMonster(Monster):
         next_q = self.q + self.dash_dir[0]
         next_r = self.r + self.dash_dir[1]
 
-        # Hit player
+        # Identify if the next tile is a Primary Target (Player or Assistant)
+        target_hit = None
         if next_q == player.q and next_r == player.r:
-            player.take_damage(self.damage * 2) # Double the damage
-            self._stop_dash()
-            return
+            target_hit = player
+        elif hasattr(world, "assistants"):
+            for a in world.assistants:
+                if a.is_alive() and a.q == next_q and a.r == next_r:
+                    target_hit = a
+                    break
 
+        # If we hit a Primary Target: Double damage, STOP, but NO STUN
+        if target_hit:
+            target_hit.take_damage(self.damage * 2) 
+            self._stop_dash() # Just reset state and start recovery timer
+            return
+        
         # Hit wall or another monster
         if not world.is_passable(next_q, next_r):
             target_monster = None
@@ -832,8 +876,6 @@ class SlimeMonster(Monster):
 
         if not world or not player:
             return
-
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
         
         # Determine explosion properties based on slime name
         radius = 1
@@ -860,14 +902,27 @@ class SlimeMonster(Monster):
         # Explosion deals 1.5x base damage
         explosion_damage = int(self.damage * 1.5)
         
+        dist_p = super().hex_distance(self.q, self.r, player.q, player.r)
         # Check if player is caught in the blast radius
-        if dist <= radius:
+        if dist_p <= radius:
             player.take_damage(explosion_damage)
             
             if is_poisonous:
                 # Apply poison effect (3 turns, 2 damage per turn)
                 if hasattr(player, "apply_poison"):
                     player.apply_poison(turns=5, damage_per_turn=3)
+
+        # Damage and Poison Assistants
+        if hasattr(world, "assistants"):
+            for asst in world.assistants:
+                if asst.is_alive():
+                    dist_a = super().hex_distance(self.q, self.r, asst.q, asst.r)
+                    if dist_a <= radius:
+                        asst.take_damage(explosion_damage)
+                        # Assistants use the same poison logic as player
+                        if is_poisonous and hasattr(asst, "apply_poison"):
+                            asst.apply_poison(turns=5, damage_per_turn=3)
+                            
         if hasattr(world, "monsters"):
             for m in world.monsters:
                 if m != self and m.is_alive():
@@ -950,9 +1005,19 @@ class LinearProjectile(Monster):
         next_q = self.q + self.direction[0]
         next_r = self.r + self.direction[1]
 
-        # Target player found
+        target_hit = None
+
+        # Check collision with Player or Assistants
         if next_q == player.q and next_r == player.r:
-            self.pending_impact_target = player
+            target_hit = player
+        elif hasattr(world, "assistants"):
+            for a in world.assistants:
+                if a.is_alive() and a.q == next_q and a.r == next_r:
+                    target_hit = a
+                    break
+
+        if target_hit:
+            self.pending_impact_target = target_hit
             self.start_move(next_q, next_r)
             return
 
@@ -1046,13 +1111,16 @@ class LinearShooterMonster(Monster):
         self._cached_world = world
         self._cached_player = player
 
+        target = self._get_best_target(world, player)
+        if not target: return {"action": "idle"}
+
         if self._attack_cd_remaining > 0:
             self._attack_cd_remaining -= 1
 
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        dist = super().hex_distance(self.q, self.r, target.q, target.r)
         
         if dist <= self.ai.vision_range and self._attack_cd_remaining <= 0:
-            direction = self._get_attack_axis(player)
+            direction = self._get_attack_axis(target)
 
             if direction:
                 # Line of Sight
@@ -1159,12 +1227,17 @@ class StumpSpawn(Monster):
         if not world or not player: return
 
         self.steps_taken += 1
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+
+        # Find the best target to track
+        target = self._get_best_target(world, player)
+        if not target: return
+        dist = super().hex_distance(self.q, self.r, target.q, target.r)
 
         # Impact condition: Adjacent to player or lifetime ends
         if dist <= 1:
             self.pending_impact = True
-            self.start_move(player.q, player.r)
+            self.pending_impact_target = target 
+            self.start_move(target.q, target.r)
             return
 
         if self.steps_taken >= self.lifetime:
@@ -1172,9 +1245,9 @@ class StumpSpawn(Monster):
             return
 
         # Use BFS to find the smart path around obstacles
-        next_step = self._find_path_next_step(player.q, player.r, world.is_passable)
+        next_step = self._find_path_next_step(target.q, target.r, world.is_passable)
         
-        if next_step and next_step != (player.q, player.r):
+        if next_step and next_step != (target.q, target.r):
             self.start_move(next_step[0], next_step[1])
         else:
             # If no path found, just blow up
@@ -1184,9 +1257,9 @@ class StumpSpawn(Monster):
         # --- Death / Explosion Logic ---
         if self.anim_state == "die":
             if self.pending_impact and not self.has_dealt_damage:
-                player = getattr(self, "_cached_player", None)
-                if player: 
-                    player.take_damage(self.base_damage)
+                target = getattr(self, "pending_impact_target", None)
+                if target and target.is_alive(): 
+                    target.take_damage(self.damage) 
                 self.has_dealt_damage = True 
                 
             self.anim_progress += self.anim_speeds.get("die", 0.5)
@@ -1236,9 +1309,12 @@ class StumpMonster(Monster):
         if self._attack_cd_remaining > 0:
             self._attack_cd_remaining -= 1
 
-        dist = super().hex_distance(self.q, self.r, player.q, player.r)
+        target = self._get_best_target(world, player)
+        if not target: return super().decide_and_act(world, player)
+
+        dist = super().hex_distance(self.q, self.r, target.q, target.r)
         
-        # Summon if player is in range (don't need line of sight!)
+        # Summon if player and assistant is in range (don't need line of sight!)
         if dist <= self.ai.vision_range and self._attack_cd_remaining <= 0:
             self._attack_cd_remaining = self.ai.attack_cooldown_turns
             self.set_anim_state("attack", reset_frame=True)

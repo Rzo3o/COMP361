@@ -15,6 +15,7 @@ class Player(Entity):
         self.max_hunger = data.get("max_hunger", 100)
         self.xp = data.get("experience", 0)
         self.dead = False
+        self.hearts = data.get("hearts", 3) 
 
         # Base stats (without equipment)
         self.base_damage = 5
@@ -201,7 +202,7 @@ class Player(Entity):
         self.hp -= reduced
 
         self.damage_flash_timer = 3
-        if self.hp <= 0:
+        if self.hp <= 0 and self.hearts <= 0:
             self.hp = 0
             self.dead = True
         return reduced

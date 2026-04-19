@@ -44,3 +44,11 @@ class HexMath:
     @staticmethod
     def distance(q1, r1, q2, r2):
         return (abs(q1 - q2) + abs(q1 + r1 - q2 - r2) + abs(r1 - r2)) / 2
+
+    @staticmethod
+    def get_neighbors(q, r):
+        directions = [
+            (1, 0), (1, -1), (0, -1),
+            (-1, 0), (-1, 1), (0, 1)
+        ]
+        return [(q + dq, r + dr) for dq, dr in directions]
