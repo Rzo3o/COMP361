@@ -29,11 +29,16 @@ class GameWindow(Screen):
             sid = self.db.create_session(1, char_type=char_type)
             
             # Add and equip starting weapon
-            weapon_name = "test_bow" if char_type == "archer" else "wooden_sword"
+            weapon_name = "basic_bow" if char_type == "archer" else "basic_sword"
             weapon_id = self.db.get_or_create_item(weapon_name)
             if weapon_id:
                 self.db.add_item(sid, weapon_id, quantity=1)
                 self.db.toggle_equip(sid, weapon_id)
+
+            if char_type == "archer":
+                # Give the archer some starting arrows
+                arrow_id = self.db.get_or_create_item("arrow")
+                self.db.add_item(sid, arrow_id, quantity=99)
 
         if selected_skin:
             self.db.cursor.execute("UPDATE player_state SET texture_file=? WHERE session_id=1", (selected_skin,))
