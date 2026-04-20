@@ -750,7 +750,7 @@ class GameWindow(Screen):
         self.manager.screen.blit(hunger_text, (150, 10))
         self.manager.screen.blit(dmg_text, (320, 10))
         if unarmed_warning:
-            self.manager.screen.blit(unarmed_warning, (320 + dmg_text.get_width() + 5, 10))
+            self.manager.screen.blit(unarmed_warning, (550 + dmg_text.get_width() + 5, 10))
         self.manager.screen.blit(def_text, (420, 10))
         self.manager.screen.blit(loc_text, (Config.WINDOW_WIDTH - 100, 10))
 
