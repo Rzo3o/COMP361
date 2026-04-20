@@ -8,8 +8,6 @@ Design patterns in this file:
   - Flyweight: chest JSON definitions are loaded once per type and shared
     across every Chest instance of that type via the class-level
     `_definitions` cache.
-  - Finite state machine: `anim_state` transitions idle -> opening
-    -> (despawn). Each tick of update_animation drives the FSM.
   - Data-driven entity: all timings, frame counts, and sprite rows come
     from the JSON definition, never hard-coded in the class.
 """
@@ -27,7 +25,7 @@ class Chest:
         1. Spawned (by spawn_demo_chest or engine.drop_monster_loot).
         2. Animates its 'idle' row on a loop.
         3. Player presses INTERACT adjacent to it -> open_chest() is
-           called, which transitions the FSM to 'opening'.
+           called, which transitions the state to 'opening'.
         4. Opening animation plays once, holds on the last frame.
         5. After `despawn_delay_ticks` idle ticks post-completion, the
            `remove_after_open` flag flips True and the game window loop
@@ -43,17 +41,7 @@ class Chest:
     _definitions = {}
 
     def __init__(self, q, r, chest_type="brown_chest", items=None):
-        """Create a chest at axial coordinates (q, r).
-
-        Args:
-            q, r: Axial hex coordinates.
-            chest_type: Name of a JSON definition file in
-                Config.DIRS["chest"] (without the .json extension).
-            items: Optional list of Item instances to award on open.
-                Defaults to an empty list (a decorative empty chest is
-                valid, though the engine's drop_monster_loot guard
-                prevents spawning one from loot rolls).
-        """
+        """Create a chest at axial coordinates (q, r)."""
         self.q = q
         self.r = r
         self.chest_type = chest_type
@@ -123,9 +111,9 @@ class Chest:
         return True
 
     def update_animation(self, _asset_manager=None):
-        """Advance the animation FSM by one tick.
+        """Advance the animation by one tick.
 
-        Called once per animation frame (~20 Hz) from GameWindow.update.
+        Called once per animation frame from GameWindow.update.
         """
         anim_cfg = self.animations.get(self.anim_state)
         if not anim_cfg:
