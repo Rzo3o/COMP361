@@ -471,8 +471,30 @@ class GameEngine:
                     )
                     print(f"Castle {castle.id} Conquered!")
 
+                    self.spawn_assistant_reward(castle)
+
         return "UPDATED"
 
+    def spawn_assistant_reward(self, castle):
+        """When the castle is conquered, a assistant will be generated beside the castle as a reward"""
+        spawn_q, spawn_r = castle.q, castle.r
+        
+        # Find a free space to spawn
+        directions = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        for dq, dr in directions:
+            nq, nr = castle.q + dq, castle.r + dr
+            if self.world.is_passable(nq, nr):
+                spawn_q, spawn_r = nq, nr
+                break
+                
+        self.db.add_monster(
+            "warrior_assistant",  
+            spawn_q, spawn_r, 
+            100, 10, castle.level 
+        )
+        
+        self.world.load_monsters()
+                
     def process_monster_turns(self):
         """
         Run one monster turn for all alive monsters after the player takes a turn.

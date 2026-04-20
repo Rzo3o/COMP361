@@ -1,9 +1,26 @@
+import os
+import json
 from core.hexmath import HexMath
 from gameplay.monster import Monster
 
 class Assistant(Monster):
     def __init__(self, data, ai=None):
-        super().__init__(data, ai)
+        # Attempt to load the dedicated JSON file
+        name = data.get("name", "warrior_assistant")
+        base_name = name[:-5] if name.endswith(".json") else name
+        json_path = os.path.join("assets", "definitions", "monsters", f"{base_name}.json")
+        
+        base_data = {}
+        if os.path.exists(json_path):
+            with open(json_path, "r") as f:
+                base_data = json.load(f)
+        else:
+            print(f"[Warning] Assistant JSON not found at: {json_path}")
+
+        # Merge dynamic DB data into the JSON template
+        base_data.update(data)
+
+        super().__init__(base_data, ai)
         
         self.vision_range = 4
         self.attack_range = 1  
