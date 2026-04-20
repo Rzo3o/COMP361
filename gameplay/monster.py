@@ -404,6 +404,11 @@ class Monster(Entity):
                 self.wander(world.is_passable)
             return {"id": self.id, "action": "idle_no_target"}
         
+        if target.q > self.q:
+            self.flip_x = True
+        elif target.q < self.q:
+            self.flip_x = False
+            
         # Tick cooldowns
         if self._attack_cd_remaining > 0:
             self._attack_cd_remaining -= 1

@@ -106,6 +106,7 @@ class Assistant(Monster):
         # State Execution
         if self.ai_state == "RETURN":
             # Ignore combat, run back to player
+            self.flip_x = (player.q < self.q)
             self.move_towards_player(player, world.is_passable)
             return  
 
@@ -129,6 +130,7 @@ class Assistant(Monster):
         if self.ai_state == "FOLLOW":
             if dist_to_player > 2:
                 # Catch up to player
+                self.flip_x = (player.q < self.q)
                 self.move_towards_player(player, world.is_passable)
             else:
                 # Close enough, just wait (Idle)

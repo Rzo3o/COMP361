@@ -303,10 +303,6 @@ class GameWindow(Screen):
 
                 # Trigger monster AI decision if timer reaches zero
                 if monster.rt_action_timer <= 0:
-                    if player.q > monster.q:
-                        monster.flip_x = True
-                    elif player.q < monster.q:
-                        monster.flip_x = False
 
                     monster.decide_and_act(self.engine.world, player)
                     monster.rt_action_timer = random.randint(30, 40)
