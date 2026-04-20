@@ -150,7 +150,9 @@ class World:
 
         FRIENDLY_NAMES = [
             "warrior_assistant.json",
-            "warrior_assistant"
+            "warrior_assistant",
+            "archer_assistant.json",
+            "archer_assistant"
         ]
         
         # Extract currently existing entities in memory

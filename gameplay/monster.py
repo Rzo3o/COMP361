@@ -118,7 +118,7 @@ class Monster(Entity):
         self.anim_progress = 0.0  
         self.anim_speeds = {
             "idle": 0.2,
-            "move": 0.3,
+            "move": 0.5,
             "attack": 0.7,  
             "hit": 0.5,     
             "die": 0.5      
@@ -408,7 +408,7 @@ class Monster(Entity):
             self.flip_x = True
         elif target.q < self.q:
             self.flip_x = False
-            
+
         # Tick cooldowns
         if self._attack_cd_remaining > 0:
             self._attack_cd_remaining -= 1

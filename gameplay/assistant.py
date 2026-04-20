@@ -23,7 +23,10 @@ class Assistant(Monster):
         super().__init__(base_data, ai)
         
         self.vision_range = 4
-        self.attack_range = 1  
+        if "archer" in base_name:
+            self.attack_range = 3
+        else:
+            self.attack_range = 1 
         self.is_friendly = True
         self.damage_flash_timer = 0
         self.poison_flash_timer = 0
