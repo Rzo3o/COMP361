@@ -436,6 +436,7 @@ class GameEngine:
             if spawn:
                 player.q, player.r = spawn
                 player.hp = player.max_hp
+                player.hunger = player.max_hunger
                 player.dead = False
                 
                 if not self._safe_save_player(player):
