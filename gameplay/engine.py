@@ -141,9 +141,6 @@ class GameEngine:
                     if not self._safe_save_player(player):
                         return "SAVE_ERROR"
 
-                    if not monster.is_alive():
-                        self.drop_monster_loot(monster)
-
                     print(f"Player attacked {monster.name} for {damage} damage")
                     return "TURN_TAKEN"
 
