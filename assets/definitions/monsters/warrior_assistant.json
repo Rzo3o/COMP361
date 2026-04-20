@@ -32,10 +32,4 @@
     "name": "warrior_assistant.json",
     "default_health": 50,
     "default_damage": 10
-    ,
-    "drops": [
-        "iron_sword",
-        "chainmail",
-        "knight_plate"
-    ]
 }
