@@ -146,8 +146,6 @@ class World:
 
     def load_monsters(self):
         """Load all alive monsters from DB and equip their saved gear."""
-        self.monsters = []
-        self.assistants = []
         rows = self.db.load_monsters()
 
         FRIENDLY_NAMES = [
@@ -155,15 +153,33 @@ class World:
             "warrior_assistant"
         ]
         
+        # Extract currently existing entities in memory
+        existing_monsters = {m.id: m for m in self.monsters if getattr(m, 'id', None) is not None}
+        existing_assistants = {a.id: a for a in self.assistants if getattr(a, 'id', None) is not None}
+
+        # Clear the old lists in preparation for reloading from the database.
+        self.monsters = []
+        self.assistants = []
+
         for data in rows:
             name = data.get("name", "")
+            entity_id = data.get("id")
             
             if name in FRIENDLY_NAMES:
-                entity = Assistant(data)
-                self.assistants.append(entity)
+                # If this assistant is already in memory, reuse the existing object.
+                if entity_id in existing_assistants:
+                    self.assistants.append(existing_assistants[entity_id])
+                else:
+                    entity = Assistant(data)
+                    self.assistants.append(entity)
             else:
-                entity = MonsterFactory.create_monster(data)
-                self.monsters.append(entity)
+                # If this monster is already in memory, reuse the existing object.
+                if entity_id in existing_monsters:
+                    self.monsters.append(existing_monsters[entity_id])
+                else:
+                    # If it's a newly spawned monster (e.g., from a castle), create it.
+                    entity = MonsterFactory.create_monster(data)
+                    self.monsters.append(entity)
 
     def load_ground_items(self):
         """Load all items placed on the ground."""
