@@ -1,0 +1,35 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Archer_Idle_R.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 6
+        },
+        "move": {
+            "texture": "Archer_Run_R.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 4
+        },
+        "attack": {
+            "texture": "Archer_Shoot_R.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 8
+        },
+        "die": {
+            "texture": "Dust_02.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        }
+    },
+    "scale": 0.6645491803278688,
+    "x_shift": 0,
+    "y_shift": -32,
+    "category": "monster",
+    "name": "archer_assistant.json",
+    "default_health": 50,
+    "default_damage": 10
+}
