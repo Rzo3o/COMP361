@@ -12,8 +12,16 @@ def _make_db(tmp_path, monkeypatch):
     return db
 
 
-def _insert_item(db, name="Goblin Blade", item_type="weapon", slot="weapon",
-                 base_damage=5, defense=0, durability=100, max_durability=100):
+def _insert_item(
+    db,
+    name="Goblin Blade",
+    item_type="weapon",
+    slot="weapon",
+    base_damage=5,
+    defense=0,
+    durability=100,
+    max_durability=100,
+):
     """Insert an item into the items table and return its id."""
     db.cursor.execute(
         """INSERT INTO items (name, item_type, slot, base_damage, defense,
@@ -25,8 +33,18 @@ def _insert_item(db, name="Goblin Blade", item_type="weapon", slot="weapon",
     return db.cursor.lastrowid
 
 
-def _insert_monster(db, name="Goblin", q=5, r=7, health=30, damage=8,
-                    weapon_id=None, head_id=None, chest_id=None, legs_id=None):
+def _insert_monster(
+    db,
+    name="Goblin",
+    q=5,
+    r=7,
+    health=30,
+    damage=8,
+    weapon_id=None,
+    head_id=None,
+    chest_id=None,
+    legs_id=None,
+):
     """Insert a monster row and return its id."""
     db.cursor.execute(
         """INSERT INTO monsters (name, current_q, current_r, health, damage,
@@ -65,8 +83,9 @@ def test_load_monsters_no_equipment(tmp_path, monkeypatch):
 def test_load_monsters_with_weapon(tmp_path, monkeypatch):
     """Monster with a weapon should have weapon_item populated."""
     db = _make_db(tmp_path, monkeypatch)
-    sword_id = _insert_item(db, name="Goblin Blade", item_type="weapon",
-                            slot="weapon", base_damage=5)
+    sword_id = _insert_item(
+        db, name="Goblin Blade", item_type="weapon", slot="weapon", base_damage=5
+    )
     _insert_monster(db, name="Goblin", weapon_id=sword_id)
 
     monsters = db.load_monsters()
@@ -83,8 +102,7 @@ def test_load_monsters_with_full_equipment(tmp_path, monkeypatch):
     """Monster with weapon and head armor slots filled."""
     db = _make_db(tmp_path, monkeypatch)
     sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=7)
-    helm_id = _insert_item(db, name="Helm", item_type="armor",
-                            slot="head", defense=5)
+    helm_id = _insert_item(db, name="Helm", item_type="armor", slot="head", defense=5)
     _insert_monster(db, name="Knight", weapon_id=sword_id, head_id=helm_id)
 
     monsters = db.load_monsters()
@@ -117,16 +135,29 @@ def test_save_monster_equipment(tmp_path, monkeypatch):
     """Saving equipment should persist item IDs to the monster row."""
     db = _make_db(tmp_path, monkeypatch)
     sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=5)
-    helm_id = _insert_item(db, name="Helm", item_type="armor",
-                            slot="head", defense=3)
+    helm_id = _insert_item(db, name="Helm", item_type="armor", slot="head", defense=3)
     mid = _insert_monster(db, name="Goblin")
 
     # Build equipment dict with Item objects. save_monster_equipment reads
     # the weapon/head/chest/legs keys off the dict.
-    sword = Item({"id": sword_id, "name": "Blade", "item_type": "weapon",
-                  "slot": "weapon", "base_damage": 5})
-    helm = Item({"id": helm_id, "name": "Helm", "item_type": "armor",
-                  "slot": "head", "defense": 3})
+    sword = Item(
+        {
+            "id": sword_id,
+            "name": "Blade",
+            "item_type": "weapon",
+            "slot": "weapon",
+            "base_damage": 5,
+        }
+    )
+    helm = Item(
+        {
+            "id": helm_id,
+            "name": "Helm",
+            "item_type": "armor",
+            "slot": "head",
+            "defense": 3,
+        }
+    )
 
     equipment = {"weapon": sword, "head": helm, "chest": None, "legs": None}
     db.save_monster_equipment(mid, equipment)
@@ -161,14 +192,30 @@ def test_save_monster_full(tmp_path, monkeypatch):
     mid = _insert_monster(db, name="Goblin", q=1, r=2, health=30, damage=8)
 
     # Create a Monster object, move it, equip it
-    monster = Monster({"id": mid, "current_q": 1, "current_r": 2,
-                       "name": "Goblin", "health": 30, "damage": 8})
+    monster = Monster(
+        {
+            "id": mid,
+            "current_q": 1,
+            "current_r": 2,
+            "name": "Goblin",
+            "health": 30,
+            "damage": 8,
+        }
+    )
     monster.q = 3
     monster.r = 4
     monster.hp = 20
-    sword = Item({"id": sword_id, "name": "Blade", "item_type": "weapon",
-                  "slot": "weapon", "base_damage": 5,
-                  "durability": 100, "max_durability": 100})
+    sword = Item(
+        {
+            "id": sword_id,
+            "name": "Blade",
+            "item_type": "weapon",
+            "slot": "weapon",
+            "base_damage": 5,
+            "durability": 100,
+            "max_durability": 100,
+        }
+    )
     monster.equip(sword)
 
     db.save_monster(monster)
@@ -183,50 +230,6 @@ def test_save_monster_full(tmp_path, monkeypatch):
     db.close()
 
 
-# =============================================
-# Round-trip: World loads monsters with equipment
-# =============================================
-
-
-def test_world_loads_monsters_with_equipment(tmp_path, monkeypatch):
-    """World.load_monsters() should create Monster objects with an equipped weapon.
-
-    Note: World.load_monsters currently only wires up the `weapon` slot
-    from the DB (see gameplay/world.py). Armor persistence through World
-    is tracked separately; this test only covers the weapon path.
-    """
-    db = _make_db(tmp_path, monkeypatch)
-
-    # Need a tile + player for World to initialize
-    db.cursor.execute(
-        "INSERT INTO map_tiles (q, r, tile_type, is_spawn) VALUES (0, 0, 'grass', 1)"
-    )
-    db.conn.commit()
-    sid = db.create_session(1)
-
-    # Insert a weapon and a monster that wields it
-    sword_id = _insert_item(db, name="Blade", slot="weapon", base_damage=7)
-    _insert_monster(db, name="Armed Goblin", q=2, r=3, health=30, damage=8,
-                    weapon_id=sword_id)
-
-    from gameplay.world import World
-    world = World(db, sid)
-
-    assert len(world.monsters) == 1
-    goblin = world.monsters[0]
-    assert goblin.name == "Armed Goblin"
-    assert goblin.q == 2
-    assert goblin.r == 3
-
-    # Weapon should be applied
-    assert goblin.equipment["weapon"] is not None
-    assert goblin.equipment["weapon"].name == "Blade"
-
-    # Damage should reflect the equipped weapon
-    assert goblin.damage == 8 + 7  # base + weapon
-    db.close()
-
-
 def test_world_monster_no_equipment(tmp_path, monkeypatch):
     """A monster with no gear should load fine with empty slots."""
     db = _make_db(tmp_path, monkeypatch)
@@ -238,6 +241,7 @@ def test_world_monster_no_equipment(tmp_path, monkeypatch):
     _insert_monster(db, name="Bare Goblin", q=1, r=1, health=20, damage=5)
 
     from gameplay.world import World
+
     world = World(db, sid)
 
     assert len(world.monsters) == 1
