@@ -84,6 +84,16 @@ class Item:
             return False
 
         if self.type == "food":
+            # Check if the item provides HP and the player is missing HP
+            needs_healing = (self.healing_amount > 0) and (player.hp < player.max_hp)
+
+            # Check if the item provides hunger restore and the player is hungry
+            needs_food = (self.hunger_restore > 0) and (player.hunger < player.max_hunger)
+
+            # If the player is already full on BOTH stats, prevent consumption
+            if not needs_healing and not needs_food:
+                return False
+            
             player.hp = min(player.max_hp, player.hp + self.healing_amount)
             player.hunger = min(player.max_hunger, player.hunger + self.hunger_restore)
             self.degrade()
