@@ -423,9 +423,12 @@ class Monster(Entity):
 
         # If aggro: attack if in range, else move closer
         if self.aggro:
-            if dist <= self.ai.attack_range and self.can_attack():
-                did = self.attack_player(target)
-                return {"id": self.id, "action": "attack", "did": did, "dist": dist}
+            if dist <= self.ai.attack_range:
+                if self.can_attack():
+                    did = self.attack_player(target)
+                    return {"id": self.id, "action": "attack", "did": did, "dist": dist}
+                else: 
+                    return {"id": self.id, "action": "waiting_for_cooldown", "dist": dist}
 
             moved = self.move_towards_player(target, world.is_passable)
             if moved:
