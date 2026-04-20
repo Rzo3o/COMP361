@@ -20,4 +20,10 @@
     "name": "fly_projectile.json",
     "default_health": 50,
     "default_damage": 10
+    ,
+    "drops": [
+        "arrow",
+        "minor_health_potion",
+        "berries"
+    ]
 }

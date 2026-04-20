@@ -38,4 +38,10 @@
     "name": "yellow_stone_monster.json",
     "default_health": 100,
     "default_damage": 20
+    ,
+    "drops": [
+        "steel_axe",
+        "knight_plate",
+        "cooked_meat"
+    ]
 }

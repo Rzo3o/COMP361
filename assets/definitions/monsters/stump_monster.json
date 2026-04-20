@@ -38,4 +38,10 @@
     "name": "stump_monster.json",
     "default_health": 50,
     "default_damage": 10
+    ,
+    "drops": [
+        "wooden_sword",
+        "bread",
+        "leather_armor"
+    ]
 }

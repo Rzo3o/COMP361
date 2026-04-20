@@ -26,4 +26,10 @@
     "name": "stump_spawn.json",
     "default_health": 50,
     "default_damage": 10
+    ,
+    "drops": [
+        "berries",
+        "apple",
+        "peach"
+    ]
 }

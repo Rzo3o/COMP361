@@ -38,4 +38,10 @@
     "name": "blue_stone_monster.json",
     "default_health": 100,
     "default_damage": 20
+    ,
+    "drops": [
+        "iron_sword",
+        "minor_health_potion",
+        "apple"
+    ]
 }

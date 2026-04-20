@@ -20,4 +20,10 @@
     "name": "fly_projectile_demon.json",
     "default_health": 50,
     "default_damage": 10
+    ,
+    "drops": [
+        "dragonfang_blade",
+        "health_potion",
+        "cheese"
+    ]
 }
