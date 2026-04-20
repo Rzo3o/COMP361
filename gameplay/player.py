@@ -64,9 +64,10 @@ class Player(Entity):
         self.attack_damage_applied = False
         self.attack_hit_frame = 4
 
-        # Damage flash timer
+        # Timers
         self.damage_flash_timer = 0
         self.poison_flash_timer = 0
+        self.heal_flash_timer = 0
 
         self.flip_x = False
 
@@ -292,6 +293,9 @@ class Player(Entity):
 
         if getattr(self, "poison_flash_timer", 0) > 0:
             self.poison_flash_timer -= 1
+
+        if getattr(self, "heal_flash_timer", 0) > 0:
+            self.heal_flash_timer -= 1
 
         if getattr(self, "poison_turns_remaining", 0) > 0 and self.is_alive():
             # Initialize the timer if it doesn't exist

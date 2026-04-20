@@ -387,6 +387,8 @@ class GameRenderer:
             # add red flash effect to both player and monster
             elif getattr(entity, "damage_flash_timer", 0) > 0:
                 flash_color = (255, 50, 50)
+            elif getattr(entity, "heal_flash_timer", 0) > 0:
+                flash_color = (50, 255, 50)
 
             if hasattr(entity, "anim_state") and hasattr(entity, "anim_tick"):
                 if entity.anim_state.endswith("die") and entity.anim_tick < 4:

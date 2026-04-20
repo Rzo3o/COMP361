@@ -464,6 +464,8 @@ class Monster(Entity):
             self.damage_flash_timer -= 1
         if getattr(self, "poison_flash_timer", 0) > 0:
             self.poison_flash_timer -= 1
+        if getattr(self, "heal_flash_timer", 0) > 0:
+            self.poison_flash_timer -= 1
 
         animations = self.data.get("animations", {})
         anim_cfg = animations.get(self.anim_state) or animations.get("idle")

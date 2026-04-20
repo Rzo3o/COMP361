@@ -1,0 +1,35 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Idle_m.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 6
+        },
+        "move": {
+            "texture": "Run_m.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 4
+        },
+        "attack": {
+            "texture": "Heal.png",
+            "fw": 192,
+            "fh": 180,
+            "count": 11
+        },
+        "die": {
+            "texture": "Dust_02.png",
+            "fw": 64,
+            "fh": 64,
+            "count": 10
+        }
+    },
+    "scale": 0.6348360655737705,
+    "x_shift": 0,
+    "y_shift": -32,
+    "category": "monster",
+    "name": "monk_assistant.json",
+    "default_health": 50,
+    "default_damage": 10
+}

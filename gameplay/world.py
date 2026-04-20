@@ -19,7 +19,7 @@ from gameplay.resource_lock import (
     ground_resource_id,
     inventory_resource_id,
 )
-from gameplay.assistant import Assistant
+from gameplay.assistant import Assistant, MonkAssistant
 
 
 class World:
@@ -148,12 +148,8 @@ class World:
         """Load all alive monsters from DB and equip their saved gear."""
         rows = self.db.load_monsters()
 
-        FRIENDLY_NAMES = [
-            "warrior_assistant.json",
-            "warrior_assistant",
-            "archer_assistant.json",
-            "archer_assistant"
-        ]
+        COMBAT_ASSISTANTS = ["warrior_assistant.json", "warrior_assistant", "archer_assistant.json", "archer_assistant"]
+        HEAL_ASSISTANTS = ["monk_assistant.json", "monk_assistant"]
         
         # Extract currently existing entities in memory
         existing_monsters = {m.id: m for m in self.monsters if getattr(m, 'id', None) is not None}
@@ -167,13 +163,20 @@ class World:
             name = data.get("name", "")
             entity_id = data.get("id")
             
-            if name in FRIENDLY_NAMES:
+            if name in COMBAT_ASSISTANTS:
                 # If this assistant is already in memory, reuse the existing object.
                 if entity_id in existing_assistants:
                     self.assistants.append(existing_assistants[entity_id])
                 else:
                     entity = Assistant(data)
                     self.assistants.append(entity)
+            elif name in HEAL_ASSISTANTS:
+                if entity_id in existing_assistants:
+                    self.assistants.append(existing_assistants[entity_id])
+                else:
+                    entity = MonkAssistant(data) 
+                    self.assistants.append(entity)
+
             else:
                 # If this monster is already in memory, reuse the existing object.
                 if entity_id in existing_monsters:

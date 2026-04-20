@@ -187,3 +187,73 @@ class Assistant(Monster):
         self.pending_attack_target = target
         self.pending_attack_damage = getattr(self, "damage", 10) 
         self.attack_damage_applied = False
+
+
+class MonkAssistant(Assistant):
+    def __init__(self, data, ai=None):
+        super().__init__(data, ai)
+        
+        self.attack_range = 0       # Monk does not attack
+        self.heal_range = 3
+        self.healing_amount = 10
+        self.heal_cd_turns = 12
+        self.heal_cd_remaining = 0
+
+    def get_closest_wounded_ally(self, world, player):
+        """Search for the most recent injured teammates (including players and other minions, but not yourself)"""
+        allies = []
+        if player.is_alive() and player.hp < player.max_hp:
+            allies.append(player)
+            
+        for asst in getattr(world, "assistants", []):
+            if asst != self and asst.is_alive() and asst.hp < asst.max_hp:
+                allies.append(asst)
+                
+        if not allies: return None
+        return min(allies, key=lambda a: HexMath.distance(self.q, self.r, a.q, a.r))
+
+    def perform_heal(self, target):
+        self.set_anim_state("attack", reset_frame=True) 
+        
+        target.hp = min(target.max_hp, target.hp + self.healing_amount)
+        target.heal_flash_timer = 5
+        self.heal_cd_remaining = self.heal_cd_turns
+        self.flip_x = (target.q < self.q)
+        
+    def decide_and_act(self, world, player):
+        if not self.is_alive() or getattr(self, "is_moving", False) or self.anim_state in ("attack", "hit"):
+            return
+
+        if self.poison_turns_remaining > 0:
+            self.take_damage(self.poison_damage_per_turn)
+            self.poison_flash_timer = 3
+            self.poison_turns_remaining -= 1
+            if not self.is_alive(): return
+
+        dist_to_player = HexMath.distance(self.q, self.r, player.q, player.r)
+
+        if dist_to_player > self.teleport_limit:
+            self._teleport_to_player(world, player)
+            return
+
+        if self.heal_cd_remaining > 0:
+            self.heal_cd_remaining -= 1
+
+        target = self.get_closest_wounded_ally(world, player)
+        
+        if target and self.heal_cd_remaining <= 0:
+            dist_to_target = HexMath.distance(self.q, self.r, target.q, target.r)
+            if dist_to_target <= self.heal_range:
+                self.perform_heal(target)
+                return
+            else:
+                self.flip_x = (target.q < self.q)
+                self.move_towards_player(target, world.is_passable)
+                return
+
+        if dist_to_player > 2:
+            self.flip_x = (player.q < self.q)
+            self.move_towards_player(player, world.is_passable)
+        else:
+            if self.anim_state not in ("attack", "hit", "move"):
+                self.set_anim_state("idle", reset_frame=False)
