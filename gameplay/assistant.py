@@ -34,6 +34,7 @@ class Assistant(Monster):
         self.ai_state = "FOLLOW"  # State：FOLLOW, RETURN, COMBAT
         
         self.leash_limit = 6    # Max distance before forced return
+        self.teleport_limit = 10  # Max distance before instant teleport
         self.comfort_zone = 3    # Distance to resume normal follow     
         
     def apply_poison(self, turns, damage_per_turn):
@@ -79,8 +80,12 @@ class Assistant(Monster):
 
         dist_to_player = HexMath.distance(self.q, self.r, player.q, player.r)
 
+        # If the player is way too far, instantly teleport to their side
+        if dist_to_player > self.teleport_limit:
+            self._teleport_to_player(world, player)
+            return
+        
         # State Transitions (Decision Making)
-
         # Too far from player
         if dist_to_player > self.leash_limit:
             self.ai_state = "RETURN"
@@ -90,12 +95,13 @@ class Assistant(Monster):
             self.ai_state = "FOLLOW"
 
         # Enemy scan (Only if not returning to player)
-        target_monster = self.get_closest_monster(world.monsters)
+        if self.ai_state != "RETURN":
+            target_monster = self.get_closest_monster(world.monsters)
         
-        if target_monster and HexMath.distance(self.q, self.r, target_monster.q, target_monster.r) <= self.vision_range:
-            self.ai_state = "COMBAT"
-        else:
-            self.ai_state = "FOLLOW"
+            if target_monster and HexMath.distance(self.q, self.r, target_monster.q, target_monster.r) <= self.vision_range:
+                self.ai_state = "COMBAT"
+            else:
+                self.ai_state = "FOLLOW"
 
         # State Execution
         if self.ai_state == "RETURN":
@@ -139,6 +145,37 @@ class Assistant(Monster):
             self.flip_x = (nq < self.q)
             self.start_move(nq, nr)
     
+    def _teleport_to_player(self, world, player):
+        """
+        Instantly snaps the assistant to a valid hex adjacent to the player.
+        """
+        # Hex directional neighbors
+        directions = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        
+        for dq, dr in directions:
+            nq, nr = player.q + dq, player.r + dr
+            
+            # Find the first empty, passable tile next to the player
+            if world.is_passable(nq, nr):
+                # 1. Update logical coordinates
+                self.q = nq
+                self.r = nr
+                
+                # Reset rendering interpolation variables! 
+                # This prevents the renderer from drawing a long "slide" across the screen.
+                self.move_from_q = nq
+                self.move_from_r = nr
+                self.move_to_q = nq
+                self.move_to_r = nr
+                self.is_moving = False
+                self.move_progress = 1.0
+                
+                # Reset state and animation
+                self.set_anim_state("idle", reset_frame=True)
+                self.ai_state = "FOLLOW"
+                
+                return
+            
     def attack(self, target):
         """Trigger attack animation and queue damage."""
         self.set_anim_state("attack", reset_frame=True)
