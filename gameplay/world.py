@@ -46,7 +46,7 @@ class World:
         self.chests = []
         self.castles = []
         self.player = None
-        self.current_level = 1
+       # self.current_level = 1
         self.resource_locks = ResourceLockManager()
 
         # Store the explosion effect
@@ -58,6 +58,15 @@ class World:
         self.load_ground_items()
         self.load_chests()
         self.load_castles()
+
+        #Check current level from tile (database) so that when entering into a saved slot level is kept
+        unlocked_levels = [
+            tile.level
+            for tile in self.tiles.values()
+            if getattr(tile, "unlocked", False)
+        ]
+
+        self.current_level = max(unlocked_levels) if unlocked_levels else 1
 
     def load_castles(self):
         """Load templates and session state for castles."""
@@ -143,10 +152,6 @@ class World:
         p_data = self.db.get_player_state(self.session_id)
         if p_data:
             self.player = Player(p_data)
-
-            tile_data = self.db.get_tile(self.player.q, self.player.r)
-            if tile_data:
-                self.current_level = tile_data.get("level", 1)
 
     def load_monsters(self):
         """Load all alive monsters from DB and equip their saved gear."""
