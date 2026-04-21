@@ -1,0 +1,27 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Archer_Idle.png",
+            "fw": 28,
+            "fh": 25,
+            "count": 6
+        },
+        "attack": {
+            "texture": "Archer_Attack.png",
+            "fw": 28,
+            "fh": 25,
+            "count": 9
+        },
+        "move": {
+            "texture": "Archer_Move.png",
+            "fw": 28,
+            "fh": 25,
+            "count": 6
+        }
+    },
+    "category": "player",
+    "name": "archer.json",
+    "scale": 3.0,
+    "x_shift": 4,
+    "y_shift": -32
+}

@@ -1,0 +1,27 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Heavy_Archer_Idle.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 6
+        },
+        "attack": {
+            "texture": "Heavy_Archer_Attack.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 9
+        },
+        "move": {
+            "texture": "Heavy_Archer_Move.png",
+            "fw": 25,
+            "fh": 30,
+            "count": 6
+        }
+    },
+    "category": "player",
+    "name": "armored_archer.json",
+    "scale": 3.0,
+    "x_shift": 1,
+    "y_shift": -23
+}

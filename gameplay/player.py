@@ -15,11 +15,12 @@ class Player(Entity):
         self.max_hunger = data.get("max_hunger", 100)
         self.xp = data.get("experience", 0)
         self.dead = False
-        self.hearts = data.get("hearts", 3) 
+        self.hearts = data.get("hearts", 3)
 
         # Base stats (without equipment)
         self.base_damage = 5
         self.base_defense = 5
+        self.base_speed = 0.25
 
         # Equipment slots: slot_name -> Item or None
         self.equipment = {
@@ -40,7 +41,7 @@ class Player(Entity):
         self.anim_progress = 0.0
         self.anim_speeds = {"idle": 0.25, "move": 0.5, "attack": 0.8}
 
-        self.texture = animations.get("archer_idle", {}).get("texture")
+        self.texture = animations.get("idle", {}).get("texture")
         if not self.texture:
             print("[Player init WARNING] no idle texture found in animations!")
             self.texture = None
@@ -103,6 +104,28 @@ class Player(Entity):
                 total += item.defense
         return total
 
+    @property
+    def total_weight(self):
+        """Sum of weight from all equipped items."""
+        total = 0
+        for _, item in self.equipment.items():
+            if item and not item.is_broken():
+                total += item.weight
+        return total
+
+    @property
+    def speed(self):
+        """Calculate movement speed based on total weight."""
+        weight = self.total_weight
+
+        mount_multiplier = 1.0
+        for item in self.equipment.values():
+            if item and item.type == "mount":
+                mount_multiplier = item.power_bonus if item.power_bonus > 0 else 1.0
+                break
+
+        return self.base_speed * mount_multiplier / (1 + weight * 0.1)
+
     def equip(self, item):
         """Equip an item into its slot. Returns the previously equipped item or None."""
         if not item.is_equippable:
@@ -127,9 +150,9 @@ class Player(Entity):
             item.quantity = row.get("quantity", 1)
             item.equipped = bool(row.get("is_equipped", 0))
             self.inventory.append(item)
-        self.apply_equipment()
+        self.apply_equipment(db, session_id)
 
-    def apply_equipment(self):
+    def apply_equipment(self, db, session_id):
         """Sync equipped items from inventory into player equipment slots."""
         # Clear existing equipment slots before reapplying
         for slot in self.equipment.keys():
@@ -139,6 +162,38 @@ class Player(Entity):
         for item in self.inventory:
             if item.equipped and item.is_equippable:
                 self.equipment[item.slot] = item
+
+        # Determine skin
+        weapon = self.equipment.get("weapon")
+        armor = self.equipment.get("armor")
+        defense = armor.defense if armor and not armor.is_broken() else 0
+
+        is_mounted = False
+        for item in self.equipment.values():
+            if item and item.type == "mount":
+                is_mounted = True
+                break
+
+        if is_mounted:
+            skin_name = "cavalry"
+            if defense > 0:
+                skin_name = "armored_cavalry"
+        else:
+            weapon_type = (
+                weapon.type if weapon and not weapon.is_broken() else "unarmed"
+            )
+            skin_name = "infantry"
+            if weapon_type == "ranged":
+                skin_name = "archer"
+            if defense > 0:
+                skin_name = "armored_" + skin_name
+
+        # If skin changed, update in DB and reload player data to get new animations
+        if self.data.get("texture_file") != skin_name:
+            db.update_player_skin(session_id, skin_name)
+            p_data = db.get_player_state(session_id)
+            self.data = p_data
+
         should_reset = not (self.is_attacking or self.is_moving)
         self.set_anim_state(self.anim_state, reset_frame=should_reset)
 
@@ -181,6 +236,8 @@ class Player(Entity):
         new_q = self.q + dq
         new_r = self.r + dr
 
+        reset_anim = self.anim_state != "move"
+
         self.move_from_q = self.q
         self.move_from_r = self.r
         self.move_to_q = new_q
@@ -192,7 +249,7 @@ class Player(Entity):
 
         self.move_progress = 0.0
         self.is_moving = True
-        self.set_anim_state("move", reset_frame=True)
+        self.set_anim_state("move", reset_frame=reset_anim)
 
     def move(self, dq, dr):
         self.start_move(dq, dr)
@@ -238,38 +295,18 @@ class Player(Entity):
         return self.texture
 
     def set_anim_state(self, state, reset_frame=True):
-        weapon = self.equipment.get("weapon")
-        armor = self.equipment.get("armor")
-        weapon_type = weapon.type if weapon and not weapon.is_broken() else "unarmed"
-        defense = armor.defense if armor and not armor.is_broken() else 0
-
-        # Strip any existing prefix to get the clean base state
-        # To prevent prefixes from stacking (like "infantry_archer_idle") when swapping weapons,
-        # which would break the animation logic and freeze the player again.
+        """Change animation state"""
         base_state = state.split(
             "_"
         )[
             -1
         ]  # Get the part after the first underscore, or the whole state if no underscore
 
-        # Re-apply the correct prefix based on the currently equipped weapon
-        if weapon_type == "ranged":
-            state = "archer_" + base_state
-        else:
-            state = "infantry_" + base_state
-
-        # Add armored prefix if defense is present
-        if defense > 0:
-            state = "armored_" + state
-
-        print(f"[Player] set_anim_state: {state} (weapon_type: {weapon_type})")
-
-        """Change animation state"""
-        if self.anim_state == state and not reset_frame:
+        if self.anim_state == base_state and not reset_frame:
             return
 
-        self.anim_state = state
-        self.texture = self.get_texture_for_state(state)
+        self.anim_state = base_state
+        self.texture = self.get_texture_for_state(base_state)
 
         if reset_frame:
             self.anim_tick = 0
@@ -332,18 +369,25 @@ class Player(Entity):
 
         frame_count = meta.get("count", 1)
 
-        self.set_anim_state(self.anim_state, reset_frame=False)
-
         current_anim_speed = 1.0
         for base_state, speed in getattr(self, "anim_speeds", {}).items():
             if self.anim_state.endswith(base_state):
                 current_anim_speed = speed
                 break
 
+        if self.anim_state == "move":
+            is_mounted = False
+            for item in self.equipment.values():
+                if item and item.type == "mount":
+                    is_mounted = True
+                    break
+            if is_mounted:
+                current_anim_speed = self.speed * frame_count
+
         # MOVE animation
-        if "move" in self.anim_state:
+        if self.anim_state == "move":
             if self.is_moving:
-                self.move_progress += self.move_speed
+                self.move_progress += self.speed
                 if self.move_progress >= 1.0:
                     self.move_progress = 1.0
                     self.is_moving = False
@@ -362,7 +406,7 @@ class Player(Entity):
             return
 
         # Apply damage at specific hit frame
-        if "attack" in self.anim_state:
+        if self.anim_state == "attack":
             if (
                 not self.attack_damage_applied
                 and self.pending_attack_target is not None
@@ -384,7 +428,7 @@ class Player(Entity):
         self.anim_tick = int(self.anim_progress)
 
         if self.anim_tick >= frame_count:
-            if "attack" in self.anim_state:
+            if self.anim_state == "attack":
                 self.is_attacking = False
                 # Reset attack variables when animation ends
                 self.pending_attack_target = None
@@ -416,4 +460,3 @@ class Player(Entity):
     def increase_player_hp(self, amount: int):
         self.hp += amount
         self.hp = min(self.hp, self.max_hp)  # cap it
-

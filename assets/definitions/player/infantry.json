@@ -1,0 +1,27 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Infantry_Idle.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
+        },
+        "attack": {
+            "texture": "Infantry_Attack.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 7
+        },
+        "move": {
+            "texture": "Infantry_Move.png",
+            "fw": 38,
+            "fh": 40,
+            "count": 6
+        }
+    },
+    "category": "player",
+    "name": "infantry.json",
+    "scale": 3.0,
+    "x_shift": 6,
+    "y_shift": -26
+}

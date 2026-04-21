@@ -61,5 +61,13 @@
             "weight",
             "base_damage"
         ]
+    },
+    "mount": {
+        "slot": "general",
+        "props": [
+            "slot",
+            "base_damage",
+            "power_bonus"
+        ]
     }
 }

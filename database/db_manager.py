@@ -327,23 +327,18 @@ class DatabaseManager:
         def_path = os.path.join("assets", "definitions", "player", skin_name)
         
         player_def = {}
+        if not os.path.exists(def_path):
+            print(f"Warning: Could not find definition {def_path}, falling back to archer.json.")
+            def_path = os.path.join("assets", "definitions", "player", "archer.json")
+
         if os.path.exists(def_path):
             try:
                 with open(def_path, "r") as f:
                     player_def = json.load(f)
             except Exception as e:
-                print(f"Error loading player definition {skin_name}: {e}")
+                print(f"Error loading player definition {def_path}: {e}")
         else:
-            # Fallback to archer if specified skin not found (for demo purposes)
-            fallback_path = os.path.join("assets", "definitions", "player", "player.json")
-            if os.path.exists(fallback_path):
-                try:
-                    with open(fallback_path, "r") as f:
-                        player_def = json.load(f)
-                except Exception as e:
-                    print(f"Error loading fallback player definition: {e}")
-            else:
-                print(f"Warning: Could not find definition {def_path} or fallback.")
+            print(f"Warning: Could not find fallback definition archer.json.")
 
         return {**player_def, **p_data}
     

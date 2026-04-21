@@ -1,0 +1,27 @@
+{
+    "animations": {
+        "idle": {
+            "texture": "Heavy_Cavalry_Idle.png",
+            "fw": 57,
+            "fh": 49,
+            "count": 6
+        },
+        "attack": {
+            "texture": "Heavy_Cavalry_Attack.png",
+            "fw": 57,
+            "fh": 49,
+            "count": 7
+        },
+        "move": {
+            "texture": "Heavy_Cavalry_Move.png",
+            "fw": 57,
+            "fh": 49,
+            "count": 6
+        }
+    },
+    "category": "player",
+    "name": "armored_cavalry.json",
+    "scale": 3.0,
+    "x_shift": 30,
+    "y_shift": -5
+}

@@ -1,0 +1,20 @@
+{
+    "category": "item",
+    "name": "horse.json",
+    "texture_file": "horse.png",
+    "crop_x": 2,
+    "crop_y": 11,
+    "crop_size": 36,
+    "description": "For Riding",
+    "item_type": "mount",
+    "item_slot": "weapon",
+    "slot": "weapon",
+    "weight": 1,
+    "base_damage": 20,
+    "range": 0,
+    "defense": 0,
+    "max_durability": 100,
+    "healing_amount": 0,
+    "hunger_restore": 0,
+    "power_bonus": 4
+}
