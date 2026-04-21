@@ -1,5 +1,6 @@
 import os
 import json
+import random
 from core.hexmath import HexMath
 from gameplay import world
 from gameplay.models import HealEffect
@@ -44,7 +45,10 @@ class Assistant(Monster):
         
         self.leash_limit = 6    # Max distance before forced return
         self.teleport_limit = 10  # Max distance before instant teleport
-        self.comfort_zone = 3    # Distance to resume normal follow     
+        self.comfort_zone = 3    # Distance to resume normal follow   
+
+        self.wander_cd_timer = 0
+        self.wander_interval = (10,20)  
         
     def apply_poison(self, turns, damage_per_turn):
         self.poison_turns_remaining = turns
@@ -142,9 +146,16 @@ class Assistant(Monster):
                 self.flip_x = (player.q < self.q)
                 self.move_towards_player(player, world.is_passable)
             else:
-                # Close enough, just wait (Idle)
+                if self.wander_cd_timer > 0:
+                    self.wander_cd_timer -= 1
+
+                # Close enough, just wait (Idle) or Wander
                 if self.anim_state not in ("attack", "hit", "move"):
-                    self.set_anim_state("idle", reset_frame=False)
+                    if self.wander_cd_timer <= 0:
+                        self.wander(world.is_passable) 
+                        self.wander_cd_timer = random.randint(*self.wander_interval)
+                    else:
+                        self.set_anim_state("idle", reset_frame=False)
 
     def _pathfind_to(self, tq, tr, world):
         next_step = self._find_path_next_step(tq, tr, world.is_passable)
@@ -263,5 +274,12 @@ class MonkAssistant(Assistant):
             self.flip_x = (player.q < self.q)
             self.move_towards_player(player, world.is_passable)
         else:
+            if self.wander_cd_timer > 0:
+                self.wander_cd_timer -= 1
+
             if self.anim_state not in ("attack", "hit", "move"):
-                self.set_anim_state("idle", reset_frame=False)
+                if self.wander_cd_timer <= 0:
+                    self.wander(world.is_passable)
+                    self.wander_cd_timer = random.randint(*self.wander_interval)
+                else:
+                    self.set_anim_state("idle", reset_frame=False)
