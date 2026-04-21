@@ -1,7 +1,13 @@
 import os
 import json
 from core.hexmath import HexMath
+from gameplay import world
+from gameplay.models import HealEffect
 from gameplay.monster import Monster
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from gameplay.world import World
 
 class Assistant(Monster):
     def __init__(self, data, ai=None):
@@ -212,13 +218,15 @@ class MonkAssistant(Assistant):
         if not allies: return None
         return min(allies, key=lambda a: HexMath.distance(self.q, self.r, a.q, a.r))
 
-    def perform_heal(self, target):
+    def perform_heal(self, target, world: 'World'):
         self.set_anim_state("attack", reset_frame=True) 
         
         target.hp = min(target.max_hp, target.hp + self.healing_amount)
         target.heal_flash_timer = 5
         self.heal_cd_remaining = self.heal_cd_turns
         self.flip_x = (target.q < self.q)
+
+        world.effects.append(HealEffect(target))
         
     def decide_and_act(self, world, player):
         if not self.is_alive() or getattr(self, "is_moving", False) or self.anim_state in ("attack", "hit"):
@@ -244,7 +252,7 @@ class MonkAssistant(Assistant):
         if target and self.heal_cd_remaining <= 0:
             dist_to_target = HexMath.distance(self.q, self.r, target.q, target.r)
             if dist_to_target <= self.heal_range:
-                self.perform_heal(target)
+                self.perform_heal(target, world)
                 return
             else:
                 self.flip_x = (target.q < self.q)

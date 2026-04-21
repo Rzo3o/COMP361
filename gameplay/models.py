@@ -74,3 +74,19 @@ class Castle:
         
         # Additional data injected later
         self.spawn_points = []
+
+
+class HealEffect:
+    def __init__(self, target):
+        self.target = target
+        self.anim_tick = 0
+        self.frame_count = 11   
+        self.anim_speed = 3       
+        self.lifetime = self.frame_count * self.anim_speed
+        self.dead = False
+
+    def update(self):
+        self.lifetime -= 1
+        self.anim_tick += 1
+        if self.lifetime <= 0:
+            self.dead = True

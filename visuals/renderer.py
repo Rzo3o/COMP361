@@ -279,8 +279,51 @@ class GameRenderer:
                     star_y_offset=obj.get("star_y", 50),
                 )
 
+        # Iterate through all active visual effects in the world
         if hasattr(world, "effects"):
             for effect in world.effects:
+                edx, edy = 0, 0
+
+                # Special handling for the Healing Effect (follows a target)
+                if effect.__class__.__name__ == "HealEffect":
+                    target = effect.target
+
+                    # Smoothly follow the target if they are currently moving between tiles
+                    if getattr(target, "is_moving", False):
+                        from_px, from_py = HexMath.hex_to_pixel(target.move_from_q, target.move_from_r)
+                        to_px, to_py = HexMath.hex_to_pixel(target.move_to_q, target.move_to_r)
+                        t = target.move_progress
+                        eqx = from_px + (to_px - from_px) * t
+                        eqy = from_py + (to_py - from_py) * t
+                    else:
+                        eqx, eqy = HexMath.hex_to_pixel(target.q, target.r)
+                        
+                    # Apply camera offset to get final screen position
+                    edx = cx + (eqx - ppx)
+                    edy = cy + (eqy - ppy)
+                
+                    # Fetch the raw sprite sheet from assets
+                    sheet = self.assets.get_image("Heal_Effect.png", scale_to_tile=False) 
+                    
+                    if sheet:
+                        fw = 192
+                        fh = 180
+
+                        current_frame = (effect.anim_tick // effect.anim_speed) % effect.frame_count
+                        crop_rect = (current_frame * fw, 0, fw, fh)
+                        try:
+                            frame = sheet.subsurface(crop_rect)
+                            display_w = 96 
+                            display_h = 90
+                            frame = pygame.transform.smoothscale(frame, (display_w, display_h))
+                            
+                            rect = frame.get_rect(centerx=edx, centery=edy + 60 - Config.CALIB_OFFSET_Y)
+                            screen.blit(frame, rect)
+                        except ValueError:
+                            pass
+                    
+                        continue
+            
                 # Convert hex coordinates to pixel coordinates
                 eqx, eqy = HexMath.hex_to_pixel(effect.q, effect.r)
 
