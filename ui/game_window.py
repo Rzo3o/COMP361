@@ -261,6 +261,22 @@ class GameWindow(Screen):
                     result = self.engine.run_turn(action)
 
                     if result == "WIN":
+                        slot = self.manager.selected_slot
+                        filename = f"game_data_{slot}.db"
+                        # close the db properly 
+                        if hasattr(self, "db") and self.db:
+                            self.db.close()
+                        
+                        # making sure windows releases the db file so it doesnt crash
+                        import time
+                        time.sleep(1)
+
+                        # force delete the file
+                        if os.path.exists(filename):
+                            try:
+                                os.remove(filename)
+                            except Exception as e:
+                                print(f"deletion failed: {e}")
                         self.manager.switch_screen("winner")
                         return
                     elif result == "GAME_OVER":
