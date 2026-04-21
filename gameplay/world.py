@@ -144,6 +144,10 @@ class World:
         if p_data:
             self.player = Player(p_data)
 
+            tile_data = self.db.get_tile(self.player.q, self.player.r)
+            if tile_data:
+                self.current_level = tile_data.get("level", 1)
+
     def load_monsters(self):
         """Load all alive monsters from DB and equip their saved gear."""
         rows = self.db.load_monsters()
