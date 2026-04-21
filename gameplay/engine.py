@@ -263,52 +263,64 @@ class GameEngine:
     def pick_up_ground_items(self):
         """Pick up all ground items on the player's current tile."""
         player = self.world.player
+        
         if not player:
             return False
+        
+        neighbors = [
+            (0, 0),
+            (0, -1),
+            (0, 1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (1, -1),
+        ]
 
-        ground_items = list(self.world.get_ground_items_at(player.q, player.r))
-        if not ground_items:
-            return False
-
-        picked_up_any = False
-        counts = {}  # For notifications: {item_name: count}
-
-        # if any item is successfully picked up add to inventory and remove from ground.
-        for item in ground_items:
-            resource_id = item.resource_id
-            if resource_id is None:
+        for dq, dr in neighbors:
+            ground_items = list(self.world.get_ground_items_at(player.q + dq, player.r + dr))
+            if not ground_items:
                 continue
 
-            # ensure the resource lock exists before trying to acquire it
-            self.world.resource_locks.add_resource(resource_id)
-            if not self.world.resource_locks.acquire(resource_id):
-                continue
+            picked_up_any = False
+            counts = {}  # For notifications: {item_name: count}
 
-            try:
-                self.db.add_item(self.session_id, item.id)
-                self.db.remove_ground_item(item.id)
-                self.world.resource_locks.consume(resource_id)
+            # if any item is successfully picked up add to inventory and remove from ground.
+            for item in ground_items:
+                resource_id = item.resource_id
+                if resource_id is None:
+                    continue
 
-                # Track for notification
-                counts[item.name] = counts.get(item.name, 0) + 1
-                picked_up_any = True
-            except Exception as e:
-                print(f"Error picking up ground item {item.name}: {e}")
-                self.world.resource_locks.release(resource_id)
+                # ensure the resource lock exists before trying to acquire it
+                self.world.resource_locks.add_resource(resource_id)
+                if not self.world.resource_locks.acquire(resource_id):
+                    continue
 
-        # fail if we couldn't pick up any items
-        if not picked_up_any:
-            return False
+                try:
+                    self.db.add_item(self.session_id, item.id)
+                    self.db.remove_ground_item(item.id)
+                    self.world.resource_locks.consume(resource_id)
 
-        # Add notifications to the queue
-        for item_name, count in counts.items():
-            self.loot_notifications_queue.append((item_name, count))
+                    # Track for notification
+                    counts[item.name] = counts.get(item.name, 0) + 1
+                    picked_up_any = True
+                except Exception as e:
+                    print(f"Error picking up ground item {item.name}: {e}")
+                    self.world.resource_locks.release(resource_id)
 
-        # reload inventory and sync resource locks
-        player.load_inventory(self.db, self.session_id)
-        self.world.load_ground_items()
-        self.world.sync_inventory_resource_locks()
-        return True
+            # fail if we couldn't pick up any items
+            if not picked_up_any:
+                return False
+
+            # Add notifications to the queue
+            for item_name, count in counts.items():
+                self.loot_notifications_queue.append((item_name, count))
+
+            # reload inventory and sync resource locks
+            player.load_inventory(self.db, self.session_id)
+            self.world.load_ground_items()
+            self.world.sync_inventory_resource_locks()
+            return True
 
     def _safe_save_player(self, player):
         try:
