@@ -22,6 +22,7 @@ from gameplay.item import Item
 from gameplay.chest import Chest
 import pygame
 import os
+import random
 
 
 class GameEngine:
@@ -474,6 +475,9 @@ class GameEngine:
 
     def spawn_assistant_reward(self, castle):
         """When the castle is conquered, a assistant will be generated beside the castle as a reward"""
+        if len(self.world.assistants) >= 2:
+            return
+        
         spawn_q, spawn_r = castle.q, castle.r
         
         # Find a free space to spawn
@@ -483,9 +487,13 @@ class GameEngine:
             if self.world.is_passable(nq, nr):
                 spawn_q, spawn_r = nq, nr
                 break
-                
+
+        # Randomly choose an assistant
+        assistant_pool = ["warrior_assistant", "archer_assistant", "monk_assistant"]
+        chosen_name = random.choice(assistant_pool)
+
         self.db.add_monster(
-            "warrior_assistant",  
+            chosen_name,
             spawn_q, spawn_r, 
             100, 10, castle.level 
         )
