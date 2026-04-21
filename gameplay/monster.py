@@ -57,9 +57,12 @@ class Monster(Entity):
 
         # Combat stats (base values, before equipment)
         self.max_hp = data.get("health", 50)
-        self.hp = data.get("current_hp")
-        if self.hp is None:
-            self.hp = self.max_hp
+        self.hp: int = 50
+        raw_hp = data.get("current_hp")
+        if raw_hp is not None:
+            self.hp = int(raw_hp)
+        else:
+            self.hp = int(self.max_hp)
         self.base_damage = data.get("damage", 5)
         self.base_defense = 0
 
