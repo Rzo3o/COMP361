@@ -1,7 +1,11 @@
+from tkinter import font
+from pygame import font
 import pygame
 import os
 import ui.button
 from ui.base_screen import Screen
+
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,7 +23,7 @@ class EndScreen(Screen):
         button_font = pygame.font.Font(
             os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=30
         )
-        x = (self.manager.width / 2) - 270 - (button_width / 2)
+        x = ((self.manager.width / 3) + 50) - (button_width / 2)
         y = (self.manager.height / 2) - (button_height / 2)
         return [ui.button.Button(
             x, y, button_width, button_height, "PLAY AGAIN", button_font,
@@ -38,16 +42,31 @@ class EndScreen(Screen):
                 self.manager.switch_screen("main_menu")
 
     def draw(self):
-        self.manager.screen.fill(self.manager.bg_color)
-        font = pygame.font.Font(
-            os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210
-        )
-        text = font.render(self.title, True, self.manager.text_color_green)
-        rect = text.get_rect(midtop=(self.manager.width // 2 - 280, self.manager.height // 4))
-        self.manager.screen.blit(source=text, dest=rect)
-        center_x, center_y = self.manager.width // 2, self.manager.height // 2
-        for image_name, dx, dy, angle, scale in self.decoration_images:
-            self.draw_image(image_name, center_x + dx, center_y + dy, angle, scale)
+        """
+        Draw the welcome screen with title and images.
+        Input: None
+        Output: None
+        """
+        self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
+
+        # text
+        pygame.font.init()
+        font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=210)
+
+        from ui.game_over import GameOver
+
+        if isinstance(self, GameOver):
+                text = font.render("GAME OVER!", True, self.manager.text_color_green)
+        else:
+            text = font.render("WINNER!", True, self.manager.text_color_green)
+
+        rect = text.get_rect(midtop=(1/4 * self.manager.width + 200, self.manager.height // 4)) # middle
+        self.manager.screen.blit(source=text, dest=rect) 
+        
+        # images
+        for image_name, x, y, angle, scale in self.decoration_images:
+            self.draw_image(image_name, x, y, angle, scale)
+
         for button in self.buttons:
             button.draw(self.manager.screen)
 
@@ -56,6 +75,8 @@ class EndScreen(Screen):
             path = os.path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Castles', image_name)
         else:
             path = os.path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)
+            x = x * self.manager.width
+            y = y * self.manager.height
         image = pygame.image.load(path)
         w, h = image.get_size()
         scaled = pygame.transform.scale(image, (int(w * scale), int(h * scale)))

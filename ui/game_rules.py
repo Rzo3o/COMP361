@@ -7,6 +7,10 @@ from ui.base_screen import Screen
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
 
+# for relative placement of images
+ORIGINAL_SCREEN_W = 1512
+ORIGINAL_SCREEN_H = 982
+
 class GameRules(Screen):
     def __init__(self, manager):
         super().__init__(manager)
@@ -48,13 +52,12 @@ class GameRules(Screen):
         ]
 
         self.decoration_images = [
-            # offsets relative to top center (960, y)
-            ('Grass.png', 142, 69, 15, 2.5999999999999996),
-            ('Grass.png', -575, 163, 20, 1.5999999999999996),
-            ('Grass_Pine.png', 116, 179, -30, 1.4999999999999991),
-            ('Magic.png', 182, 160, 10, 1.7999999999999994),
-            ('Magic.png', -480, 170, -20, 2.3999999999999995),
-            ('Snow_Snowman.png', -560, 75, -20, 2.2999999999999994),
+        ('Grass.png', 1102/ORIGINAL_SCREEN_W, 69/ORIGINAL_SCREEN_H, 15, 2.5999999999999996),
+        ('Grass.png', 385/ORIGINAL_SCREEN_W, 163/ORIGINAL_SCREEN_H, 20, 1.5999999999999996),
+        ('Grass_Pine.png', 1076/ORIGINAL_SCREEN_W, 179/ORIGINAL_SCREEN_H, -30, 1.4999999999999991),
+        ('Magic.png', 1142/ORIGINAL_SCREEN_W, 160/ORIGINAL_SCREEN_H, 10, 1.7999999999999994),
+        ('Magic.png', 480/ORIGINAL_SCREEN_W, 170/ORIGINAL_SCREEN_H, -20, 2.3999999999999995),
+        ('Snow_Snowman.png', 400/ORIGINAL_SCREEN_W, 75/ORIGINAL_SCREEN_H, -20, 2.2999999999999994),
         ]
 
         #button size
@@ -86,9 +89,8 @@ class GameRules(Screen):
         self.manager.screen.fill(self.manager.bg_color) #fill covers the previous screen
 
         # Draw decorative images
-        center_x = self.manager.width // 2
-        for image_name, dx, dy, angle, scale in self.decoration_images:
-            self.draw_image(image_name, center_x + dx, dy, angle, scale)
+        for image_name, x, y, angle, scale in self.decoration_images:
+            self.draw_image(image_name, int(x * self.manager.width), int(y * self.manager.height), angle, scale)
 
         # Title
         title = self.title_font.render("GAME RULES", True, self.manager.text_color_white)
@@ -131,6 +133,8 @@ class GameRules(Screen):
             if action == "next":
                 self.manager.switch_screen("main_menu")
 
+
+    
 
     
 

@@ -7,35 +7,32 @@ from ui.base_screen import Screen
 # Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of this script
 
+#screen resolution px for relative image 
+ORIGINAL_SCREEN_W = 1512
+ORIGINAL_SCREEN_H = 982
+
 
 class MainMenu(Screen):
     def __init__(self, manager):
         super().__init__(manager)
-
+     
         # Color
         self.button_color = (70, 70, 90)
 
-        # (image name, dx, dy, angle, scale)
-        # offsets relative to top center (960, y)
+        # (image name, x, y, angle, scale)
         self.decoration_images = [
-            ("Water_Duck.png", -325, 75, 5, 2.3999999999999995),
-            ("Grass.png", -370, 175, 20, 1.5999999999999996),
-            ("Grass_Pine.png", 259, 201, -15, 2.1),
-            ("Magic_Crystals.png", -250, 200, -15, 2.8),
-            ("Snow_Trees.png", 343, 76, 10, 2.4999999999999996),
-            ("Grass_Plants2.png", 440, 145, 25, 1.5999999999999996),
+        ('Water_Duck.png', 405/ORIGINAL_SCREEN_W, 75/ORIGINAL_SCREEN_H, 5, 2.3999999999999995),
+        ('Grass.png', 360/ORIGINAL_SCREEN_W, 175/ORIGINAL_SCREEN_H, 20, 1.5999999999999996),
+        ('Grass_Pine.png', 1089/ORIGINAL_SCREEN_W, 201/ORIGINAL_SCREEN_H, -15, 2.1),
+        ('Magic_Crystals.png', 480/ORIGINAL_SCREEN_W, 200/ORIGINAL_SCREEN_H, -15, 2.8),
+        ('Snow_Trees.png', 1073/ORIGINAL_SCREEN_W, 76/ORIGINAL_SCREEN_H, 10, 2.4999999999999996),
+        ('Grass_Plants2.png', 1170/ORIGINAL_SCREEN_W, 145/ORIGINAL_SCREEN_H, 25, 1.5999999999999996)
         ]
 
-        # text and font
+         # text and font
         pygame.font.init()
-        self.title_font = pygame.font.Font(
-            os.path.join(BASE_DIR, "..", "assets", "fonts", "Jersey10-Regular.ttf"),
-            size=150,
-        )
-        self.button_font = pygame.font.Font(
-            os.path.join(BASE_DIR, "..", "assets", "fonts", "Jersey10-Regular.ttf"),
-            size=50,
-        )
+        self.title_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=150)
+        self.button_font = pygame.font.Font(os.path.join(BASE_DIR, '..', 'assets', 'fonts', 'Jersey10-Regular.ttf'), size=50)
 
         # Button sizes
         self.button_width = 420
@@ -48,7 +45,7 @@ class MainMenu(Screen):
     def create_button(self):
         center_x = self.manager.width // 2
         self.title_y = 68
-        start_y = self.manager.height // 2 - 240
+        start_y = 300
         self.button_width = 420
         self.button_height = 100
         self.button_gap = 30
@@ -99,9 +96,7 @@ class MainMenu(Screen):
         """
         Draw image on the screen.
         """
-        image_path = os.path.join(
-            BASE_DIR, "..", "assets", "assetBank", "Hex Tiles", image_name
-        )
+        image_path = os.path.join(BASE_DIR, '..', 'assets', 'assetBank', 'Hex Tiles', image_name)
 
         image = pygame.image.load(image_path).convert_alpha()
 
@@ -118,9 +113,10 @@ class MainMenu(Screen):
         self.manager.screen.fill(self.manager.bg_color)
 
         # Draw decorative images
-        center_x = self.manager.width // 2
-        for image_name, dx, dy, angle, scale in self.decoration_images:
-            self.draw_image(image_name, center_x + dx, dy, angle, scale)
+        for image_name, x, y, angle, scale in self.decoration_images:
+            self.draw_image(image_name, int(x * self.manager.width), int(y * self.manager.height), angle, scale)
+
+
 
         # Main menu title
         title = self.title_font.render("MAIN MENU", True, self.manager.text_color_green)
@@ -145,3 +141,9 @@ class MainMenu(Screen):
             elif action == "quit":
                 pygame.quit()
                 sys.exit()
+
+                  
+
+            
+
+

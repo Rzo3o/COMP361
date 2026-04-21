@@ -3,8 +3,7 @@
 This module manages the game window, input loop, and user interface elements using **Pygame**.
 
 ## Coordinate System
-To ensure the UI renders correctly across different screen resolutions, we use **relative coordinates** instead of absolute 1920x1080 positions.
-- **Decoration Images:** Stored as `(dx, dy)` offsets from the screen center or top center.
+To ensure the UI renders correctly across different screen resolutions, we use **relative coordinates** 
 - **Buttons and Panels:** Calculated dynamically based on `self.manager.width` and `self.manager.height`.
 
 ## Files
