@@ -19,7 +19,7 @@ class Player(Entity):
 
         # Base stats (without equipment)
         self.base_damage = 5
-        self.base_defense = 100
+        self.base_defense = 5
 
         # Equipment slots: slot_name -> Item or None
         self.equipment = {
