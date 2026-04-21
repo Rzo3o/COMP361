@@ -98,20 +98,22 @@ class SmokeTests(unittest.TestCase):
         self.assertTrue(True)
     
     def test_game_over_state(self):
-        """Engine should return GAME_OVER if player is dead."""
+        """Engine should return GAME_OVER if player is dead with no hearts."""
         engine = GameEngine(self.db, self.session_id)
 
         engine.world.player.dead = True
+        engine.world.player.hearts = 0
 
         result = engine.handle_input("MOVE_NORTH")
 
         self.assertEqual(result, "GAME_OVER")
 
     def test_player_death(self):
-        """Player death should set dead flag."""
+        """Player death should set dead flag when hearts are 0."""
         world = World(self.db, self.session_id)
 
         player = world.player
+        player.hearts = 0
         player.take_damage(999)
 
         self.assertTrue(player.dead)

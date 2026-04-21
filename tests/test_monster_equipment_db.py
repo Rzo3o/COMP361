@@ -225,7 +225,7 @@ def test_save_monster_full(tmp_path, monkeypatch):
     m = monsters[0]
     assert m["current_q"] == 3
     assert m["current_r"] == 4
-    assert m["health"] == 20
+    assert m["current_hp"] == 20
     assert m["weapon_item"]["name"] == "Blade"
     db.close()
 

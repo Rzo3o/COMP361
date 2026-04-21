@@ -125,13 +125,17 @@ def test_engine_use_food_consumes_lock_when_stack_empties(tmp_path, monkeypatch)
     from gameplay.engine import GameEngine
 
     engine = GameEngine(db, sid)
-    resource_id = engine.world.player.inventory[0].resource_id
+    player = engine.world.player
+    resource_id = player.inventory[0].resource_id
+
+    # Player must be missing HP or hunger for food to be usable
+    player.hp = max(1, player.hp - 30)
 
     engine.handle_input("INVENTORY")
     engine.handle_input("INTERACT")
 
     # After using the last item in the stack, the inventory should be empty and the resource lock should be consumed
-    assert engine.world.player.inventory == []
+    assert player.inventory == []
     assert engine.world.resource_locks.get_state(resource_id) == ResourceState.CONSUMED
     db.close()
 

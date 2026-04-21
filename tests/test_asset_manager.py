@@ -23,7 +23,7 @@ class TestAssetManagerSmoke(unittest.TestCase):
         """get_layout should always return a (scale, x_shift, y_shift) tuple."""
         layout = self.am.get_layout("non_existing.png")
         self.assertIsInstance(layout, tuple)
-        self.assertEqual(len(layout), 3)
+        self.assertEqual(len(layout), 4)
 
     def test_get_image_returns_surface_or_none(self):
         """get_image should return a Pygame Surface or None if missing."""

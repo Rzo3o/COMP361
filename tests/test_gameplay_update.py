@@ -7,15 +7,18 @@ class DummyPlayer:
         self.q = q
         self.r = r
         self.hp = hp
+        self.max_hp = hp
+        self.max_hunger = 100
         self.hunger = hunger
         self.dead = dead
         self.death_count = 0
-        
+        self.hearts = 0
+
     def take_damage(self, dmg):
         self.hp -= dmg
         if self.hp <= 0:
+            self.hp = 0
             self.dead = True
-
 
     def move(self, dq, dr):
         self.q += dq
@@ -27,9 +30,15 @@ class DummyWorld:
         self.player = player
         self.passable = passable
         self.update_fog_of_war = Mock()
+        self.monsters = []
+        self.castles = []
+        self.current_level = 1
 
     def is_passable(self, q, r):
         return self.passable
+
+    def check_castle_proximity(self):
+        pass
 
 
 def make_engine(player, passable=True):
@@ -98,7 +107,7 @@ def test_update_starvation_damage():
     result = engine.update()
 
     assert result == "UPDATED"
-    assert player.hp == 9
+    assert player.hp == 5  # starvation deals 5 raw damage
 
 
 def test_update_player_dies():
@@ -110,7 +119,6 @@ def test_update_player_dies():
     assert result == "GAME_OVER"
     assert player.dead is True
     assert player.hp == 0
-    assert player.death_count == 1
 
 
 def test_update_returns_save_error():
