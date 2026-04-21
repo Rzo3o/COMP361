@@ -581,7 +581,9 @@ class GameEngine:
         """
         for monster in self.world.monsters:
             self._safe_save_monster(monster)
-
+        for assistant in getattr(self.world, "assistants", []):
+            self._safe_save_monster(assistant)
+            
     def check_level_completed(self):
         current_level_castles = [
             c for c in self.world.castles if c.level == self.world.current_level

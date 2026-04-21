@@ -158,7 +158,7 @@ class DatabaseManager:
 
     def add_monster(self, name, q, r, health, damage, level=1):
         self.cursor.execute(
-            "INSERT INTO monsters (name, current_q, current_r, health, damage, level) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO monsters (name, current_q, current_r, health, current_hp, damage, level) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (name, q, r, health, damage, level)
         )
         self.conn.commit()

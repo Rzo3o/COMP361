@@ -56,8 +56,10 @@ class Monster(Entity):
         self.castle_id = data.get("castle_id")
 
         # Combat stats (base values, before equipment)
-        self.max_hp = data.get("max_health", data.get("health", 50))
-        self.hp = data.get("health", self.max_hp)
+        self.max_hp = data.get("health", 50)
+        self.hp = data.get("current_hp")
+        if self.hp is None:
+            self.hp = self.max_hp
         self.base_damage = data.get("damage", 5)
         self.base_defense = 0
 

@@ -38,7 +38,7 @@ class Assistant(Monster):
         self.poison_flash_timer = 0
         self.poison_turns_remaining = 0 
         self.poison_damage_per_turn = 0
-        self.attack_hit_frame = data.get("attack_hit_frame", 3)
+        self.attack_hit_frame = base_data.get("attack_hit_frame", 3)
 
         self.ai_state = "FOLLOW"  # State：FOLLOW, RETURN, COMBAT
         

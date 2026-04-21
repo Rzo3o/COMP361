@@ -121,6 +121,15 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             pass  # column already exists
 
+        # Add current_hp to monsters for existing databases
+        try:
+            self.cursor.execute("ALTER TABLE monsters ADD COLUMN current_hp INTEGER")
+            self.conn.commit()
+            # If it's the first time to add, copy the existing health value to current_hp to prevent old monsters from dying
+            self.cursor.execute("UPDATE monsters SET current_hp = health WHERE current_hp IS NULL")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass 
 
     def close(self):
         self.conn.close()
@@ -693,6 +702,9 @@ class DatabaseManager:
             if merged.get("health") is None:
                 merged["health"] = definition.get("default_health", 50)
 
+            if merged.get("current_hp") is None:
+                merged["current_hp"] = merged["health"]
+
             if merged.get("damage") is None:
                 merged["damage"] = definition.get("default_damage", 10)
 
@@ -722,11 +734,12 @@ class DatabaseManager:
         """Save monster position, health, defeated status, and equipment."""
         self.cursor.execute(
             """UPDATE monsters
-               SET current_q=?, current_r=?, health=?, is_defeated=?
+               SET current_q=?, current_r=?, current_hp=?, is_defeated=?
                WHERE id=?""",
             (monster.q, monster.r, monster.hp, int(monster.dead), monster.id),
         )
         self.save_monster_equipment(monster.id, monster.equipment)
+        self.conn.commit()
 
     def get_monster_at(self, q, r):
         """Get a single monster attributes by q, r coordinates."""
@@ -738,9 +751,9 @@ class DatabaseManager:
     def add_monster(self, name, q, r, hp, dmg, level):
         """Insert a new monster into the DB (Editor)"""
         self.cursor.execute(
-            """INSERT INTO monsters (name, current_q, current_r, health, damage, level, is_defeated)
-               VALUES (?, ?, ?, ?, ?, ?, 0)""",
-            (name, q, r, hp, dmg, level),
+            """INSERT INTO monsters (name, current_q, current_r, health, current_hp, damage, level, is_defeated)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0)""",
+            (name, q, r, hp, hp, dmg, level),
         )
         self.conn.commit()
 
