@@ -107,6 +107,20 @@ class DatabaseManager:
         except sqlite3.OperationalError:
             pass # Already exists
 
+        try:
+            self.cursor.execute("ALTER TABLE monsters ADD COLUMN current_hp INTEGER")
+            self.conn.commit()
+            self.cursor.execute("UPDATE monsters SET current_hp = health WHERE current_hp IS NULL")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+        try:
+            self.cursor.execute("ALTER TABLE monsters ADD COLUMN level INTEGER DEFAULT 1")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
     def get_tile(self, q, r):
         self.cursor.execute("SELECT * FROM map_tiles WHERE q=? AND r=?", (q, r))
         row = self.cursor.fetchone()
@@ -156,15 +170,18 @@ class DatabaseManager:
         row = self.cursor.fetchone()
         return dict(row) if row else None
 
-    def add_monster(self, name, q, r, health, damage, level=1):
+    def add_monster(self, name, q, r, hp, damage, level=1):
         self.cursor.execute(
             "INSERT INTO monsters (name, current_q, current_r, health, current_hp, damage, level) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, q, r, health, damage, level)
+            (name, q, r, hp, hp, damage, level)
         )
         self.conn.commit()
 
     def update_monster_stats(self, q, r, health, damage):
-        self.cursor.execute("UPDATE monsters SET health=?, damage=? WHERE current_q=? AND current_r=?", (health, damage, q, r))
+        self.cursor.execute(
+            "UPDATE monsters SET health=?, current_hp=?, damage=? WHERE current_q=? AND current_r=?",
+            (health, health, damage, q, r)
+        )
         self.conn.commit()
 
     # used for auto upodate on level change of tile

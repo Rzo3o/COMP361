@@ -218,6 +218,10 @@ class GameRenderer:
         for item in world.ground_items:
             # We add q, r to the item object for rendering by converting the tile id to q, r
             tile = world.get_tile(item.q, item.r)
+
+            if not tile or not tile.discovered:
+                continue
+
             iqx, iqy = HexMath.hex_to_pixel(item.q, item.r)
             idx = cx + (iqx - ppx)
             idy = cy + (iqy - ppy)
